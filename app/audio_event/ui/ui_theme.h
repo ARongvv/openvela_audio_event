@@ -87,16 +87,14 @@ extern "C" {
 #define UI_COLOR_WAVEFORM     lv_color_hex(0x1565C0)
 #define UI_COLOR_WAVEFORM_BG  lv_color_hex(0xFFFFFF)
 
-/* ── Fonts (binary bpp=1, no anti-aliasing artifacts on RGB565) ── */
+/* ── Fonts ───────────────────────────────────────────────────── */
 
-extern const lv_font_t lv_font_montserrat_20_bin;
-extern const lv_font_t lv_font_montserrat_14_bin;
-
-#define UI_FONT_TITLE     &lv_font_montserrat_20_bin
-#define UI_FONT_NORMAL    &lv_font_montserrat_20_bin
-#define UI_FONT_SMALL     &lv_font_montserrat_20_bin
-#define UI_FONT_TINY      &lv_font_montserrat_14_bin
-#define UI_FONT_BIG       &lv_font_montserrat_20_bin
+#define UI_FONT_TITLE     &lv_font_montserrat_20
+#define UI_FONT_NORMAL    &lv_font_montserrat_16
+#define UI_FONT_SMALL     &lv_font_montserrat_16
+#define UI_FONT_TINY      &lv_font_montserrat_12
+#define UI_FONT_PROB      &lv_font_montserrat_12
+#define UI_FONT_BIG       &lv_font_montserrat_20
 
 /* ── Class names (English, no Chinese glyphs needed) ─────────── */
 
