@@ -1,0 +1,60 @@
+#
+# ESP32-S3-BOX-3 custom board configuration
+#
+
+if ARCH_BOARD_CUSTOM
+
+config ESP32S3_BOX_LCD
+	bool "Enable ESP32-S3-BOX-3 LCD"
+	default n
+	select ESP32S3_SPI2
+	select SPI
+	select SPI_CMDDATA
+	select LCD
+	select LCD_DEV
+	select LCD_ILI9341
+	---help---
+		Enable the ESP32-S3-BOX-3 ILI9342C-compatible LCD.
+
+config ESP32S3_BOARD_TOUCHSCREEN
+	bool "Enable ESP32-S3-BOX-3 touchscreen"
+	default n
+	select ESP32S3_I2C0
+	select INPUT
+	select INPUT_TOUCHSCREEN
+	---help---
+		Enable the ESP32-S3-BOX-3 GT911 touchscreen.
+
+menu "Board Touchscreen Configuration"
+	depends on ESP32S3_BOARD_TOUCHSCREEN
+
+config ESP32S3_BOARD_TOUCHSCREEN_PATH
+	string "Touchscreen path"
+	default "/dev/input0"
+
+config ESP32S3_BOARD_TOUCHSCREEN_SAMPLE_CACHES
+	int "Touchscreen sample cache count"
+	default 64
+
+config ESP32S3_BOARD_TOUCHSCREEN_SAMPLE_DELAYS
+	int "Touchscreen sample delay ticks"
+	default 20
+
+endmenu
+
+config ESP32S3_BOX_AUDIO
+	bool "Enable ES7210 microphone capture"
+	default n
+	select ESP32S3_I2C0
+	select ESP32S3_I2S
+	select ESP32S3_I2S0
+	select ESP32S3_I2S0_RX
+	select ESP32S3_I2S0_MCLK
+	select AUDIO
+	select AUDIO_I2S
+	select DRIVERS_AUDIO
+	---help---
+		Initialize the ES7210 microphone ADC and register I2S0 RX as
+		/dev/audio/pcm_in0.
+
+endif # ARCH_BOARD_CUSTOM

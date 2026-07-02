@@ -1,0 +1,86 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config EXAMPLES_AUDIO_EVENT
+	tristate "Audio event detection demo"
+	default n
+	depends on TFLITEMICRO && AUDIO && MATH_KISSFFT
+	---help---
+		Local audio event detection system:
+		capture -> log-mel feature extraction -> TFLite inference -> alert.
+		Supports knock and cough detection with background and silence
+		rejection classes.
+
+if EXAMPLES_AUDIO_EVENT
+
+config EXAMPLES_AUDIO_EVENT_PROGNAME
+	string "Program name"
+	default "audio_event"
+	---help---
+		This is the name of the program that will be used when the NSH ELF
+		program is installed.
+
+config EXAMPLES_AUDIO_EVENT_PRIORITY
+	int "Audio event demo task priority"
+	default 100
+
+config EXAMPLES_AUDIO_EVENT_STACKSIZE
+	int "Audio event demo stack size"
+	default 16384
+
+config EXAMPLES_AUDIO_EVENT_DEVPATH
+	string "Audio capture device path"
+	default "/dev/audio/pcm0c"
+
+config EXAMPLES_AUDIO_EVENT_ARENA_SIZE
+	int "TFLite Micro tensor arena size"
+	default 98304
+	range 32768 262144
+
+config EXAMPLES_AUDIO_EVENT_HOP_MS
+	int "Inference window hop in milliseconds"
+	default 250
+	range 20 1000
+
+config EXAMPLES_AUDIO_EVENT_KNOCK_THRESHOLD
+	int "Knock threshold in permille"
+	default 750
+	range 0 1000
+
+config EXAMPLES_AUDIO_EVENT_COUGH_THRESHOLD
+	int "Cough threshold in permille"
+	default 750
+	range 0 1000
+
+config EXAMPLES_AUDIO_EVENT_CONSECUTIVE_HITS
+	int "Consecutive windows required for an alert"
+	default 2
+	range 1 10
+
+config EXAMPLES_AUDIO_EVENT_COOLDOWN_MS
+	int "Alert cooldown in milliseconds"
+	default 1500
+	range 0 60000
+
+config EXAMPLES_AUDIO_EVENT_UI
+	bool "Enable LVGL dashboard UI"
+	default n
+	depends on GRAPHICS_LVGL
+	---help---
+		Enable a real-time LVGL dashboard showing audio waveform,
+		classification probabilities, and detection alerts on
+		LCD display.
+
+if EXAMPLES_AUDIO_EVENT_UI
+
+config EXAMPLES_AUDIO_EVENT_UI_DEVPATH
+	string "LCD display device path"
+	default "/dev/lcd0"
+	---help---
+		Path to the LCD display device for LVGL rendering.
+
+endif # EXAMPLES_AUDIO_EVENT_UI
+
+endif

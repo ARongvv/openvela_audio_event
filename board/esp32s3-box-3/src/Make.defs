@@ -1,0 +1,40 @@
+############################################################################
+# board/esp32s3-box-3/src/Make.defs
+#
+# SPDX-License-Identifier: Apache-2.0
+############################################################################
+
+include $(TOPDIR)/Make.defs
+
+CSRCS = esp32s3_boot.c esp32s3_bringup.c
+
+ifeq ($(CONFIG_BOARDCTL),y)
+CSRCS += esp32s3_appinit.c
+ifeq ($(CONFIG_BOARDCTL_RESET),y)
+CSRCS += esp32s3_reset.c
+endif
+endif
+
+ifeq ($(CONFIG_ARCH_BUTTONS),y)
+CSRCS += esp32s3_buttons.c
+endif
+
+ifeq ($(CONFIG_ESP32S3_SPI),y)
+CSRCS += esp32s3_board_spi.c
+endif
+
+ifeq ($(CONFIG_ESP32S3_BOX_LCD),y)
+CSRCS += esp32s3_board_lcd_ili9342c.c
+endif
+
+ifeq ($(CONFIG_ESP32S3_BOARD_TOUCHSCREEN),y)
+CSRCS += esp32s3_board_touchsceen_gt911.c
+endif
+
+ifeq ($(CONFIG_ESP32S3_BOX_AUDIO),y)
+CSRCS += esp32s3_es7210.c
+endif
+
+DEPPATH += --dep-path board
+VPATH += :board
+CFLAGS += ${INCDIR_PREFIX}$(TOPDIR)$(DELIM)arch$(DELIM)$(CONFIG_ARCH)$(DELIM)src$(DELIM)board$(DELIM)board
