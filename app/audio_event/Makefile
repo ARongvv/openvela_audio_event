@@ -52,8 +52,6 @@ CSRCS += ui/ui_probability.c
 CSRCS += ui/ui_detection.c
 CSRCS += ui/ui_params.c
 CSRCS += ui/ui_anim.c
-CSRCS += ui/lv_font_montserrat_20_bin.c
-CSRCS += ui/lv_font_montserrat_14_bin.c
 endif
 
 CXXSRCS  = model/event_classifier.cc

@@ -25,9 +25,7 @@ if(CONFIG_EXAMPLES_AUDIO_EVENT)
          ui/ui_probability.c
          ui/ui_detection.c
          ui/ui_params.c
-         ui/ui_anim.c
-         ui/lv_font_montserrat_20_bin.c
-         ui/lv_font_montserrat_14_bin.c)
+         ui/ui_anim.c)
   endif()
 
   nuttx_add_application(
