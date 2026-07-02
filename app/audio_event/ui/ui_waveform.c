@@ -1,18 +1,50 @@
 /**
  * apps/examples/audio_event/ui/ui_waveform.c
  *
- * Real-time audio waveform visualization using lv_canvas.
- * Positioned inside the core card (top-left area).
+ * Real-time scrolling audio waveform visualization using lv_canvas.
+ *
+ * Maintains a 2-second ring buffer (32000 samples @16 kHz) and draws a
+ * scrolling symmetric-bar waveform.  Each pixel column finds the min and
+ * max sample across ~242 samples, then draws a vertical bar above and
+ * below the centre line.  A display-only gain (×6) makes quiet audio
+ * visible without touching the original PCM data.
+ *
+ * Positioned inside the waveform card (top-left area).
  */
 
 #include "audio_event_ui.h"
 
 #include <string.h>
 
+/* ── Tunable constants ─────────────────────────────────────────── */
+
+#define UI_WAVEFORM_WINDOW_SAMPLES  32000  /* 2 seconds @ 16 kHz             */
+#define UI_WAVEFORM_GAIN            6      /* display-only amplitude boost   */
+
+/* ── Ring buffer ────────────────────────────────────────────────── */
+
+static int16_t  g_waveform_ring[UI_WAVEFORM_WINDOW_SAMPLES];
+static uint32_t g_waveform_wr;            /* write cursor (monotonic)        */
+static uint32_t g_waveform_total;         /* total samples ever appended     */
+
+/* ── Helpers ────────────────────────────────────────────────────── */
+
+static inline int16_t ring_get(uint32_t idx)
+{
+  return g_waveform_ring[idx % UI_WAVEFORM_WINDOW_SAMPLES];
+}
+
+/* ── Public API ─────────────────────────────────────────────────── */
+
 void ui_waveform_create(audio_event_ui_t *ui, lv_obj_t *parent)
 {
   lv_obj_t *container;
-  size_t buf_size;
+  size_t    buf_size;
+
+  /* Reset ring state */
+  memset(g_waveform_ring, 0, sizeof(g_waveform_ring));
+  g_waveform_wr    = 0;
+  g_waveform_total = 0;
 
   /* Container inside waveform card, top-left */
   container = lv_obj_create(parent);
@@ -55,74 +87,130 @@ void ui_waveform_create(audio_event_ui_t *ui, lv_obj_t *parent)
 void ui_waveform_draw(audio_event_ui_t *ui,
                       const int16_t *samples, uint32_t count)
 {
-  lv_layer_t layer;
+  lv_layer_t         layer;
   lv_draw_line_dsc_t line_dsc;
-  uint32_t i;
-  int mid_y;
-  int step;
-  uint32_t num_lines;
+  uint32_t           i;
+  int                mid_y;
+  int                half_h;      /* half canvas height in pixels            */
+  uint32_t           available;
+  uint32_t           start;       /* logical index of oldest visible sample  */
 
   if (!ui || !ui->waveform_canvas || !samples || count == 0)
     {
       return;
     }
 
-  /* Clear canvas */
+  /* ── 1. Append new samples to ring ────────────────────────────── */
+
+  for (i = 0; i < count; i++)
+    {
+      g_waveform_ring[g_waveform_wr % UI_WAVEFORM_WINDOW_SAMPLES] =
+          samples[i];
+      g_waveform_wr++;
+    }
+
+  g_waveform_total += count;
+
+  /* ── 2. Clear canvas ──────────────────────────────────────────── */
+
   lv_canvas_fill_bg(ui->waveform_canvas,
                     UI_COLOR_WAVEFORM_BG,
                     LV_OPA_COVER);
 
-  /* Initialize draw layer */
+  /* ── 3. Init draw layer ───────────────────────────────────────── */
+
   lv_canvas_init_layer(ui->waveform_canvas, &layer);
 
-  /* Prepare line style */
   lv_draw_line_dsc_init(&line_dsc);
   line_dsc.color = UI_COLOR_WAVEFORM;
   line_dsc.width = 1;
-  line_dsc.opa = LV_OPA_COVER;
+  line_dsc.opa   = LV_OPA_COVER;
 
-  mid_y = UI_WAVEFORM_H / 2;
+  mid_y  = UI_WAVEFORM_H / 2;
+  half_h = mid_y;                          /* 42 for 84-px canvas */
 
-  /* Downsample: draw at most UI_WAVEFORM_W line segments */
-  num_lines = count;
-  if (num_lines > (uint32_t)UI_WAVEFORM_W)
+  /* ── 4. Visible-range bounds ──────────────────────────────────── */
+
+  available = g_waveform_total;
+  if (available > (uint32_t)UI_WAVEFORM_WINDOW_SAMPLES)
     {
-      num_lines = (uint32_t)UI_WAVEFORM_W;
+      available = (uint32_t)UI_WAVEFORM_WINDOW_SAMPLES;
     }
 
-  step = (int)(count / num_lines);
-  if (step < 1)
-    {
-      step = 1;
-    }
+  /* Logical start of visible window.
+   * During the initial fill period (total < 2 s), `available` is
+   * smaller; each pixel column spans fewer samples and the waveform
+   * naturally "grows in" from the left. */
+  start = g_waveform_wr - available;
 
-  for (i = 0; i < num_lines - 1; i++)
-    {
-      int x0 = (int)(i * UI_WAVEFORM_W / num_lines);
-      int x1 = (int)((i + 1) * UI_WAVEFORM_W / num_lines);
-      int idx0 = (int)(i * step);
-      int idx1 = (int)((i + 1) * step);
-      int y0;
-      int y1;
+  /* ── 5. Per-column symmetric bar ─────────────────────────────────
+   *
+   * For each of the 132 pixel columns, scan the ~242 samples that fall
+   * into that column.  Find the true min (most negative) and max (most
+   * positive), apply gain, then draw a vertical line from the upper
+   * bound to the lower bound, mirrored around the centre.  A column
+   * with zero amplitude still gets a 1-px dot so silent audio shows a
+   * thin centreline rather than disappearing entirely. */
 
-      /* Map int16 [-32768, 32767] to [UI_WAVEFORM_H-1, 0] */
-      y0 = mid_y - (int)((int32_t)samples[idx0] * mid_y / 32768);
-      y1 = mid_y - (int)((int32_t)samples[idx1] * mid_y / 32768);
+  for (i = 0; i < (uint32_t)UI_WAVEFORM_W; i++)
+    {
+      uint32_t col_start;
+      uint32_t col_end;
+      uint32_t j;
+      int32_t  col_min = 0;               /* most negative sample in column */
+      int32_t  col_max = 0;               /* most positive sample in column */
+      int32_t  upper, lower;
+      int      top_y, bottom_y;
+
+      /* Which ring-buffer samples belong to this pixel column */
+      col_start = start + i       * available / UI_WAVEFORM_W;
+      col_end   = start + (i + 1) * available / UI_WAVEFORM_W;
+
+      for (j = col_start; j < col_end; j++)
+        {
+          int32_t val = (int32_t)ring_get(j);
+
+          if (val < col_min) { col_min = val; }
+          if (val > col_max) { col_max = val; }
+        }
+
+      /* Apply display-only gain & clamp */
+      lower = col_min * UI_WAVEFORM_GAIN;
+      upper = col_max * UI_WAVEFORM_GAIN;
+
+      if (lower < -32767) { lower = -32767; }
+      if (upper >  32767) { upper =  32767; }
+
+      /* Map lower/upper to pixel Y (invert: 0=top, H-1=bottom) */
+      top_y    = mid_y - (int)(upper * half_h / 32768);
+      bottom_y = mid_y - (int)(lower * half_h / 32768);
 
       /* Clamp */
-      if (y0 < 0) y0 = 0;
-      if (y0 >= UI_WAVEFORM_H) y0 = UI_WAVEFORM_H - 1;
-      if (y1 < 0) y1 = 0;
-      if (y1 >= UI_WAVEFORM_H) y1 = UI_WAVEFORM_H - 1;
+      if (top_y    < 0)             { top_y    = 0; }
+      if (bottom_y >= UI_WAVEFORM_H){ bottom_y = UI_WAVEFORM_H - 1; }
 
-      /* Set endpoints in the draw descriptor */
-      line_dsc.p1.x = x0;
-      line_dsc.p1.y = y0;
-      line_dsc.p2.x = x1;
-      line_dsc.p2.y = y1;
+      /* Enforce at least 1 px so silent centre-line stays visible */
+      if (top_y == bottom_y)
+        {
+          if (bottom_y < UI_WAVEFORM_H - 1)
+            {
+              bottom_y = top_y + 1;
+            }
+          else
+            {
+              top_y = bottom_y - 1;
+            }
+        }
 
+      /* Draw vertical bar for this column */
+      line_dsc.p1.x = (int)i;
+      line_dsc.p1.y = top_y;
+      line_dsc.p2.x = (int)i;
+      line_dsc.p2.y = bottom_y;
       lv_draw_line(&layer, &line_dsc);
     }
+
+  /* ── 6. Flush ─────────────────────────────────────────────────── */
 
   lv_canvas_finish_layer(ui->waveform_canvas, &layer);
 }
