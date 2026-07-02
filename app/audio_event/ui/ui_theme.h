@@ -49,8 +49,10 @@ extern "C" {
 #define UI_WAVEFORM_H      84
 
 /* Inside probability card */
-#define UI_PROB_BAR_W      82
-#define UI_PROB_ROW_H      20
+#define UI_PROB_LABEL_W    34
+#define UI_PROB_BAR_W      70
+#define UI_PROB_VALUE_W    28
+#define UI_PROB_ROW_H      18
 
 /* Detection card (below waveform + prob) */
 #define UI_DETECTCARD_Y   154

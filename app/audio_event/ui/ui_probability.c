@@ -6,6 +6,8 @@
 
 #include "audio_event_ui.h"
 
+#include <stdio.h>
+
 static const char *const g_class_names[AUDIO_EVENT_CLASS_COUNT] =
 {
   UI_CLASS_NAME_KNOCK,
@@ -33,7 +35,7 @@ void ui_probability_create(audio_event_ui_t *ui, lv_obj_t *parent)
   lv_obj_align(ui->prob_container, LV_ALIGN_TOP_LEFT, 0, 0);
   lv_obj_set_flex_flow(ui->prob_container, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_style_pad_all(ui->prob_container, 0, 0);
-  lv_obj_set_style_pad_row(ui->prob_container, 4, 0);
+  lv_obj_set_style_pad_row(ui->prob_container, 2, 0);
 
   for (i = 0; i < AUDIO_EVENT_CLASS_COUNT; i++)
     {
@@ -52,14 +54,15 @@ void ui_probability_create(audio_event_ui_t *ui, lv_obj_t *parent)
       /* Class name label */
       ui->prob_labels[i] = lv_label_create(row);
       lv_label_set_text(ui->prob_labels[i], g_class_names[i]);
-      lv_obj_set_style_text_font(ui->prob_labels[i], UI_FONT_TINY, 0);
+      lv_label_set_long_mode(ui->prob_labels[i], LV_LABEL_LONG_CLIP);
+      lv_obj_set_style_text_font(ui->prob_labels[i], UI_FONT_PROB, 0);
       lv_obj_set_style_text_color(ui->prob_labels[i],
                                   class_colors[i], 0);
-      lv_obj_set_width(ui->prob_labels[i], 30);
+      lv_obj_set_width(ui->prob_labels[i], UI_PROB_LABEL_W);
 
       /* Probability bar */
       ui->prob_bars[i] = lv_bar_create(row);
-      lv_obj_set_size(ui->prob_bars[i], UI_PROB_BAR_W, 12);
+      lv_obj_set_size(ui->prob_bars[i], UI_PROB_BAR_W, 10);
       lv_bar_set_range(ui->prob_bars[i], 0, 100);
       lv_bar_set_value(ui->prob_bars[i], 0, LV_ANIM_OFF);
       lv_obj_set_style_bg_color(ui->prob_bars[i],
@@ -80,10 +83,11 @@ void ui_probability_create(audio_event_ui_t *ui, lv_obj_t *parent)
       snprintf(val_buf, sizeof(val_buf), "  0%%");
       ui->prob_values[i] = lv_label_create(row);
       lv_label_set_text(ui->prob_values[i], val_buf);
-      lv_obj_set_style_text_font(ui->prob_values[i], UI_FONT_TINY, 0);
+      lv_label_set_long_mode(ui->prob_values[i], LV_LABEL_LONG_CLIP);
+      lv_obj_set_style_text_font(ui->prob_values[i], UI_FONT_PROB, 0);
       lv_obj_set_style_text_color(ui->prob_values[i],
                                   UI_COLOR_TEXT, 0);
-      lv_obj_set_width(ui->prob_values[i], 28);
+      lv_obj_set_width(ui->prob_values[i], UI_PROB_VALUE_W);
     }
 }
 
