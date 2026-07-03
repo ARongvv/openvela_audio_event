@@ -135,6 +135,15 @@ vendor/espressif/boards/esp32s3/esp32s3-box-3/configs/audio_event/
 ./build.sh vendor/espressif/boards/esp32s3/esp32s3-box-3/configs/audio_event/ --cmake -j8
 ```
 
+烧录并打开串口监视：
+
+```bash
+cd nuttx && make flash ESPTOOL_PORT=/dev/ttyACM0 ESPTOOL_BAUD=921600 && cd ..
+picocom -b 115200 /dev/ttyACM0
+```
+
+如果开发板枚举为其他串口设备，请将 `/dev/ttyACM0` 替换为实际端口。
+
 该配置启用 ES7210 麦克风初始化，并将 I2S0 RX 注册为：
 
 ```text
