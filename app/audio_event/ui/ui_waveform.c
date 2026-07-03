@@ -23,7 +23,7 @@
 
 /* ── Ring buffer ────────────────────────────────────────────────── */
 
-static int16_t  g_waveform_ring[UI_WAVEFORM_WINDOW_SAMPLES];
+static int16_t *g_waveform_ring;
 static uint32_t g_waveform_wr;            /* write cursor (monotonic)        */
 static uint32_t g_waveform_total;         /* total samples ever appended     */
 
@@ -39,12 +39,22 @@ static inline int16_t ring_get(uint32_t idx)
 void ui_waveform_create(audio_event_ui_t *ui, lv_obj_t *parent)
 {
   lv_obj_t *container;
+  size_t    ring_size;
   size_t    buf_size;
 
   /* Reset ring state */
-  memset(g_waveform_ring, 0, sizeof(g_waveform_ring));
   g_waveform_wr    = 0;
   g_waveform_total = 0;
+  ring_size = UI_WAVEFORM_WINDOW_SAMPLES * sizeof(g_waveform_ring[0]);
+  if (g_waveform_ring == NULL)
+    {
+      g_waveform_ring = lv_malloc(ring_size);
+    }
+
+  if (g_waveform_ring != NULL)
+    {
+      memset(g_waveform_ring, 0, ring_size);
+    }
 
   /* Container inside waveform card, top-left */
   container = lv_obj_create(parent);
@@ -84,6 +94,18 @@ void ui_waveform_create(audio_event_ui_t *ui, lv_obj_t *parent)
                     LV_OPA_COVER);
 }
 
+void ui_waveform_destroy(void)
+{
+  if (g_waveform_ring != NULL)
+    {
+      lv_free(g_waveform_ring);
+      g_waveform_ring = NULL;
+    }
+
+  g_waveform_wr    = 0;
+  g_waveform_total = 0;
+}
+
 void ui_waveform_draw(audio_event_ui_t *ui,
                       const int16_t *samples, uint32_t count)
 {
@@ -95,7 +117,8 @@ void ui_waveform_draw(audio_event_ui_t *ui,
   uint32_t           available;
   uint32_t           start;       /* logical index of oldest visible sample  */
 
-  if (!ui || !ui->waveform_canvas || !samples || count == 0)
+  if (!ui || !ui->waveform_canvas || !g_waveform_ring ||
+      !samples || count == 0)
     {
       return;
     }

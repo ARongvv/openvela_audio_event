@@ -32,6 +32,7 @@ extern void ui_waveform_create(audio_event_ui_t *ui,
                                lv_obj_t *parent);
 extern void ui_waveform_draw(audio_event_ui_t *ui,
                              const int16_t *samples, uint32_t count);
+extern void ui_waveform_destroy(void);
 
 /* Probability (ui_probability.c) */
 extern void ui_probability_create(audio_event_ui_t *ui,
@@ -200,6 +201,7 @@ void audio_event_ui_deinit(void)
 
   /* Stop animations */
   ui_anim_stop_breathing(&g_ui);
+  ui_waveform_destroy();
 
   /* Free canvas buffer */
   if (g_ui.canvas_buf)
