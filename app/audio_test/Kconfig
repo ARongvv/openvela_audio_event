@@ -1,0 +1,50 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config EXAMPLES_AUDIO_TEST
+	tristate "Audio capture diagnostic tool"
+	default n
+	depends on AUDIO
+	---help---
+		Lightweight PCM capture diagnostic command. It opens an audio input
+		device, captures 16-bit PCM, and prints per-channel amplitude stats.
+
+if EXAMPLES_AUDIO_TEST
+
+config EXAMPLES_AUDIO_TEST_PROGNAME
+	string "Program name"
+	default "audio_test"
+	---help---
+		This is the name of the program that will be used when the NSH ELF
+		program is installed.
+
+config EXAMPLES_AUDIO_TEST_PRIORITY
+	int "Audio test task priority"
+	default 100
+
+config EXAMPLES_AUDIO_TEST_STACKSIZE
+	int "Audio test stack size"
+	default 8192
+
+config EXAMPLES_AUDIO_TEST_DEVPATH
+	string "Audio capture device path"
+	default "/dev/audio/pcm_in1"
+
+config EXAMPLES_AUDIO_TEST_SAMPLE_RATE
+	int "Audio sample rate"
+	default 16000
+	range 8000 48000
+
+config EXAMPLES_AUDIO_TEST_CHANNELS
+	int "Audio channel count"
+	default 1
+	range 1 2
+
+config EXAMPLES_AUDIO_TEST_BLOCK_FRAMES
+	int "Frames per capture read"
+	default 512
+	range 1 1024
+
+endif
