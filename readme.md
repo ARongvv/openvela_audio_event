@@ -11,6 +11,7 @@ ccf_audioevent/
 ├── app/audio_event/                  # audio_event 应用源码
 ├── app/audio_test/                   # 麦克风 PCM 采集诊断工具
 ├── board/esp32s3-box-3/              # ESP32-S3-BOX-3 自定义板级适配
+├── board/esp32s3-devkit/             # ESP32-S3 DevKit + INMP441 自定义板级适配
 ├── board/goldfish-arm64/configs/
 │   └── audio_event/defconfig         # goldfish-arm64 模拟器配置源文件
 ├── scripts/                          # 构建、字体和 BOX-3 修复辅助脚本
@@ -22,6 +23,8 @@ ccf_audioevent/
 模拟器配置最终需要出现在 `vendor/openvela/boards/vela/configs/goldfish-audio_event`。
 ESP32-S3-BOX-3 板级代码最终需要映射到
 `vendor/espressif/boards/esp32s3/esp32s3-box-3`。
+ESP32-S3 DevKit + INMP441 板级代码最终需要映射到
+`vendor/espressif/boards/esp32s3/esp32s3-devkit`。
 
 ## 工作区软链接
 
@@ -42,6 +45,9 @@ ln -sfn /home/arongw/openvela/ccf_audioevent/board/goldfish-arm64/configs/audio_
 
 ln -sfnT /home/arongw/openvela/ccf_audioevent/board/esp32s3-box-3 \
   /home/arongw/openvela/vendor/espressif/boards/esp32s3/esp32s3-box-3
+
+ln -sfnT /home/arongw/openvela/ccf_audioevent/board/esp32s3-devkit \
+  /home/arongw/openvela/vendor/espressif/boards/esp32s3/esp32s3-devkit
 ```
 
 检查软链接：
@@ -51,11 +57,13 @@ readlink -f apps/examples/audio_event
 readlink -f apps/examples/audio_test
 readlink -f vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig
 readlink -f vendor/espressif/boards/esp32s3/esp32s3-box-3
+readlink -f vendor/espressif/boards/esp32s3/esp32s3-devkit
 ```
 
 期望 `apps/examples/audio_event`、`apps/examples/audio_test`、
 `goldfish-audio_event/defconfig` 和
-`esp32s3-box-3` 都指向 `/home/arongw/openvela/ccf_audioevent/...`。
+`esp32s3-box-3`、`esp32s3-devkit` 都指向
+`/home/arongw/openvela/ccf_audioevent/...`。
 
 `audio_test` 是新增 example。`apps/examples/Kconfig` 是自动生成文件，先确保上面的
 `apps/examples/audio_test` 软链接存在，再重新 configure 或构建，让 Kconfig 生成阶段自动
@@ -177,6 +185,66 @@ nsh> audio_event --device /dev/audio/pcm_in1 --audio-stats --once
 nsh> audio_event --device /dev/audio/pcm_in1
 ```
 
+## ESP32-S3 DevKit + INMP441 构建
+
+ESP32-S3-N16R8 开发板可以外接 INMP441 数字麦克风，使用独立的 custom board：
+
+```text
+vendor/espressif/boards/esp32s3/esp32s3-devkit/configs/audio_event/
+```
+
+当前默认接线：
+
+| INMP441 | ESP32-S3 GPIO | 配置项 |
+| --- | --- | --- |
+| SCK / BCLK | GPIO18 | `CONFIG_ESP32S3_I2S1_BCLKPIN=18` |
+| WS / LRCK | GPIO17 | `CONFIG_ESP32S3_I2S1_WSPIN=17` |
+| SD / DOUT | GPIO15 | `CONFIG_ESP32S3_I2S1_DINPIN=15` |
+
+该配置启用 I2S1 RX，并将采集设备注册为：
+
+```text
+/dev/audio/pcm_in1
+```
+
+构建命令：
+
+```bash
+./build.sh vendor/espressif/boards/esp32s3/esp32s3-devkit/configs/audio_event/ -j8
+```
+
+烧录并打开串口监视：
+
+```bash
+cd nuttx && make flash ESPTOOL_PORT=/dev/ttyACM0 ESPTOOL_BAUD=921600 && cd ..
+picocom -b 115200 /dev/ttyACM0
+```
+
+启动后先验证命令是否注册：
+
+```text
+nsh> help | grep audio
+nsh> audio_test --device /dev/audio/pcm_in1 --channels 2 --seconds 5
+nsh> audio_event --model-smoke
+nsh> audio_event --device /dev/audio/pcm_in1 --audio-stats
+```
+
+如果 `audio_test` 或 `audio_event --audio-stats` 已经显示非零数据，说明
+INMP441 到 ESP32-S3 I2S RX 的硬件链路基本打通。若统计长期接近满幅，例如
+`min=-32768`、`max` 接近 `32767`、`rms` 长期在 `13000` 以上，同时模型稳定输出
+`background`，通常不是模型问题，而是应用仍按 16-bit mono PCM 解释了 INMP441 的
+32-bit I2S slot。
+
+当前 devkit 配置保留：
+
+```text
+CONFIG_ESP32S3_I2S1_DATA_BIT_WIDTH_32BIT=y
+```
+
+后续需要在 `app/audio_event` 的采集层增加格式转换：按 32-bit slot 读取 INMP441
+数据，选取有效声道并右移/缩放为模型需要的 16 kHz mono PCM16，再送入 ring buffer、
+特征提取和 TFLite Micro 推理。
+
 ### 麦克风诊断
 
 `audio_test` 是独立的 PCM 采集诊断命令，不加载模型、不初始化 LVGL，只验证
@@ -238,6 +306,23 @@ ES7210 初始化时 I2S `MCLK/BCLK/LRCK` 尚未稳定。
 - `CONFIG_TFLITEMICRO=y`
 - `CONFIG_MATH_KISSFFT=y`
 
+`board/esp32s3-devkit/configs/audio_event/defconfig` 主要启用：
+
+- `CONFIG_EXAMPLES_AUDIO_EVENT=y`
+- `CONFIG_EXAMPLES_AUDIO_EVENT_DEVPATH="/dev/audio/pcm_in1"`
+- `CONFIG_EXAMPLES_AUDIO_TEST=y`
+- `CONFIG_EXAMPLES_AUDIO_TEST_CHANNELS=2`
+- `CONFIG_ESP32S3_DEVKIT_INMP441=y`
+- `CONFIG_ESP32S3_I2S1_BCLKPIN=18`
+- `CONFIG_ESP32S3_I2S1_WSPIN=17`
+- `CONFIG_ESP32S3_I2S1_DINPIN=15`
+- `CONFIG_ESP32S3_I2S1_DATA_BIT_WIDTH_32BIT=y`
+- `CONFIG_LIBCXX=y`
+- `CONFIG_TLS_NELEM=4`
+- `CONFIG_TLS_TASK_NELEM=4`
+- `CONFIG_TFLITEMICRO=y`
+- `CONFIG_MATH_KISSFFT=y`
+
 ## Manifest 建议
 
 如果后续把 `ccf_audioevent` 作为独立参赛仓复现，建议在 manifest 中加入：
@@ -253,6 +338,8 @@ ES7210 初始化时 I2S `MCLK/BCLK/LRCK` 尚未稳定。
           dest="vendor/openvela/boards/vela/configs/goldfish-audio_event/config.ini"/>
 <linkfile src="board/esp32s3-box-3"
           dest="vendor/espressif/boards/esp32s3/esp32s3-box-3"/>
+<linkfile src="board/esp32s3-devkit"
+          dest="vendor/espressif/boards/esp32s3/esp32s3-devkit"/>
 ```
 
 这样评委或其他开发者同步仓库后，不需要手工复制文件，只要使用对应的构建路径即可。
@@ -266,6 +353,8 @@ ES7210 初始化时 I2S `MCLK/BCLK/LRCK` 尚未稳定。
 - 非 CMake 构建不会自动准备 `cmake_out/vela_goldfish-audio_event/`，运行模拟器前需要
   手动复制 `.config`、`vela_*.bin` 并链接 `nuttx`。
 - 真机音频采集路径是 `/dev/audio/pcm_in1`，模拟器默认路径是 `/dev/audio/pcm0c`。
+- ESP32-S3 DevKit + INMP441 当前硬件链路可通过非零采样验证，但 `audio_event`
+  仍需要把 INMP441 的 32-bit I2S slot 转成模型输入所需的 16-bit mono PCM。
 - 若 UI 初始化失败，`audio_event` 会继续运行，可先用 `--model-smoke` 或 `--file`
   模式确认推理链路。
 
