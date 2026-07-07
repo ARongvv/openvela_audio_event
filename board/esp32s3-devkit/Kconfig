@@ -1,0 +1,34 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+if ARCH_BOARD_CUSTOM
+
+choice
+	prompt "ESP32-S3-DevKitC-1 version"
+	default CCF_ESP32S3_DEVKITC_1_V10
+
+config CCF_ESP32S3_DEVKITC_1_V10
+	bool "ESP32-S3-DevKitC-1 v1.0"
+
+config CCF_ESP32S3_DEVKITC_1_V11
+	bool "ESP32-S3-DevKitC-1 v1.1"
+endchoice
+
+config ESP32S3_DEVKIT_INMP441
+	bool "Enable INMP441 I2S microphone"
+	default n
+	select ESP32S3_I2S
+	select ESP32S3_I2S1
+	select ESP32S3_I2S1_RX
+	select AUDIO
+	select AUDIO_I2S
+	select AUDIO_I2SCHAR
+	select DRIVERS_AUDIO
+	---help---
+		Register ESP32-S3 I2S1 RX as an audio capture device for an
+		external INMP441 digital microphone. This board option only wires
+		the I2S audio path; INMP441 has no I2C codec initialization.
+
+endif # ARCH_BOARD_CUSTOM
