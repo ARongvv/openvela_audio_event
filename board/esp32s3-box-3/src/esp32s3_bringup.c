@@ -242,10 +242,10 @@ int esp32s3_bringup(void)
     }
   else
     {
-      ret = board_i2sdev_initialize(ESP32S3_I2S0, false, true);
+      ret = board_i2sdev_initialize(ESP32S3_I2S1, false, true);
       if (ret < 0)
         {
-          syslog(LOG_ERR, "ERROR: Failed to register I2S0 RX: %d\n", ret);
+          syslog(LOG_ERR, "ERROR: Failed to register I2S1 RX: %d\n", ret);
         }
     }
 #endif

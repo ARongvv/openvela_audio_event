@@ -47,14 +47,14 @@ config ESP32S3_BOX_AUDIO
 	default n
 	select ESP32S3_I2C0
 	select ESP32S3_I2S
-	select ESP32S3_I2S0
-	select ESP32S3_I2S0_RX
-	select ESP32S3_I2S0_MCLK
+	select ESP32S3_I2S1
+	select ESP32S3_I2S1_RX
+	select ESP32S3_I2S1_MCLK
 	select AUDIO
 	select AUDIO_I2S
 	select DRIVERS_AUDIO
 	---help---
-		Initialize the ES7210 microphone ADC and register I2S0 RX as
-		/dev/audio/pcm_in0.
+		Initialize the ES7210 microphone ADC and register I2S1 RX as
+		/dev/audio/pcm_in1.
 
 endif # ARCH_BOARD_CUSTOM

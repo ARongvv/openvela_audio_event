@@ -53,6 +53,7 @@
  ****************************************************************************/
 
 #define ILI9342C_FREQUENCY   (40 * 1000 * 1000)
+#define ILI9342C_TX_CHUNK    64
 
 /****************************************************************************
  * Private Types
@@ -424,21 +425,34 @@ static int ili9342c_sendgram(struct ili9341_lcd_s *lcd,
   lcdinfo("lcd:%p, wd=%p, nwords=%" PRIu32 "\n", lcd, wd, nwords);
 
   /* When LV_COLOR_16_SWAP is enabled, LVGL already outputs big-endian
-   * RGB565 — no per-pixel byte swap needed here.  When it is disabled,
-   * we must swap manually before sending over SPI.
+   * RGB565; send it as-is.  Otherwise swap through a scratch buffer so the
+   * LVGL draw buffer is not modified while it may still be reused.
    */
 
 #if !defined(LV_COLOR_16_SWAP) || LV_COLOR_16_SWAP == 0
-  for (uint32_t i = 0; i < nwords; i++)
-    {
-      ((uint16_t *)wd)[i] = swap16(wd[i]);
-    }
-#endif
-
   SPI_SETBITS(priv->spi_dev, 16);
+  SPI_CMDDATA(priv->spi_dev, SPIDEV_DISPLAY(0), false);
 
+  while (nwords > 0)
+    {
+      uint16_t txbuf[ILI9342C_TX_CHUNK];
+      uint32_t chunk = MIN(nwords, ILI9342C_TX_CHUNK);
+
+      for (uint32_t i = 0; i < chunk; i++)
+        {
+          txbuf[i] = swap16(wd[i]);
+        }
+
+      SPI_SNDBLOCK(priv->spi_dev, txbuf, chunk);
+      wd += chunk;
+      nwords -= chunk;
+    }
+
+#else
+  SPI_SETBITS(priv->spi_dev, 16);
   SPI_CMDDATA(priv->spi_dev, SPIDEV_DISPLAY(0), false);
   SPI_SNDBLOCK(priv->spi_dev, wd, nwords);
+#endif
 
   return 0;
 }

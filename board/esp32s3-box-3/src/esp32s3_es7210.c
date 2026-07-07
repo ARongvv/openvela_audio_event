@@ -12,12 +12,14 @@
 
 #include <debug.h>
 #include <errno.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
 
 #include <nuttx/i2c/i2c_master.h>
 
+#include "esp32s3_gpio.h"
 #include "esp32s3_i2c.h"
 #include "esp32s3_es7210.h"
 
@@ -47,10 +49,10 @@
 #define ES7210_ADC3_VOL_REG       0x1c
 #define ES7210_ADC2_VOL_REG       0x1d
 #define ES7210_ADC1_VOL_REG       0x1e
-#define ES7210_ADC34_HPF2_REG     0x20
-#define ES7210_ADC34_HPF1_REG     0x21
-#define ES7210_ADC12_HPF2_REG     0x22
-#define ES7210_ADC12_HPF1_REG     0x23
+#define ES7210_ADC1_HPF_REG       0x20
+#define ES7210_ADC2_HPF_REG       0x21
+#define ES7210_ADC3_HPF_REG       0x22
+#define ES7210_ADC4_HPF_REG       0x23
 #define ES7210_CHIP_ID1_REG       0x3d
 #define ES7210_CHIP_ID0_REG       0x3e
 #define ES7210_CHIP_VERSION_REG   0x3f
@@ -70,10 +72,20 @@
 
 #define ES7210_RESET_VALUE        0xff
 #define ES7210_RESET_RELEASE      0x32
+#define ES7210_RESET_CLK_OFF      0x71
+#define ES7210_RESET_DEVICE_ON    0x41
 #define ES7210_CHIP_ID1_VALUE     0x72
 #define ES7210_CHIP_ID0_VALUE     0x10
 #define ES7210_MIC_GAIN_30DB      0x0a
-#define ES7210_MIC_SELECT         0x10
+#define ES7210_ADC_PGA_POWER_ON   0x10
+#define ES7210_MIC_POWER_ON       0x08
+#define ES7210_MIC_ADC_PGA_ON     0x0f
+#define ES7210_VMID_SELECT        0xc3
+#define ES7210_MICBIAS_2V87       0x70
+#define ES7210_MCLK_ADC_DIV1_DLL  0x81
+#define ES7210_DLL_POWER_DOWN     0x04
+#define ES7210_MCLK_MULTIPLE      256
+#define ES7210_MUTE_STATUS_GPIO   1
 
 struct es7210_reg_s
 {
@@ -87,47 +99,53 @@ struct es7210_dump_reg_s
   const char *name;
 };
 
-/* This sequence configures the BOX-3 ES7210 as an I2S slave using external
- * MCLK, with MIC1 and MIC2 active. The final gain and clock values must be
- * validated on hardware before being treated as production calibration.
+/* This sequence mirrors Apache NuttX drivers/audio/es7210.c reset flow while
+ * keeping the lightweight board-local diagnostic driver used by this project.
+ * It assumes MCLK = 256 * Fs and standard 16-bit I2S, non-TDM.
  */
 
-static const struct es7210_reg_s g_es7210_config[] =
+static const struct es7210_reg_s g_es7210_init_config[] =
 {
   {ES7210_TIME_CONTROL0_REG,  0x30},
   {ES7210_TIME_CONTROL1_REG,  0x30},
-  {ES7210_MAINCLK_REG,        0x00},
-  {ES7210_MSTCLK_REG,         0x02},
-  {ES7210_LRCK_DIV_H_REG,     0x01},
-  {ES7210_LRCK_DIV_L_REG,     0x00},
-  {ES7210_OSR_REG,            0x20},
-  {ES7210_MODE_CONFIG_REG,    0x10},
-  {ES7210_DMIC_CONTROL_REG,   0x00},
-  {ES7210_SDP_CFG1_REG,       0x00},
+
+  {ES7210_ADC4_HPF_REG,       0x2a},
+  {ES7210_ADC3_HPF_REG,       0x0a},
+  {ES7210_ADC2_HPF_REG,       0x2a},
+  {ES7210_ADC1_HPF_REG,       0x0a},
+
+  /* 16-bit standard I2S, normal mode. */
+  {ES7210_SDP_CFG1_REG,       0x60},
   {ES7210_SDP_CFG2_REG,       0x00},
-  {ES7210_ADC12_HPF1_REG,     0x00},
-  {ES7210_ADC12_HPF2_REG,     0x00},
-  {ES7210_ADC34_HPF1_REG,     0x00},
-  {ES7210_ADC34_HPF2_REG,     0x00},
-  {ES7210_ADC1_VOL_REG,       0xbf},
-  {ES7210_ADC2_VOL_REG,       0xbf},
-  {ES7210_ADC3_VOL_REG,       0x00},
-  {ES7210_ADC4_VOL_REG,       0x00},
-  {ES7210_ANALOG_REG,         0xC3},
-  {ES7210_MIC12_BIAS_REG,     0x71},
-  {ES7210_MIC34_BIAS_REG,     0x71},
-  {ES7210_MIC1_GAIN_REG,      ES7210_MIC_SELECT | ES7210_MIC_GAIN_30DB},
-  {ES7210_MIC2_GAIN_REG,      ES7210_MIC_SELECT | ES7210_MIC_GAIN_30DB},
-  {ES7210_MIC1_POWER_REG,     0x08},
-  {ES7210_MIC2_POWER_REG,     0x08},
-  {ES7210_MIC3_POWER_REG,     0xff},
-  {ES7210_MIC4_POWER_REG,     0xff},
-  {ES7210_MIC12_POWER_REG,    0x0F},
-  {ES7210_MIC34_POWER_REG,    0xff},
-  {ES7210_ADC_AUTOMUTE_REG,   0x00},
-  {ES7210_ADC12_MUTE_REG,     0x00},
-  {ES7210_ADC34_MUTE_REG,     0xff},
-  {ES7210_POWER_DOWN_REG,     0x00},
+
+  {ES7210_ANALOG_REG,         ES7210_VMID_SELECT},
+  {ES7210_MIC12_BIAS_REG,     ES7210_MICBIAS_2V87},
+  {ES7210_MIC34_BIAS_REG,     ES7210_MICBIAS_2V87},
+
+  {ES7210_MIC1_GAIN_REG,      ES7210_MIC_GAIN_30DB |
+                              ES7210_ADC_PGA_POWER_ON},
+  {ES7210_MIC2_GAIN_REG,      ES7210_MIC_GAIN_30DB |
+                              ES7210_ADC_PGA_POWER_ON},
+  {ES7210_MIC3_GAIN_REG,      ES7210_MIC_GAIN_30DB |
+                              ES7210_ADC_PGA_POWER_ON},
+  {ES7210_MIC4_GAIN_REG,      ES7210_MIC_GAIN_30DB |
+                              ES7210_ADC_PGA_POWER_ON},
+
+  {ES7210_MIC1_POWER_REG,     ES7210_MIC_POWER_ON},
+  {ES7210_MIC2_POWER_REG,     ES7210_MIC_POWER_ON},
+  {ES7210_MIC3_POWER_REG,     ES7210_MIC_POWER_ON},
+  {ES7210_MIC4_POWER_REG,     ES7210_MIC_POWER_ON},
+
+  {ES7210_OSR_REG,            0x20},
+  {ES7210_MAINCLK_REG,        ES7210_MCLK_ADC_DIV1_DLL},
+  {ES7210_LRCK_DIV_H_REG,     (uint8_t)(ES7210_MCLK_MULTIPLE >> 8)},
+  {ES7210_LRCK_DIV_L_REG,     (uint8_t)(ES7210_MCLK_MULTIPLE & 0xff)},
+
+  {ES7210_POWER_DOWN_REG,     ES7210_DLL_POWER_DOWN},
+  {ES7210_MIC12_POWER_REG,    ES7210_MIC_ADC_PGA_ON},
+  {ES7210_MIC34_POWER_REG,    ES7210_MIC_ADC_PGA_ON},
+  {ES7210_RESET_REG,          ES7210_RESET_CLK_OFF},
+  {ES7210_RESET_REG,          ES7210_RESET_DEVICE_ON},
 };
 
 static const struct es7210_dump_reg_s g_es7210_dump_regs[] =
@@ -156,10 +174,10 @@ static const struct es7210_dump_reg_s g_es7210_dump_regs[] =
   {ES7210_ADC3_VOL_REG,       "ADC3_VOL"},
   {ES7210_ADC2_VOL_REG,       "ADC2_VOL"},
   {ES7210_ADC1_VOL_REG,       "ADC1_VOL"},
-  {ES7210_ADC34_HPF2_REG,     "ADC34_HPF2"},
-  {ES7210_ADC34_HPF1_REG,     "ADC34_HPF1"},
-  {ES7210_ADC12_HPF2_REG,     "ADC12_HPF2"},
-  {ES7210_ADC12_HPF1_REG,     "ADC12_HPF1"},
+  {ES7210_ADC1_HPF_REG,       "ADC1_HPF"},
+  {ES7210_ADC2_HPF_REG,       "ADC2_HPF"},
+  {ES7210_ADC3_HPF_REG,       "ADC3_HPF"},
+  {ES7210_ADC4_HPF_REG,       "ADC4_HPF"},
   {ES7210_ANALOG_REG,         "ANALOG"},
   {ES7210_MIC12_BIAS_REG,     "MIC12_BIAS"},
   {ES7210_MIC34_BIAS_REG,     "MIC34_BIAS"},
@@ -318,6 +336,25 @@ static void es7210_dump_registers(struct i2c_master_s *i2c, uint8_t addr,
   printf("[es7210] register readback end\n");
 }
 
+static void es7210_dump_mute_status(void)
+{
+  bool mute_status_l;
+  int ret;
+
+  ret = esp32s3_configgpio(ES7210_MUTE_STATUS_GPIO, INPUT);
+  if (ret < 0)
+    {
+      printf("[es7210] mute status GPIO%d configure failed: %d\n",
+             ES7210_MUTE_STATUS_GPIO, ret);
+      return;
+    }
+
+  mute_status_l = esp32s3_gpioread(ES7210_MUTE_STATUS_GPIO);
+  printf("[es7210] mute status MUTE_STATUS_L(GPIO%d)=%d %s\n",
+         ES7210_MUTE_STATUS_GPIO, mute_status_l ? 1 : 0,
+         mute_status_l ? "(high: not muted)" : "(low: mute active?)");
+}
+
 static int es7210_configure(struct i2c_master_s *i2c, uint8_t addr,
                             uint32_t frequency)
 {
@@ -342,18 +379,22 @@ static int es7210_configure(struct i2c_master_s *i2c, uint8_t addr,
 
   usleep(5000);
 
-  for (i = 0; i < sizeof(g_es7210_config) / sizeof(g_es7210_config[0]); i++)
+  for (i = 0; i < sizeof(g_es7210_init_config) /
+                  sizeof(g_es7210_init_config[0]); i++)
     {
       ret = es7210_write_verify_reg(i2c, addr, frequency,
-                                    g_es7210_config[i].reg,
-                                    g_es7210_config[i].value);
+                                    g_es7210_init_config[i].reg,
+                                    g_es7210_init_config[i].value);
       if (ret < 0)
         {
           return ret;
         }
     }
 
-  printf("[es7210] configured for BOX-3 microphone capture\n");
+  usleep(50000);
+
+  printf("[es7210] configured for BOX-3 ES7210 capture "
+         "(NuttX reset flow, I2S slave, 16 kHz, 16-bit)\n");
   es7210_dump_registers(i2c, addr, frequency);
   return OK;
 }
@@ -414,6 +455,7 @@ int esp32s3_es7210_initialize(int i2c_port, uint8_t i2c_addr,
 
   printf("[es7210] detected: chip_id1=0x%02x chip_id0=0x%02x version=0x%02x\n",
          chip_id1, chip_id0, chip_version);
+  es7210_dump_mute_status();
 
   if (chip_id1 != ES7210_CHIP_ID1_VALUE ||
       chip_id0 != ES7210_CHIP_ID0_VALUE)
