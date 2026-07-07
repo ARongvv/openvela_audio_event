@@ -9,6 +9,7 @@ TFLite Micro 推理和本地告警闭环。
 ```text
 ccf_audioevent/
 ├── app/audio_event/                  # audio_event 应用源码
+├── app/audio_test/                   # 麦克风 PCM 采集诊断工具
 ├── board/esp32s3-box-3/              # ESP32-S3-BOX-3 自定义板级适配
 ├── board/goldfish-arm64/configs/
 │   └── audio_event/defconfig         # goldfish-arm64 模拟器配置源文件
@@ -17,6 +18,7 @@ ccf_audioevent/
 ```
 
 应用源码最终需要映射到 openvela 工作区的 `apps/examples/audio_event`。
+麦克风诊断工具最终需要映射到 `apps/examples/audio_test`。
 模拟器配置最终需要出现在 `vendor/openvela/boards/vela/configs/goldfish-audio_event`。
 ESP32-S3-BOX-3 板级代码最终需要映射到
 `vendor/espressif/boards/esp32s3/esp32s3-box-3`。
@@ -29,6 +31,9 @@ ESP32-S3-BOX-3 板级代码最终需要映射到
 ```bash
 ln -sfnT /home/arongw/openvela/ccf_audioevent/app/audio_event \
   /home/arongw/openvela/apps/examples/audio_event
+
+ln -sfnT /home/arongw/openvela/ccf_audioevent/app/audio_test \
+  /home/arongw/openvela/apps/examples/audio_test
 
 mkdir -p /home/arongw/openvela/vendor/openvela/boards/vela/configs/goldfish-audio_event
 rm -f /home/arongw/openvela/vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig
@@ -43,12 +48,25 @@ ln -sfnT /home/arongw/openvela/ccf_audioevent/board/esp32s3-box-3 \
 
 ```bash
 readlink -f apps/examples/audio_event
+readlink -f apps/examples/audio_test
 readlink -f vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig
 readlink -f vendor/espressif/boards/esp32s3/esp32s3-box-3
 ```
 
-期望 `apps/examples/audio_event`、`goldfish-audio_event/defconfig` 和
+期望 `apps/examples/audio_event`、`apps/examples/audio_test`、
+`goldfish-audio_event/defconfig` 和
 `esp32s3-box-3` 都指向 `/home/arongw/openvela/ccf_audioevent/...`。
+
+`audio_test` 是新增 example。`apps/examples/Kconfig` 是自动生成文件，先确保上面的
+`apps/examples/audio_test` 软链接存在，再重新 configure 或构建，让 Kconfig 生成阶段自动
+加入：
+
+```text
+source "/home/arongw/openvela/apps/examples/audio_test/Kconfig"
+```
+
+如果刷新配置后仍看不到 `CONFIG_EXAMPLES_AUDIO_TEST`，优先检查软链接是否存在，而不是长期
+手工维护 `apps/examples/Kconfig`。
 
 注意：`goldfish-audio_event` 目录本身必须保留为
 `vendor/openvela/boards/vela/configs/` 下的真实目录，只软链接其中的 `defconfig`
@@ -144,10 +162,10 @@ picocom -b 115200 /dev/ttyACM0
 
 如果开发板枚举为其他串口设备，请将 `/dev/ttyACM0` 替换为实际端口。
 
-该配置启用 ES7210 麦克风初始化，并将 I2S0 RX 注册为：
+该配置启用 ES7210 麦克风初始化，并将 I2S1 RX 注册为：
 
 ```text
-/dev/audio/pcm_in0
+/dev/audio/pcm_in1
 ```
 
 烧录启动后可验证：
@@ -155,9 +173,38 @@ picocom -b 115200 /dev/ttyACM0
 ```text
 nsh> help | grep audio_event
 nsh> audio_event --model-smoke
-nsh> audio_event --device /dev/audio/pcm_in0 --audio-stats --once
-nsh> audio_event --device /dev/audio/pcm_in0
+nsh> audio_event --device /dev/audio/pcm_in1 --audio-stats --once
+nsh> audio_event --device /dev/audio/pcm_in1
 ```
+
+### 麦克风诊断
+
+`audio_test` 是独立的 PCM 采集诊断命令，不加载模型、不初始化 LVGL，只验证
+`/dev/audio/pcm_in1` 是否能输出有效的 16-bit PCM。它每秒打印一次每个声道的
+`min/max/mean/rms/zero/clip`：
+
+```text
+nsh> audio_test --device /dev/audio/pcm_in1 --channels 1 --seconds 5
+nsh> audio_test --device /dev/audio/pcm_in1 --channels 2 --seconds 5
+```
+
+如果怀疑 ES7210 初始化早于 I2S 时钟启动，可以使用启动后重初始化诊断：
+
+```text
+nsh> audio_test --device /dev/audio/pcm_in1 --channels 2 --seconds 10 --es7210
+```
+
+该选项会在 `audio_test` 启动采集后等待 50 ms，再重新执行一次 BOX-3 ES7210
+初始化序列。如果重初始化后的后续秒数从全零变为非零，说明根因高度指向
+ES7210 初始化时 I2S `MCLK/BCLK/LRCK` 尚未稳定。
+
+结果判断：
+
+- `rms` 长期接近 0 且 `zero` 接近总采样数：驱动链路可能没有收到麦克风数据。
+- 单声道全零、双声道某一路有 `rms`：重点检查 I2S slot/channel 配置。
+- `clip` 持续增加：输入增益过高或格式解释错误。
+- 对着麦克风敲击或说话时 `rms` 明显升高：采集链路基本可用，再回到
+  `audio_event` 做模型和阈值验证。
 
 ## 关键配置
 
@@ -180,8 +227,12 @@ nsh> audio_event --device /dev/audio/pcm_in0
 `board/esp32s3-box-3/configs/audio_event/defconfig` 主要启用：
 
 - `CONFIG_EXAMPLES_AUDIO_EVENT=y`
-- `CONFIG_EXAMPLES_AUDIO_EVENT_DEVPATH="/dev/audio/pcm_in0"`
+- `CONFIG_EXAMPLES_AUDIO_EVENT_DEVPATH="/dev/audio/pcm_in1"`
+- `CONFIG_EXAMPLES_AUDIO_TEST=y`
+- `CONFIG_EXAMPLES_AUDIO_TEST_DEVPATH="/dev/audio/pcm_in1"`
 - `CONFIG_ESP32S3_BOX_AUDIO=y`
+- `CONFIG_ESP32S3_I2S1_DINPIN=16`
+- `CONFIG_ESP32S3_I2S1_TX` 未启用，麦克风验证阶段只保留 RX
 - `CONFIG_ESP32S3_BOX_LCD=y`
 - `CONFIG_ESP32S3_BOARD_TOUCHSCREEN=y`
 - `CONFIG_TFLITEMICRO=y`
@@ -194,6 +245,8 @@ nsh> audio_event --device /dev/audio/pcm_in0
 ```xml
 <linkfile src="app/audio_event"
           dest="apps/examples/audio_event"/>
+<linkfile src="app/audio_test"
+          dest="apps/examples/audio_test"/>
 <linkfile src="board/goldfish-arm64/configs/audio_event/defconfig"
           dest="vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig"/>
 <linkfile src="board/goldfish-arm64/configs/audio_event/config.ini"
@@ -212,7 +265,7 @@ nsh> audio_event --device /dev/audio/pcm_in0
   作为 `build.sh` 路径。
 - 非 CMake 构建不会自动准备 `cmake_out/vela_goldfish-audio_event/`，运行模拟器前需要
   手动复制 `.config`、`vela_*.bin` 并链接 `nuttx`。
-- 真机音频采集路径是 `/dev/audio/pcm_in0`，模拟器默认路径是 `/dev/audio/pcm0c`。
+- 真机音频采集路径是 `/dev/audio/pcm_in1`，模拟器默认路径是 `/dev/audio/pcm0c`。
 - 若 UI 初始化失败，`audio_event` 会继续运行，可先用 `--model-smoke` 或 `--file`
   模式确认推理链路。
 

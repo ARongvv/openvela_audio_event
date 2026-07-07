@@ -69,7 +69,7 @@ LCD 通过 SPI 接口与 ESP32-S3-WROOM-1 模块通信，控制信号引脚分�
 
 ### 2.2 ES7210 ADC 芯片 I2C 配置接口
 
-ES7210 的 I2C 地址（AD1=0, AD0=0）为 **0x40 (8bit) / 0x41 (7bit)**，默认地址。I2C 总线与 LCD、触摸屏、IMU 等共用：
+ES7210 的 I2C 地址（AD1=0, AD0=0）为 **0x80 (8bit) / 0x40 (7bit)**，默认地址。I2C 总线与 LCD、触摸屏、IMU 等共用：
 - **I2C_SCL** → GPIO18
 - **I2C_SDA** → GPIO8
 
