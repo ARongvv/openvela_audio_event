@@ -2,4 +2,4 @@
 .depend
 Make.dep
 
-.o
+*.o
