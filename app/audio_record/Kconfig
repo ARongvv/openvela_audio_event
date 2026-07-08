@@ -1,0 +1,75 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config EXAMPLES_AUDIO_RECORD
+	tristate "Audio record WAV export tool"
+	default n
+	depends on AUDIO
+	---help---
+		Record a short PCM clip from an audio input device and export it as
+		a base64 encoded WAV stream on the console.
+
+if EXAMPLES_AUDIO_RECORD
+
+config EXAMPLES_AUDIO_RECORD_PROGNAME
+	string "Program name"
+	default "audio_record"
+	---help---
+		This is the name of the program that will be used when the NSH ELF
+		program is installed.
+
+config EXAMPLES_AUDIO_RECORD_PRIORITY
+	int "Audio record task priority"
+	default 100
+
+config EXAMPLES_AUDIO_RECORD_STACKSIZE
+	int "Audio record task stack size"
+	default 8192
+
+config EXAMPLES_AUDIO_RECORD_DEVPATH
+	string "Audio capture device path"
+	default "/dev/audio/pcm_in1"
+
+config EXAMPLES_AUDIO_RECORD_SAMPLE_RATE
+	int "Audio sample rate"
+	default 16000
+	range 8000 48000
+
+config EXAMPLES_AUDIO_RECORD_SECONDS
+	int "Default recording duration in seconds"
+	default 2
+	range 1 3
+
+config EXAMPLES_AUDIO_RECORD_MAX_SECONDS
+	int "Maximum recording duration in seconds"
+	default 3
+	range 1 10
+
+config EXAMPLES_AUDIO_RECORD_BLOCK_FRAMES
+	int "Frames per capture read"
+	default 512
+	range 1 1024
+
+config EXAMPLES_AUDIO_RECORD_INMP441_32BIT
+	bool "Convert INMP441 32-bit I2S capture to mono PCM16"
+	default y if ESP32S3_DEVKIT_INMP441
+	default n
+	---help---
+		Configure the capture device as 2-channel 32-bit PCM, select one
+		I2S slot, and convert it to mono int16 samples before exporting WAV.
+
+config EXAMPLES_AUDIO_RECORD_INMP441_SLOT
+	int "INMP441 slot index"
+	default 0
+	range 0 1
+	depends on EXAMPLES_AUDIO_RECORD_INMP441_32BIT
+
+config EXAMPLES_AUDIO_RECORD_INMP441_SHIFT
+	int "INMP441 int32 to int16 right shift"
+	default 16
+	range 0 24
+	depends on EXAMPLES_AUDIO_RECORD_INMP441_32BIT
+
+endif
