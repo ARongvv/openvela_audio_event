@@ -23,6 +23,15 @@
 #include "ui/audio_event_ui.h"
 #endif
 
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
+#include "ui_oled/audio_event_oled_ui.h"
+#endif
+
+#if defined(CONFIG_EXAMPLES_AUDIO_EVENT_UI) || \
+    defined(CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI)
+#define AUDIO_EVENT_HAS_DISPLAY 1
+#endif
+
 #define AUDIO_IO_BLOCK_SAMPLES 512
 
 enum input_mode_e
@@ -55,7 +64,7 @@ static int16_t g_audio_block[AUDIO_IO_BLOCK_SAMPLES];
 static float g_features[AUDIO_EVENT_FEATURE_SIZE];
 static float g_probabilities[AUDIO_EVENT_CLASS_COUNT];
 
-#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_UI
+#ifdef AUDIO_EVENT_HAS_DISPLAY
 static uint64_t g_cooldown_start_ms;
 static uint32_t g_cooldown_duration_ms;
 #endif
@@ -214,6 +223,27 @@ static void print_audio_stats(const int16_t *samples, size_t sample_count,
          (unsigned int)sample_count);
 }
 
+static uint32_t compute_audio_rms(const int16_t *samples,
+                                  size_t sample_count)
+{
+  uint64_t sum_squares = 0;
+  size_t i;
+
+  if (samples == NULL || sample_count == 0)
+    {
+      return 0;
+    }
+
+  for (i = 0; i < sample_count; i++)
+    {
+      int32_t sample = samples[i];
+
+      sum_squares += (uint64_t)((int64_t)sample * sample);
+    }
+
+  return (uint32_t)isqrt_u64(sum_squares / sample_count);
+}
+
 static int best_class(const float *probabilities)
 {
   int best = 0;
@@ -304,6 +334,11 @@ static int process_window(size_t write_position, uint64_t timestamp_ms,
                           bool audio_stats)
 {
   struct event_detection_s detection;
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
+  uint32_t rms;
+  int top_class;
+  int top_confidence;
+#endif
   int ret;
 
   ring_copy_window(write_position);
@@ -337,6 +372,13 @@ static int process_window(size_t write_position, uint64_t timestamp_ms,
                               AUDIO_EVENT_CLASS_COUNT);
 #endif
 
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
+  rms = compute_audio_rms(g_audio_window, AUDIO_EVENT_CLIP_SAMPLES);
+  top_class = best_class(g_probabilities);
+  top_confidence = probability_permille(g_probabilities[top_class]);
+  audio_event_oled_ui_update_audio(top_class, top_confidence, rms);
+#endif
+
   ret = event_detector_update(g_probabilities, AUDIO_EVENT_CLASS_COUNT,
                               timestamp_ms, &detection);
   if (ret < 0)
@@ -358,6 +400,16 @@ static int process_window(size_t write_position, uint64_t timestamp_ms,
       g_cooldown_duration_ms =
           (uint32_t)CONFIG_EXAMPLES_AUDIO_EVENT_COOLDOWN_MS;
       audio_event_ui_notify_cooldown(g_cooldown_duration_ms);
+#endif
+
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
+      audio_event_oled_ui_notify_detection(detection.class_id,
+                                           (int)(detection.confidence *
+                                                 1000.0f + 0.5f));
+      g_cooldown_start_ms = timestamp_ms;
+      g_cooldown_duration_ms =
+          (uint32_t)CONFIG_EXAMPLES_AUDIO_EVENT_COOLDOWN_MS;
+      audio_event_oled_ui_notify_cooldown(g_cooldown_duration_ms);
 #endif
     }
 
@@ -441,6 +493,13 @@ int audio_event_main(int argc, char *argv[])
     }
 #endif
 
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
+  if (audio_event_oled_ui_init() < 0)
+    {
+      fprintf(stderr, "[app] OLED UI init failed, continuing without OLED\n");
+    }
+#endif
+
   for (;;)
     {
       size_t request = samples_until_inference;
@@ -500,7 +559,7 @@ int audio_event_main(int argc, char *argv[])
               break;
             }
 
-#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_UI
+#ifdef AUDIO_EVENT_HAS_DISPLAY
           /* Update cooldown progress */
           if (g_cooldown_duration_ms > 0)
             {
@@ -509,13 +568,23 @@ int audio_event_main(int argc, char *argv[])
               if (elapsed >= g_cooldown_duration_ms)
                 {
                   g_cooldown_duration_ms = 0;
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_UI
                   audio_event_ui_set_listening();
+#endif
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
+                  audio_event_oled_ui_set_listening();
+#endif
                 }
               else
                 {
                   uint32_t remaining =
                       (uint32_t)(g_cooldown_duration_ms - elapsed);
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_UI
                   audio_event_ui_update_cooldown(remaining);
+#endif
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
+                  audio_event_oled_ui_update_cooldown(remaining);
+#endif
                 }
             }
 #endif
@@ -543,6 +612,10 @@ int audio_event_main(int argc, char *argv[])
 cleanup:
 #ifdef CONFIG_EXAMPLES_AUDIO_EVENT_UI
   audio_event_ui_deinit();
+#endif
+
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
+  audio_event_oled_ui_deinit();
 #endif
 
   if (file_open)

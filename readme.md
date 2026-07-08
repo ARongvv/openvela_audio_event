@@ -9,6 +9,8 @@
 ```text
 ccf_audioevent/
 ├── app/audio_event/                  # audio_event 应用源码
+│   ├── ui/                            # 320x240 LVGL dashboard
+│   └── ui_oled/                       # 128x64 OLED compact UI
 ├── app/audio_record/                 # 短录音 WAV base64 导出工具
 ├── app/audio_test/                   # 麦克风 PCM 采集诊断工具
 ├── board/esp32s3-box-3/              # ESP32-S3-BOX-3 自定义板级适配
@@ -243,6 +245,42 @@ I2C 0x3C
 最小闭环。如果屏幕亮但内容错位或无字，先确认模块是否为 SH1106 兼容屏；这类屏常见为
 132 列内部显存，后续需要把 OLED 型号配置从 `CONFIG_LCD_UG2864HSWEG01` 调整到
 对应的 SH1106 配置。
+
+`audio_event` 显示分为两条 UI 路线：
+
+| 目标 | UI 后端 | 配置 | 说明 |
+| --- | --- | --- | --- |
+| goldfish / ESP32-S3-BOX-3 | LVGL dashboard | `CONFIG_EXAMPLES_AUDIO_EVENT_UI` | 320x240 彩屏，显示波形、四类概率、检测状态和参数 |
+| ESP32-S3 DevKit + 0.96 OLED | OLED compact UI | `CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI` | 128x64 单色屏，只显示当前类别、置信度、RMS/音量、告警和冷却 |
+
+OLED compact UI 不是把 320x240 dashboard 缩小，而是独立的小屏状态页。默认监听时显示：
+
+```text
+AUDIO EVENT
+
+BGND / QUIET / KNOCK / COUGH
+CONF xx%
+RMS  xxxx
+[volume bar]
+```
+
+触发目标事件时显示：
+
+```text
+KNOCK!
+CONF 762
+HIT 2/2
+```
+
+冷却期间显示：
+
+```text
+COOLDOWN
+1.2s
+LAST KNOCK
+```
+
+这样 DevKit 真机侧保留“小屏一眼看结论”，模拟器和 BOX-3 侧保留“完整可视化调试”。
 
 该配置启用 I2S1 RX，并将采集设备注册为：
 

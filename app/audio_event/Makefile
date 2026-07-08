@@ -54,6 +54,10 @@ CSRCS += ui/ui_params.c
 CSRCS += ui/ui_anim.c
 endif
 
+ifeq ($(CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI),y)
+CSRCS += ui_oled/audio_event_oled_ui.c
+endif
+
 CXXSRCS  = model/event_classifier.cc
 CXXSRCS += model/model.cc
 CXXEXT    = .cc

@@ -94,6 +94,24 @@ config EXAMPLES_AUDIO_EVENT_COOLDOWN_MS
 	default 1500
 	range 0 60000
 
+config EXAMPLES_AUDIO_EVENT_OLED_UI
+	bool "Enable compact 128x64 OLED status UI"
+	default n
+	depends on LCD_DEV
+	---help---
+		Enable a compact monochrome status UI for small 0.96 inch
+		SSD1306-class OLED displays exposed as /dev/lcd0. This UI shows
+		the current top class, confidence, RMS/volume, detection, and
+		cooldown status. It is intended for ESP32-S3 DevKit style boards.
+
+if EXAMPLES_AUDIO_EVENT_OLED_UI
+
+config EXAMPLES_AUDIO_EVENT_OLED_DEVPATH
+	string "OLED LCD device path"
+	default "/dev/lcd0"
+
+endif # EXAMPLES_AUDIO_EVENT_OLED_UI
+
 config EXAMPLES_AUDIO_EVENT_UI
 	bool "Enable LVGL dashboard UI"
 	default n
