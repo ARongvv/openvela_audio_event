@@ -80,6 +80,8 @@
  * Public Function Prototypes
  ****************************************************************************/
 
+struct lcd_dev_s;
+
 /****************************************************************************
  * Name: esp32s3_bringup
  *
@@ -138,6 +140,20 @@ int board_spiflash_init(void);
 
 #ifdef CONFIG_I2C_DRIVER
 int board_i2c_init(void);
+#endif
+
+/****************************************************************************
+ * Name: board_lcd_initialize
+ *
+ * Description:
+ *   Initialize LCD/OLED video hardware.
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_LCD
+int board_lcd_initialize(void);
+struct lcd_dev_s *board_lcd_getdev(int lcddev);
+void board_lcd_uninitialize(void);
 #endif
 
 /****************************************************************************

@@ -8,8 +8,8 @@ config EXAMPLES_AUDIO_RECORD
 	default n
 	depends on AUDIO
 	---help---
-		Record a short PCM clip from an audio input device and export it as
-		a base64 encoded WAV stream on the console.
+		Record PCM from an audio input device and stream it as a base64
+		encoded WAV on the console.
 
 if EXAMPLES_AUDIO_RECORD
 
@@ -40,12 +40,12 @@ config EXAMPLES_AUDIO_RECORD_SAMPLE_RATE
 config EXAMPLES_AUDIO_RECORD_SECONDS
 	int "Default recording duration in seconds"
 	default 2
-	range 1 3
+	range 1 60
 
 config EXAMPLES_AUDIO_RECORD_MAX_SECONDS
 	int "Maximum recording duration in seconds"
-	default 3
-	range 1 10
+	default 60
+	range 1 60
 
 config EXAMPLES_AUDIO_RECORD_BLOCK_FRAMES
 	int "Frames per capture read"

@@ -31,4 +31,16 @@ config ESP32S3_DEVKIT_INMP441
 		external INMP441 digital microphone. This board option only wires
 		the I2S audio path; INMP441 has no I2C codec initialization.
 
+config ESP32S3_DEVKIT_OLED
+	bool "Enable 0.96 inch SSD1306 I2C OLED"
+	default n
+	select ESP32S3_I2C
+	select ESP32S3_I2C0
+	select LCD
+	select LCD_DEV
+	---help---
+		Register a 0.96 inch 128x64 SSD1306-compatible OLED on I2C0.
+		The audio_event board configuration uses GPIO4 as SDA, GPIO5 as
+		SCL, and the typical 7-bit I2C address 0x3c.
+
 endif # ARCH_BOARD_CUSTOM

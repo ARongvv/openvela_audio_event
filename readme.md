@@ -1,15 +1,15 @@
 # ccf_audioevent
 
 `ccf_audioevent` 是一个面向 openvela 的本地音频事件检测作品目录，核心目标是在
-模拟器和 ESP32-S3-BOX-3 真机上运行 `audio_event` 应用，完成音频采集、特征提取、
-TFLite Micro 推理和本地告警闭环。
+模拟器和 ESP32-S3 DevKit + INMP441 真机上运行 `audio_event` 应用，完成音频采集、
+特征提取、TFLite Micro 推理和本地告警闭环。
 
 ## 目录结构
 
 ```text
 ccf_audioevent/
 ├── app/audio_event/                  # audio_event 应用源码
-├── app/audio_record/                 # 短录音 WAV base64 导出工具
+├── app/audio_record/                 # WAV base64 流式录音导出工具
 ├── app/audio_test/                   # 麦克风 PCM 采集诊断工具
 ├── board/esp32s3-box-3/              # ESP32-S3-BOX-3 自定义板级适配
 ├── board/esp32s3-devkit/             # ESP32-S3 DevKit + INMP441 自定义板级适配
@@ -155,9 +155,12 @@ nsh> audio_event --model-smoke
 nsh> audio_event --file /data/res/audio/cough_2.wav --repeat 100
 ```
 
-## 真机构建
+## ESP32-S3-BOX-3 构建（保留适配）
 
-ESP32-S3-BOX-3 使用自定义 board：
+ESP32-S3-BOX-3 适配仍保留在仓库中，主要用于回溯 ES7210 和 BOX-3 板级问题。
+当前真机主路径使用后面的 `esp32s3-devkit` 配置。
+
+BOX-3 使用自定义 board：
 
 ```text
 vendor/espressif/boards/esp32s3/esp32s3-box-3/configs/audio_event/
@@ -193,9 +196,10 @@ nsh> audio_event --device /dev/audio/pcm_in1 --audio-stats --once
 nsh> audio_event --device /dev/audio/pcm_in1
 ```
 
-## ESP32-S3 DevKit + INMP441 构建
+## 真机构建（ESP32-S3 DevKit + INMP441）
 
-ESP32-S3-N16R8 开发板可以外接 INMP441 数字麦克风，使用独立的 custom board：
+当前真机构建使用 ESP32-S3-N16R8 DevKit 外接 INMP441 数字麦克风，使用独立的
+custom board：
 
 ```text
 vendor/espressif/boards/esp32s3/esp32s3-devkit/configs/audio_event/
@@ -215,6 +219,30 @@ vendor/espressif/boards/esp32s3/esp32s3-devkit/configs/audio_event/
 INMP441 不需要 MCLK，当前 devkit 配置只使用 I2S1 的 `BCLK`、`WS/LRCK` 和 `DIN`
 三根音频信号线。若将 `L/R` 接到 3V3，应把应用侧 slot 改为
 `CONFIG_EXAMPLES_AUDIO_EVENT_INMP441_SLOT=1` 后重新构建。
+
+0.96 寸 I2C OLED 用于做最小显示闭环，当前按 SSD1306 128x64、7-bit I2C 地址
+`0x3C` 配置：
+
+| OLED 引脚 | ESP32-S3 DevKit 连接 | 说明 / 配置项 |
+| --- | --- | --- |
+| VCC | 3V3 | 使用 3.3 V 供电 |
+| GND | GND | 与开发板共地 |
+| SCL | GPIO5 | `CONFIG_ESP32S3_I2C0_SCLPIN=5` |
+| SDA | GPIO4 | `CONFIG_ESP32S3_I2C0_SDAPIN=4` |
+| I2C 地址 | `0x3C` | `CONFIG_SSD1306_I2CADDR=60` |
+
+启动后 board bring-up 会初始化 I2C0 和 OLED，并在屏幕上显示：
+
+```text
+CCF AUDIO
+OLED OK
+I2C 0x3C
+```
+
+看到这三行字，说明 3V3/GND、I2C0 SDA/SCL、OLED 地址和 SSD1306 基础初始化已经形成
+最小闭环。如果屏幕亮但内容错位或无字，先确认模块是否为 SH1106 兼容屏；这类屏常见为
+132 列内部显存，后续需要把 OLED 型号配置从 `CONFIG_LCD_UG2864HSWEG01` 调整到
+对应的 SH1106 配置。
 
 该配置启用 I2S1 RX，并将采集设备注册为：
 
@@ -245,7 +273,8 @@ nsh> audio_event --model-smoke
 nsh> audio_event --device /dev/audio/pcm_in1 --audio-stats
 ```
 
-`audio_record` 会在串口中输出一段标准 WAV 的 base64 文本：
+`audio_record` 会在串口中流式输出一段标准 WAV 的 base64 文本，不会在板端缓存完整
+录音：
 
 ```text
 WAV_BASE64_BEGIN
@@ -269,6 +298,12 @@ picocom -b 115200 /dev/ttyACM0 --logfile audio_record.log
 
 ```text
 nsh> audio_record --device /dev/audio/pcm_in1 --seconds 2
+```
+
+也可以录制更长音频，例如 60 秒：
+
+```text
+nsh> audio_record --device /dev/audio/pcm_in1 --seconds 60
 ```
 
 退出 `picocom` 后，从日志中提取 marker 中间的 base64 并生成 WAV：
@@ -298,7 +333,8 @@ aplay record.wav
 `WAV_BASE64_END`、`nsh>` 提示符或 `[audio_record]` 日志。
 
 默认录制 2 秒、16 kHz、mono、int16 WAV。可通过 `--seconds N` 调整时长，当前
-devkit 配置默认限制最大 3 秒，避免一次性占用过多 RAM。
+devkit 配置支持最大 60 秒，并采用流式 base64 导出。60 秒音频约为 1.92 MB PCM，
+base64 后约 2.56 MB；如果使用 115200 baud 串口，导出会持续数分钟，这是正常现象。
 
 如果 `audio_test` 或 `audio_event --audio-stats` 已经显示非零数据，说明
 INMP441 到 ESP32-S3 I2S RX 的硬件链路基本打通。若 `audio_event` 日志中出现以下内容，
@@ -399,10 +435,17 @@ ES7210 初始化时 I2S `MCLK/BCLK/LRCK` 尚未稳定。
 - `CONFIG_EXAMPLES_AUDIO_TEST=y`
 - `CONFIG_EXAMPLES_AUDIO_TEST_CHANNELS=2`
 - `CONFIG_ESP32S3_DEVKIT_INMP441=y`
+- `CONFIG_ESP32S3_DEVKIT_OLED=y`
+- `CONFIG_ESP32S3_I2C0_MASTER_MODE=y`
+- `CONFIG_ESP32S3_I2C0_SCLPIN=5`
+- `CONFIG_ESP32S3_I2C0_SDAPIN=4`
 - `CONFIG_ESP32S3_I2S1_BCLKPIN=18`
 - `CONFIG_ESP32S3_I2S1_WSPIN=17`
 - `CONFIG_ESP32S3_I2S1_DINPIN=15`
 - `CONFIG_ESP32S3_I2S1_DATA_BIT_WIDTH_32BIT=y`
+- `CONFIG_LCD_SSD1306_I2C=y`
+- `CONFIG_LCD_UG2864HSWEG01=y`
+- `CONFIG_SSD1306_I2CADDR=60`
 - `CONFIG_LIBCXX=y`
 - `CONFIG_TLS_NELEM=4`
 - `CONFIG_TLS_TASK_NELEM=4`
@@ -440,6 +483,9 @@ ES7210 初始化时 I2S `MCLK/BCLK/LRCK` 尚未稳定。
   作为 `build.sh` 路径。
 - 非 CMake 构建不会自动准备 `cmake_out/vela_goldfish-audio_event/`，运行模拟器前需要
   手动复制 `.config`、`vela_*.bin` 并链接 `nuttx`。
+- 当前真机构建目标是 ESP32-S3 DevKit + INMP441，配置路径为
+  `vendor/espressif/boards/esp32s3/esp32s3-devkit/configs/audio_event/`。
+  BOX-3 配置仅作为保留适配。
 - 真机音频采集路径是 `/dev/audio/pcm_in1`，模拟器默认路径是 `/dev/audio/pcm0c`。
 - ESP32-S3 DevKit + INMP441 的 `audio_event` 已按 32-bit I2S slot 采集，并在应用层
   转成模型输入所需的 16-bit mono PCM。若更改 INMP441 的 `L/R` 接法，需要同步调整

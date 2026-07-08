@@ -86,6 +86,10 @@
 #include <nuttx/video/fb.h>
 #endif
 
+#ifdef CONFIG_LCD_DEV
+#  include <nuttx/lcd/lcd_dev.h>
+#endif
+
 #ifdef CONFIG_ESP32S3_EFUSE
 #  include "esp32s3_efuse.h"
 #endif
@@ -523,6 +527,16 @@ int esp32s3_bringup(void)
     {
       syslog(LOG_ERR, "ERROR: Failed to initialize LCD.\n");
     }
+#  ifdef CONFIG_LCD_DEV
+  else
+    {
+      ret = lcddev_register(0);
+      if (ret < 0)
+        {
+          syslog(LOG_ERR, "ERROR: lcddev_register() failed: %d\n", ret);
+        }
+    }
+#  endif
 #endif
 
 #ifdef CONFIG_NET_LAN9250

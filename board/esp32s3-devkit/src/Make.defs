@@ -55,6 +55,10 @@ ifeq ($(CONFIG_LCD_ST7735),y)
 CSRCS += esp32s3_st7735.c
 endif
 
+ifeq ($(CONFIG_ESP32S3_DEVKIT_OLED),y)
+CSRCS += esp32s3_oled.c
+endif
+
 ifeq ($(CONFIG_RPMSG),y)
 CSRCS += esp32s3_rpmsg.c
 endif
