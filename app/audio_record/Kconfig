@@ -8,8 +8,8 @@ config EXAMPLES_AUDIO_RECORD
 	default n
 	depends on AUDIO
 	---help---
-		Record PCM from an audio input device and stream it as a base64
-		encoded WAV on the console.
+		Record a short PCM clip from an audio input device and export it as
+		a base64 encoded WAV stream on the console.
 
 if EXAMPLES_AUDIO_RECORD
 

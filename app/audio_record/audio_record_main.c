@@ -121,7 +121,6 @@ struct audio_record_b64_s
 };
 
 static int16_t g_read_buffer[AUDIO_RECORD_MAX_BLOCK_FRAMES];
-static uint8_t g_wav_buffer[AUDIO_RECORD_MAX_BLOCK_FRAMES * sizeof(int16_t)];
 
 static void audio_record_usage(void)
 {
@@ -131,7 +130,7 @@ static void audio_record_usage(void)
          CONFIG_EXAMPLES_AUDIO_RECORD_DEVPATH);
   printf("  --rate HZ           sample rate, default %d\n",
          CONFIG_EXAMPLES_AUDIO_RECORD_SAMPLE_RATE);
-  printf("  --seconds N         streaming duration 1..%d, default %d\n",
+  printf("  --seconds N         duration 1..%d, default %d\n",
          CONFIG_EXAMPLES_AUDIO_RECORD_MAX_SECONDS,
          CONFIG_EXAMPLES_AUDIO_RECORD_SECONDS);
   printf("  --block-frames N    frames per read 1..%d, default %d\n",
@@ -954,46 +953,30 @@ static void b64_finish(struct audio_record_b64_s *state)
     }
 }
 
-static void samples_to_wav_bytes(const int16_t *samples,
-                                 uint8_t *bytes,
-                                 unsigned int sample_count)
+static void export_wav_base64(const int16_t *samples,
+                              unsigned int sample_count,
+                              unsigned int rate)
 {
-  unsigned int i;
-
-  for (i = 0; i < sample_count; i++)
-    {
-      uint16_t sample = (uint16_t)samples[i];
-
-      bytes[i * 2] = sample & 0xff;
-      bytes[i * 2 + 1] = sample >> 8;
-    }
-}
-
-static void export_wav_base64_begin(struct audio_record_b64_s *b64,
-                                    unsigned int sample_count,
-                                    unsigned int rate)
-{
+  struct audio_record_b64_s b64;
   uint8_t header[AUDIO_RECORD_WAV_HEADER_SIZE];
   uint32_t data_bytes = sample_count * sizeof(int16_t);
+  unsigned int i;
 
-  memset(b64, 0, sizeof(*b64));
+  memset(&b64, 0, sizeof(b64));
   wav_header(header, rate, data_bytes);
 
   printf("WAV_BASE64_BEGIN\n");
-  b64_update(b64, header, sizeof(header));
-}
+  b64_update(&b64, header, sizeof(header));
 
-static void export_wav_base64_samples(struct audio_record_b64_s *b64,
-                                      const int16_t *samples,
-                                      unsigned int sample_count)
-{
-  samples_to_wav_bytes(samples, g_wav_buffer, sample_count);
-  b64_update(b64, g_wav_buffer, sample_count * sizeof(int16_t));
-}
+  for (i = 0; i < sample_count; i++)
+    {
+      uint8_t encoded[2];
+      encoded[0] = (uint16_t)samples[i] & 0xff;
+      encoded[1] = ((uint16_t)samples[i] >> 8) & 0xff;
+      b64_update(&b64, encoded, sizeof(encoded));
+    }
 
-static void export_wav_base64_end(struct audio_record_b64_s *b64)
-{
-  b64_finish(b64);
+  b64_finish(&b64);
   printf("WAV_BASE64_END\n");
 }
 
@@ -1002,11 +985,10 @@ int audio_record_main(int argc, char *argv[])
   struct audio_record_options_s options;
   struct audio_record_capture_s capture;
   struct audio_record_stats_s stats;
-  struct audio_record_b64_s b64;
+  int16_t *recording = NULL;
   unsigned int total_samples;
   unsigned int captured_samples = 0;
-  size_t data_bytes;
-  bool export_started = false;
+  size_t record_bytes;
   int ret;
 
   ret = parse_options(argc, argv, &options);
@@ -1022,28 +1004,32 @@ int audio_record_main(int argc, char *argv[])
     }
 
   total_samples = options.rate * options.seconds;
-  data_bytes = (size_t)total_samples * sizeof(int16_t);
+  record_bytes = (size_t)total_samples * sizeof(int16_t);
+  recording = (int16_t *)malloc(record_bytes);
+  if (recording == NULL)
+    {
+      fprintf(stderr, "[audio_record] cannot allocate %u bytes; "
+              "enable PSRAM common heap for long recordings\n",
+              (unsigned int)record_bytes);
+      return 1;
+    }
 
   memset(&stats, 0, sizeof(stats));
   stats.min = INT16_MAX;
   stats.max = INT16_MIN;
 
-  printf("[audio_record] stream record %u seconds, %u Hz, mono int16, "
+  printf("[audio_record] record %u seconds, %u Hz, mono int16, "
          "%u samples, %u bytes\n",
          options.seconds, options.rate, total_samples,
-         (unsigned int)data_bytes);
+         (unsigned int)record_bytes);
+  printf("[audio_record] recording buffer=%p\n", recording);
 
   ret = capture_init(&capture, &options);
   if (ret < 0)
     {
+      free(recording);
       return 1;
     }
-
-  printf("[audio_record] streaming WAV as base64; copy text between "
-         "markers to record.b64\n");
-  printf("[audio_record] host decode: base64 -d record.b64 > record.wav\n");
-  export_wav_base64_begin(&b64, total_samples, options.rate);
-  export_started = true;
 
   while (captured_samples < total_samples)
     {
@@ -1060,6 +1046,7 @@ int audio_record_main(int argc, char *argv[])
         {
           fprintf(stderr, "[audio_record] capture failed: %d\n", (int)got);
           capture_deinit(&capture);
+          free(recording);
           return 1;
         }
 
@@ -1068,18 +1055,20 @@ int audio_record_main(int argc, char *argv[])
           continue;
         }
 
+      memcpy(recording + captured_samples, g_read_buffer,
+             (size_t)got * sizeof(int16_t));
       stats_update(&stats, g_read_buffer, (unsigned int)got);
-      export_wav_base64_samples(&b64, g_read_buffer, (unsigned int)got);
-      fflush(stdout);
       captured_samples += (unsigned int)got;
-    }
-
-  if (export_started)
-    {
-      export_wav_base64_end(&b64);
     }
 
   capture_deinit(&capture);
   stats_print(&stats);
+
+  printf("[audio_record] exporting WAV as base64; copy text between "
+         "markers to record.b64\n");
+  export_wav_base64(recording, captured_samples, options.rate);
+  printf("[audio_record] host decode: base64 -d record.b64 > record.wav\n");
+
+  free(recording);
   return 0;
 }

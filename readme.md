@@ -9,7 +9,7 @@
 ```text
 ccf_audioevent/
 ├── app/audio_event/                  # audio_event 应用源码
-├── app/audio_record/                 # WAV base64 流式录音导出工具
+├── app/audio_record/                 # 短录音 WAV base64 导出工具
 ├── app/audio_test/                   # 麦克风 PCM 采集诊断工具
 ├── board/esp32s3-box-3/              # ESP32-S3-BOX-3 自定义板级适配
 ├── board/esp32s3-devkit/             # ESP32-S3 DevKit + INMP441 自定义板级适配
@@ -273,8 +273,8 @@ nsh> audio_event --model-smoke
 nsh> audio_event --device /dev/audio/pcm_in1 --audio-stats
 ```
 
-`audio_record` 会在串口中流式输出一段标准 WAV 的 base64 文本，不会在板端缓存完整
-录音：
+`audio_record` 会先在板端缓存一小段录音，采集完成后再在串口中输出标准 WAV 的
+base64 文本：
 
 ```text
 WAV_BASE64_BEGIN
@@ -300,7 +300,7 @@ picocom -b 115200 /dev/ttyACM0 --logfile audio_record.log
 nsh> audio_record --device /dev/audio/pcm_in1 --seconds 2
 ```
 
-也可以录制更长音频，例如 60 秒：
+验证 PSRAM 长录音时可运行：
 
 ```text
 nsh> audio_record --device /dev/audio/pcm_in1 --seconds 60
@@ -332,9 +332,21 @@ aplay record.wav
 `record.b64` 中只能保留 base64 正文，不要混入 `WAV_BASE64_BEGIN`、
 `WAV_BASE64_END`、`nsh>` 提示符或 `[audio_record]` 日志。
 
-默认录制 2 秒、16 kHz、mono、int16 WAV。可通过 `--seconds N` 调整时长，当前
-devkit 配置支持最大 60 秒，并采用流式 base64 导出。60 秒音频约为 1.92 MB PCM，
-base64 后约 2.56 MB；如果使用 115200 baud 串口，导出会持续数分钟，这是正常现象。
+默认录制 2 秒、16 kHz、mono、int16 WAV。当前 devkit 配置已启用 N16R8 的
+octal PSRAM，并把 PSRAM 加入 common heap，`audio_record` 可通过 `--seconds N`
+最长录制 60 秒。60 秒 mono int16 录音缓存约占：
+
+```text
+16000 samples/s * 60 s * 2 bytes = 1,920,000 bytes
+```
+
+`audio_record` 仍然是“先采集到板端内存，采集完成后再输出 base64”，不是边录边往串口
+实时输出。这样 WAV 头里的数据长度是确定的，电脑端提取出的 `record.wav` 更稳定。长录音
+会在采集完成后输出很长一段 base64，建议用 `picocom --logfile` 保存串口日志后再解码。
+
+如果运行 60 秒录音时提示 `cannot allocate ... bytes`，先确认本次固件确实由
+`esp32s3-devkit/configs/audio_event/defconfig` 重新 configure，并在启动日志或
+`nsh> free` 中确认 PSRAM 已作为额外 heap 可用。
 
 如果 `audio_test` 或 `audio_event --audio-stats` 已经显示非零数据，说明
 INMP441 到 ESP32-S3 I2S RX 的硬件链路基本打通。若 `audio_event` 日志中出现以下内容，
