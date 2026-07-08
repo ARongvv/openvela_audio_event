@@ -34,6 +34,36 @@ config EXAMPLES_AUDIO_EVENT_DEVPATH
 	string "Audio capture device path"
 	default "/dev/audio/pcm0c"
 
+config EXAMPLES_AUDIO_EVENT_INMP441_32BIT
+	bool "Convert INMP441 32-bit I2S capture to mono PCM16"
+	default n
+	---help---
+		Enable this when the capture device receives an INMP441 style
+		32-bit I2S stream. The application configures the audio device
+		as 16 kHz, two-channel, 32-bit PCM, selects one I2S slot, then
+		converts it to the 16 kHz mono int16 samples expected by the
+		model frontend.
+
+config EXAMPLES_AUDIO_EVENT_INMP441_SLOT
+	int "INMP441 slot index"
+	default 0
+	range 0 1
+	depends on EXAMPLES_AUDIO_EVENT_INMP441_32BIT
+	---help---
+		Select the 32-bit I2S slot that contains microphone data.
+		Use 0 for the left slot and 1 for the right slot.
+
+config EXAMPLES_AUDIO_EVENT_INMP441_SHIFT
+	int "INMP441 int32 to int16 right shift"
+	default 16
+	range 0 24
+	depends on EXAMPLES_AUDIO_EVENT_INMP441_32BIT
+	---help---
+		Arithmetic right shift applied before saturating to int16.
+		INMP441 commonly places 24-bit samples in the high bits of a
+		32-bit slot, so 16 is a conservative starting point. Reduce
+		this value only if the converted PCM16 level is too low.
+
 config EXAMPLES_AUDIO_EVENT_ARENA_SIZE
 	int "TFLite Micro tensor arena size"
 	default 98304

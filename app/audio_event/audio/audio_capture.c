@@ -23,6 +23,17 @@
 #define AUDIO_CAPTURE_FALLBACK_MAX_BUFFERS 4
 #define AUDIO_CAPTURE_FALLBACK_MAX_BYTES 2048
 
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_INMP441_32BIT
+#  define AUDIO_CAPTURE_DEVICE_CHANNELS 2
+#  define AUDIO_CAPTURE_DEVICE_BITS     32
+#  define AUDIO_CAPTURE_SLOT_BYTES       4
+#  define AUDIO_CAPTURE_FRAME_BYTES \
+    (AUDIO_CAPTURE_DEVICE_CHANNELS * AUDIO_CAPTURE_SLOT_BYTES)
+#else
+#  define AUDIO_CAPTURE_DEVICE_CHANNELS 1
+#  define AUDIO_CAPTURE_DEVICE_BITS     16
+#endif
+
 static int g_audio_fd = -1;
 static mqd_t g_audio_mq = (mqd_t)-1;
 static char g_audio_mqname[32];
@@ -35,6 +46,43 @@ static bool g_audio_use_local_buffers;
 
 #ifdef CONFIG_AUDIO_MULTI_SESSION
 static void *g_audio_session;
+#endif
+
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_INMP441_32BIT
+static int16_t clamp_int16(int32_t value)
+{
+  if (value > INT16_MAX)
+    {
+      return INT16_MAX;
+    }
+
+  if (value < INT16_MIN)
+    {
+      return INT16_MIN;
+    }
+
+  return (int16_t)value;
+}
+
+static int32_t load_le32(const uint8_t *data)
+{
+  uint32_t value = (uint32_t)data[0] |
+                   ((uint32_t)data[1] << 8) |
+                   ((uint32_t)data[2] << 16) |
+                   ((uint32_t)data[3] << 24);
+
+  return (int32_t)value;
+}
+
+static int16_t convert_inmp441_sample(const uint8_t *frame)
+{
+  const uint8_t *slot = frame +
+      CONFIG_EXAMPLES_AUDIO_EVENT_INMP441_SLOT * AUDIO_CAPTURE_SLOT_BYTES;
+  int32_t raw = load_le32(slot);
+  int32_t shifted = raw >> CONFIG_EXAMPLES_AUDIO_EVENT_INMP441_SHIFT;
+
+  return clamp_int16(shifted);
+}
 #endif
 
 static int enqueue_buffer(struct ap_buffer_s *buffer)
@@ -141,13 +189,19 @@ int audio_capture_init(const char *device_path)
   capabilities.caps.ac_len = sizeof(struct audio_caps_s);
   capabilities.caps.ac_type = AUDIO_TYPE_INPUT;
   capabilities.caps.ac_subtype = AUDIO_FMT_PCM;
-  capabilities.caps.ac_channels = 1;
+  capabilities.caps.ac_channels = AUDIO_CAPTURE_DEVICE_CHANNELS;
   capabilities.caps.ac_controls.hw[0] = AUDIO_EVENT_SAMPLE_RATE;
   capabilities.caps.ac_controls.b[3] = AUDIO_EVENT_SAMPLE_RATE >> 16;
-  capabilities.caps.ac_controls.b[2] = 16;
+  capabilities.caps.ac_controls.b[2] = AUDIO_CAPTURE_DEVICE_BITS;
 
-  printf("[audio] configure input pcm rate=%d channels=1 bits=16\n",
-         AUDIO_EVENT_SAMPLE_RATE);
+  printf("[audio] configure input pcm rate=%d channels=%d bits=%d\n",
+         AUDIO_EVENT_SAMPLE_RATE, AUDIO_CAPTURE_DEVICE_CHANNELS,
+         AUDIO_CAPTURE_DEVICE_BITS);
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_INMP441_32BIT
+  printf("[audio] INMP441 adapter: slot=%d shift=%d output=mono int16\n",
+         CONFIG_EXAMPLES_AUDIO_EVENT_INMP441_SLOT,
+         CONFIG_EXAMPLES_AUDIO_EVENT_INMP441_SHIFT);
+#endif
   if (ioctl(g_audio_fd, AUDIOIOC_CONFIGURE,
             (unsigned long)(uintptr_t)&capabilities) < 0)
     {
@@ -271,8 +325,10 @@ int audio_capture_init(const char *device_path)
     }
 
   g_audio_started = true;
-  printf("[audio] capturing %s at %d Hz, mono, 16-bit\n", device_path,
-         AUDIO_EVENT_SAMPLE_RATE);
+  printf("[audio] capturing %s at %d Hz, device=%dch/%d-bit, "
+         "app=mono/16-bit\n",
+         device_path, AUDIO_EVENT_SAMPLE_RATE, AUDIO_CAPTURE_DEVICE_CHANNELS,
+         AUDIO_CAPTURE_DEVICE_BITS);
   return 0;
 
 fail:
@@ -316,19 +372,46 @@ ssize_t audio_capture_read(int16_t *samples, size_t sample_count)
             }
         }
 
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_INMP441_32BIT
+      available = (g_current_buffer->nbytes - g_current_offset) /
+                  AUDIO_CAPTURE_FRAME_BYTES;
+#else
       available = (g_current_buffer->nbytes - g_current_offset) /
                   sizeof(int16_t);
+#endif
+      if (available == 0)
+        {
+          g_current_offset = g_current_buffer->nbytes;
+          continue;
+        }
+
       take = sample_count - copied;
       if (take > available)
         {
           take = available;
         }
 
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_INMP441_32BIT
+      {
+        size_t i;
+        const uint8_t *cursor = g_current_buffer->samp + g_current_offset;
+
+        for (i = 0; i < take; i++)
+          {
+            samples[copied + i] = convert_inmp441_sample(cursor);
+            cursor += AUDIO_CAPTURE_FRAME_BYTES;
+          }
+      }
+
+      copied += take;
+      g_current_offset += take * AUDIO_CAPTURE_FRAME_BYTES;
+#else
       memcpy(samples + copied,
              g_current_buffer->samp + g_current_offset,
              take * sizeof(int16_t));
       copied += take;
       g_current_offset += take * sizeof(int16_t);
+#endif
     }
 
   return copied;
