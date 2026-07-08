@@ -154,7 +154,13 @@ static void oled_set_pixel(int x, int y)
 {
   if (x >= 0 && x < OLED_W && y >= 0 && y < OLED_H)
     {
+      x = OLED_W - 1 - x;
+
+#ifdef CONFIG_LCD_PACKEDMSFIRST
+      g_fb[y][x >> 3] |= 0x80 >> (x & 7);
+#else
       g_fb[y][x >> 3] |= 1 << (x & 7);
+#endif
     }
 }
 
