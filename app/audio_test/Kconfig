@@ -9,7 +9,7 @@ config EXAMPLES_AUDIO_TEST
 	depends on AUDIO
 	---help---
 		Lightweight PCM capture diagnostic command. It opens an audio input
-		device, captures 16-bit PCM, and prints per-channel amplitude stats.
+		device, captures PCM, and prints amplitude stats.
 
 if EXAMPLES_AUDIO_TEST
 
@@ -41,6 +41,26 @@ config EXAMPLES_AUDIO_TEST_CHANNELS
 	int "Audio channel count"
 	default 1
 	range 1 2
+
+config EXAMPLES_AUDIO_TEST_INMP441_32BIT
+	bool "Decode INMP441 32-bit I2S capture"
+	default y if ESP32S3_DEVKIT_INMP441
+	---help---
+		Configure the device as 2-channel 32-bit PCM and decode the selected
+		INMP441 slot to mono int16. The diagnostic output also prints both
+		decoded slots so slot alignment and gain/shift issues are visible.
+
+config EXAMPLES_AUDIO_TEST_INMP441_SLOT
+	int "INMP441 slot index"
+	default 0
+	range 0 1
+	depends on EXAMPLES_AUDIO_TEST_INMP441_32BIT
+
+config EXAMPLES_AUDIO_TEST_INMP441_SHIFT
+	int "INMP441 int32 to int16 right shift"
+	default 16
+	range 0 24
+	depends on EXAMPLES_AUDIO_TEST_INMP441_32BIT
 
 config EXAMPLES_AUDIO_TEST_BLOCK_FRAMES
 	int "Frames per capture read"

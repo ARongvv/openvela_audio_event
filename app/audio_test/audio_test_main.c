@@ -34,6 +34,14 @@
 #  define CONFIG_EXAMPLES_AUDIO_TEST_BLOCK_FRAMES 512
 #endif
 
+#ifndef CONFIG_EXAMPLES_AUDIO_TEST_INMP441_SLOT
+#  define CONFIG_EXAMPLES_AUDIO_TEST_INMP441_SLOT 0
+#endif
+
+#ifndef CONFIG_EXAMPLES_AUDIO_TEST_INMP441_SHIFT
+#  define CONFIG_EXAMPLES_AUDIO_TEST_INMP441_SHIFT 16
+#endif
+
 #ifndef CONFIG_AUDIO_NUM_BUFFERS
 #  define CONFIG_AUDIO_NUM_BUFFERS 4
 #endif
@@ -42,13 +50,25 @@
 #  define CONFIG_AUDIO_BUFFER_NUMBYTES 2048
 #endif
 
-#define AUDIO_TEST_BITS_PER_SAMPLE 16
 #define AUDIO_TEST_DEFAULT_SECONDS 5
 #define AUDIO_TEST_MAX_CHANNELS 2
+#define AUDIO_TEST_MAX_REPORT_CHANNELS 3
 #define AUDIO_TEST_MAX_BUFFERS 8
 #define AUDIO_TEST_FALLBACK_MAX_BUFFERS 4
 #define AUDIO_TEST_FALLBACK_MAX_BYTES 2048
 #define AUDIO_TEST_MAX_BLOCK_FRAMES 1024
+#define AUDIO_TEST_NEAR_CLIP_LEVEL 32000
+
+#ifdef CONFIG_EXAMPLES_AUDIO_TEST_INMP441_32BIT
+#  define AUDIO_TEST_DEVICE_CHANNELS 2
+#  define AUDIO_TEST_DEVICE_BITS 32
+#  define AUDIO_TEST_SLOT_BYTES 4
+#  define AUDIO_TEST_FRAME_BYTES \
+    (AUDIO_TEST_DEVICE_CHANNELS * AUDIO_TEST_SLOT_BYTES)
+#  define AUDIO_TEST_REPORT_CHANNELS AUDIO_TEST_MAX_REPORT_CHANNELS
+#else
+#  define AUDIO_TEST_DEVICE_BITS 16
+#endif
 
 struct audio_test_options_s
 {
@@ -57,6 +77,8 @@ struct audio_test_options_s
   unsigned int channels;
   unsigned int seconds;
   unsigned int block_frames;
+  unsigned int slot;
+  unsigned int shift;
 };
 
 struct audio_test_capture_s
@@ -83,12 +105,13 @@ struct audio_test_stats_s
   uint64_t sumsq;
   unsigned int zero_count;
   unsigned int clip_count;
+  unsigned int near_clip_count;
   unsigned int samples;
   bool initialized;
 };
 
 static int16_t g_read_buffer[AUDIO_TEST_MAX_BLOCK_FRAMES *
-                             AUDIO_TEST_MAX_CHANNELS];
+                             AUDIO_TEST_MAX_REPORT_CHANNELS];
 
 static void audio_test_usage(void)
 {
@@ -98,13 +121,23 @@ static void audio_test_usage(void)
          CONFIG_EXAMPLES_AUDIO_TEST_DEVPATH);
   printf("  --rate HZ           sample rate, default %d\n",
          CONFIG_EXAMPLES_AUDIO_TEST_SAMPLE_RATE);
+#ifdef CONFIG_EXAMPLES_AUDIO_TEST_INMP441_32BIT
+  printf("  --channels N        ignored in INMP441 mode; device uses 2ch/32-bit\n");
+#else
   printf("  --channels N        channel count 1 or 2, default %d\n",
          CONFIG_EXAMPLES_AUDIO_TEST_CHANNELS);
+#endif
   printf("  --seconds N         capture duration, default %d\n",
          AUDIO_TEST_DEFAULT_SECONDS);
   printf("  --block-frames N    frames per read 1..%d, default %d\n",
          AUDIO_TEST_MAX_BLOCK_FRAMES,
          CONFIG_EXAMPLES_AUDIO_TEST_BLOCK_FRAMES);
+#ifdef CONFIG_EXAMPLES_AUDIO_TEST_INMP441_32BIT
+  printf("  --slot N            INMP441 slot 0 or 1, default %d\n",
+         CONFIG_EXAMPLES_AUDIO_TEST_INMP441_SLOT);
+  printf("  --shift N           int32 to int16 right shift 0..24, default %d\n",
+         CONFIG_EXAMPLES_AUDIO_TEST_INMP441_SHIFT);
+#endif
   printf("  --help              show this message\n");
 }
 
@@ -139,6 +172,8 @@ static int parse_options(int argc, char *argv[],
   options->channels = CONFIG_EXAMPLES_AUDIO_TEST_CHANNELS;
   options->seconds = AUDIO_TEST_DEFAULT_SECONDS;
   options->block_frames = CONFIG_EXAMPLES_AUDIO_TEST_BLOCK_FRAMES;
+  options->slot = CONFIG_EXAMPLES_AUDIO_TEST_INMP441_SLOT;
+  options->shift = CONFIG_EXAMPLES_AUDIO_TEST_INMP441_SHIFT;
 
   for (i = 1; i < argc; i++)
     {
@@ -195,6 +230,24 @@ static int parse_options(int argc, char *argv[],
 
           options->block_frames = value;
         }
+      else if (strcmp(arg, "--slot") == 0)
+        {
+          if (++i >= argc || parse_uint_arg(argv[i], &value) < 0)
+            {
+              return -EINVAL;
+            }
+
+          options->slot = value;
+        }
+      else if (strcmp(arg, "--shift") == 0)
+        {
+          if (++i >= argc || parse_uint_arg(argv[i], &value) < 0)
+            {
+              return -EINVAL;
+            }
+
+          options->shift = value;
+        }
       else
         {
           fprintf(stderr, "[audio_test] unknown option: %s\n", arg);
@@ -208,10 +261,16 @@ static int parse_options(int argc, char *argv[],
       options->channels > AUDIO_TEST_MAX_CHANNELS ||
       options->seconds == 0 ||
       options->block_frames == 0 ||
-      options->block_frames > AUDIO_TEST_MAX_BLOCK_FRAMES)
+      options->block_frames > AUDIO_TEST_MAX_BLOCK_FRAMES ||
+      options->slot > 1 ||
+      options->shift > 24)
     {
       return -EINVAL;
     }
+
+#ifdef CONFIG_EXAMPLES_AUDIO_TEST_INMP441_32BIT
+  options->channels = AUDIO_TEST_DEVICE_CHANNELS;
+#endif
 
   return 0;
 }
@@ -306,12 +365,46 @@ static void stats_update(struct audio_test_stats_s stats[],
             {
               st->clip_count++;
             }
+
+          if ((widened < 0 ? -widened : widened) >=
+              AUDIO_TEST_NEAR_CLIP_LEVEL)
+            {
+              st->near_clip_count++;
+            }
         }
     }
 }
 
+static const char *stats_label(unsigned int ch,
+                               const struct audio_test_options_s *options)
+{
+#ifdef CONFIG_EXAMPLES_AUDIO_TEST_INMP441_32BIT
+  static char mono_label[16];
+
+  if (ch == 0)
+    {
+      return "slot0";
+    }
+
+  if (ch == 1)
+    {
+      return "slot1";
+    }
+
+  snprintf(mono_label, sizeof(mono_label), "mono(slot%u)",
+           options->slot);
+  return mono_label;
+#else
+  static char channel_label[8];
+
+  snprintf(channel_label, sizeof(channel_label), "ch%u", ch);
+  return channel_label;
+#endif
+}
+
 static void stats_print(unsigned int second,
                         const struct audio_test_stats_s stats[],
+                        const struct audio_test_options_s *options,
                         unsigned int channels,
                         unsigned int frames)
 {
@@ -331,14 +424,54 @@ static void stats_print(unsigned int second,
           rms = isqrt_u64(st->sumsq / st->samples);
         }
 
-      printf("[audio_test] ch%u min=%d max=%d mean=%lld rms=%lu "
-             "zero=%u/%u clip=%u\n",
-             ch, st->initialized ? st->min : 0,
+      printf("[audio_test] %s min=%d max=%d mean=%lld rms=%lu "
+             "zero=%u/%u clip=%u nearclip=%u\n",
+             stats_label(ch, options),
+             st->initialized ? st->min : 0,
              st->initialized ? st->max : 0,
              (long long)mean, (unsigned long)rms,
-             st->zero_count, st->samples, st->clip_count);
+             st->zero_count, st->samples, st->clip_count,
+             st->near_clip_count);
     }
 }
+
+#ifdef CONFIG_EXAMPLES_AUDIO_TEST_INMP441_32BIT
+static int16_t clamp_int16(int32_t value)
+{
+  if (value > INT16_MAX)
+    {
+      return INT16_MAX;
+    }
+
+  if (value < INT16_MIN)
+    {
+      return INT16_MIN;
+    }
+
+  return (int16_t)value;
+}
+
+static int32_t load_le32(const uint8_t *data)
+{
+  uint32_t value = (uint32_t)data[0] |
+                   ((uint32_t)data[1] << 8) |
+                   ((uint32_t)data[2] << 16) |
+                   ((uint32_t)data[3] << 24);
+
+  return (int32_t)value;
+}
+
+static int16_t convert_inmp441_sample(const uint8_t *frame,
+                                      unsigned int slot_index,
+                                      unsigned int shift)
+{
+  const uint8_t *slot = frame + slot_index * AUDIO_TEST_SLOT_BYTES;
+  int32_t raw = load_le32(slot);
+  int32_t shifted = raw >> shift;
+
+  return clamp_int16(shifted);
+}
+#endif
 
 static int enqueue_buffer(struct audio_test_capture_s *capture,
                           struct ap_buffer_s *buffer)
@@ -519,13 +652,22 @@ static int capture_init(struct audio_test_capture_s *capture,
   capabilities.caps.ac_len = sizeof(struct audio_caps_s);
   capabilities.caps.ac_type = AUDIO_TYPE_INPUT;
   capabilities.caps.ac_subtype = AUDIO_FMT_PCM;
+#ifdef CONFIG_EXAMPLES_AUDIO_TEST_INMP441_32BIT
+  capabilities.caps.ac_channels = AUDIO_TEST_DEVICE_CHANNELS;
+#else
   capabilities.caps.ac_channels = options->channels;
+#endif
   capabilities.caps.ac_controls.hw[0] = options->rate & 0xffff;
   capabilities.caps.ac_controls.b[3] = options->rate >> 16;
-  capabilities.caps.ac_controls.b[2] = AUDIO_TEST_BITS_PER_SAMPLE;
+  capabilities.caps.ac_controls.b[2] = AUDIO_TEST_DEVICE_BITS;
 
   printf("[audio_test] configure input pcm rate=%u channels=%u bits=%u\n",
-         options->rate, options->channels, AUDIO_TEST_BITS_PER_SAMPLE);
+         options->rate, capabilities.caps.ac_channels, AUDIO_TEST_DEVICE_BITS);
+#ifdef CONFIG_EXAMPLES_AUDIO_TEST_INMP441_32BIT
+  printf("[audio_test] INMP441 adapter: slot=%u shift=%u "
+         "output=mono int16; reporting slot0/slot1/mono\n",
+         options->slot, options->shift);
+#endif
   if (ioctl(capture->fd, AUDIOIOC_CONFIGURE,
             (unsigned long)(uintptr_t)&capabilities) < 0)
     {
@@ -647,8 +789,14 @@ static int capture_init(struct audio_test_capture_s *capture,
     }
 
   capture->started = true;
+#ifdef CONFIG_EXAMPLES_AUDIO_TEST_INMP441_32BIT
+  printf("[audio_test] capturing %s at %u Hz, device=2ch/32-bit, "
+         "report=slot0/slot1/mono(slot%u)\n",
+         options->device, options->rate, options->slot);
+#else
   printf("[audio_test] capturing %s at %u Hz, channels=%u, 16-bit\n",
          options->device, options->rate, options->channels);
+#endif
   return 0;
 
 fail:
@@ -656,22 +804,28 @@ fail:
   return ret;
 }
 
-static ssize_t capture_read(struct audio_test_capture_s *capture,
-                            int16_t *samples,
-                            size_t sample_count)
+static ssize_t capture_read_frames(struct audio_test_capture_s *capture,
+                                   const struct audio_test_options_s *options,
+                                   int16_t *samples,
+                                   size_t frame_count)
 {
-  size_t copied = 0;
+  size_t copied_frames = 0;
+#ifdef CONFIG_EXAMPLES_AUDIO_TEST_INMP441_32BIT
+  const size_t input_frame_bytes = AUDIO_TEST_FRAME_BYTES;
+#else
+  const size_t input_frame_bytes = options->channels * sizeof(int16_t);
+#endif
 
   if (capture->fd < 0 || !capture->started || samples == NULL ||
-      sample_count == 0)
+      frame_count == 0)
     {
       return -EINVAL;
     }
 
-  while (copied < sample_count)
+  while (copied_frames < frame_count)
     {
-      size_t available;
-      size_t take;
+      size_t available_frames;
+      size_t take_frames;
 
       if (capture->current == NULL ||
           capture->current_offset >= capture->current->nbytes)
@@ -684,40 +838,71 @@ static ssize_t capture_read(struct audio_test_capture_s *capture,
               capture->current = NULL;
               if (ret < 0)
                 {
-                  return copied > 0 ? (ssize_t)copied : ret;
+                  return copied_frames > 0 ? (ssize_t)copied_frames : ret;
                 }
             }
 
           ret = wait_for_buffer(capture);
           if (ret < 0)
             {
-              return copied > 0 ? (ssize_t)copied : ret;
+              return copied_frames > 0 ? (ssize_t)copied_frames : ret;
             }
         }
 
-      available = (capture->current->nbytes - capture->current_offset) /
-                  sizeof(int16_t);
-      take = sample_count - copied;
-      if (take > available)
+      available_frames = (capture->current->nbytes -
+                          capture->current_offset) / input_frame_bytes;
+      take_frames = frame_count - copied_frames;
+      if (take_frames > available_frames)
         {
-          take = available;
+          take_frames = available_frames;
         }
 
-      memcpy(samples + copied,
+      if (take_frames == 0)
+        {
+          capture->current_offset = capture->current->nbytes;
+          continue;
+        }
+
+#ifdef CONFIG_EXAMPLES_AUDIO_TEST_INMP441_32BIT
+      {
+        const uint8_t *src = capture->current->samp +
+                             capture->current_offset;
+        size_t frame;
+
+        for (frame = 0; frame < take_frames; frame++)
+          {
+            const uint8_t *input = src + frame * input_frame_bytes;
+            int16_t slot0 = convert_inmp441_sample(input, 0,
+                                                   options->shift);
+            int16_t slot1 = convert_inmp441_sample(input, 1,
+                                                   options->shift);
+            int16_t mono = options->slot == 0 ? slot0 : slot1;
+            size_t out = (copied_frames + frame) *
+                         AUDIO_TEST_REPORT_CHANNELS;
+
+            samples[out] = slot0;
+            samples[out + 1] = slot1;
+            samples[out + 2] = mono;
+          }
+      }
+#else
+      memcpy(samples + copied_frames * options->channels,
              capture->current->samp + capture->current_offset,
-             take * sizeof(int16_t));
-      copied += take;
-      capture->current_offset += take * sizeof(int16_t);
+             take_frames * input_frame_bytes);
+#endif
+      copied_frames += take_frames;
+      capture->current_offset += take_frames * input_frame_bytes;
     }
 
-  return (ssize_t)copied;
+  return (ssize_t)copied_frames;
 }
 
 int audio_test_main(int argc, char *argv[])
 {
   struct audio_test_options_s options;
   struct audio_test_capture_s capture;
-  struct audio_test_stats_s stats[AUDIO_TEST_MAX_CHANNELS];
+  struct audio_test_stats_s stats[AUDIO_TEST_MAX_REPORT_CHANNELS];
+  unsigned int report_channels;
   unsigned int second;
   int ret;
 
@@ -739,35 +924,41 @@ int audio_test_main(int argc, char *argv[])
       return EXIT_FAILURE;
     }
 
+#ifdef CONFIG_EXAMPLES_AUDIO_TEST_INMP441_32BIT
+  report_channels = AUDIO_TEST_REPORT_CHANNELS;
+#else
+  report_channels = options.channels;
+#endif
+
   for (second = 0; second < options.seconds; second++)
     {
       unsigned int frames_done = 0;
 
-      stats_reset(stats, options.channels);
+      stats_reset(stats, report_channels);
 
       while (frames_done < options.rate)
         {
           unsigned int frames_left = options.rate - frames_done;
           unsigned int frames_to_read = options.block_frames;
-          ssize_t samples_read;
           unsigned int frames_read;
+          ssize_t read_ret;
 
           if (frames_to_read > frames_left)
             {
               frames_to_read = frames_left;
             }
 
-          samples_read = capture_read(&capture, g_read_buffer,
-                                      frames_to_read * options.channels);
-          if (samples_read < 0)
+          read_ret = capture_read_frames(&capture, &options, g_read_buffer,
+                                         frames_to_read);
+          if (read_ret < 0)
             {
               fprintf(stderr, "[audio_test] capture read failed: %d\n",
-                      (int)samples_read);
+                      (int)read_ret);
               capture_deinit(&capture);
               return EXIT_FAILURE;
             }
 
-          frames_read = (unsigned int)samples_read / options.channels;
+          frames_read = (unsigned int)read_ret;
           if (frames_read == 0)
             {
               fprintf(stderr, "[audio_test] capture read returned no frame\n");
@@ -775,11 +966,11 @@ int audio_test_main(int argc, char *argv[])
               return EXIT_FAILURE;
             }
 
-          stats_update(stats, options.channels, g_read_buffer, frames_read);
+          stats_update(stats, report_channels, g_read_buffer, frames_read);
           frames_done += frames_read;
         }
 
-      stats_print(second + 1, stats, options.channels, frames_done);
+      stats_print(second + 1, stats, &options, report_channels, frames_done);
     }
 
   capture_deinit(&capture);
