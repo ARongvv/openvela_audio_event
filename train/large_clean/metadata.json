@@ -1,0 +1,46 @@
+{
+  "sample_rate": 16000,
+  "clip_duration_ms": 1000,
+  "window_size_ms": 30,
+  "window_stride_ms": 20,
+  "feature_bins": 40,
+  "feature_shape": [
+    49,
+    40,
+    3
+  ],
+  "flat_feature_size": 5880,
+  "classes": [
+    "knock",
+    "cough",
+    "background",
+    "silence"
+  ],
+  "class_to_index": {
+    "knock": 0,
+    "cough": 1,
+    "background": 2,
+    "silence": 3
+  },
+  "model_size": "large",
+  "model_config": [
+    48,
+    64,
+    96
+  ],
+  "parameter_count": 15492,
+  "quantization": "int8",
+  "dropout": 0.3,
+  "l2_weight_decay": 0.0001,
+  "feature_backend": "tensorflow_log_mel",
+  "threshold_recommendation": {
+    "knock": 0.75,
+    "cough": 0.75
+  },
+  "trigger_recommendation": "alarm after probability >= 0.75 for 2 consecutive inferences",
+  "metrics": {
+    "test_accuracy": 0.9736842105263158,
+    "false_alarm_rate": 0.005076142131979695,
+    "miss_rate": 0.017045454545454544
+  }
+}
