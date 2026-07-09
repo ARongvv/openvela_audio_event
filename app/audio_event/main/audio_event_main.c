@@ -5,6 +5,9 @@
 #include <nuttx/config.h>
 
 #include <errno.h>
+#include <pthread.h>
+#include <sched.h>
+#include <semaphore.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -34,6 +37,9 @@
 #endif
 
 #define AUDIO_IO_BLOCK_SAMPLES 512
+#define AUDIO_RING_SECONDS 2
+#define AUDIO_RING_SAMPLES (AUDIO_EVENT_SAMPLE_RATE * AUDIO_RING_SECONDS)
+#define AUDIO_CAPTURE_PRIORITY_BOOST 40
 
 enum input_mode_e
 {
@@ -53,6 +59,18 @@ struct app_options_s
   bool profile;
 };
 
+struct capture_state_s
+{
+  pthread_mutex_t lock;
+  sem_t semaphore;
+  pthread_t thread;
+  bool thread_created;
+  bool running;
+  int result;
+  size_t write_position;
+  uint64_t total_samples;
+};
+
 static const char *const g_event_names[AUDIO_EVENT_CLASS_COUNT] =
 {
   "knock",
@@ -61,11 +79,12 @@ static const char *const g_event_names[AUDIO_EVENT_CLASS_COUNT] =
   "silence"
 };
 
-static int16_t g_audio_ring[AUDIO_EVENT_CLIP_SAMPLES];
+static int16_t g_audio_ring[AUDIO_RING_SAMPLES];
 static int16_t g_audio_window[AUDIO_EVENT_CLIP_SAMPLES];
 static int16_t g_audio_block[AUDIO_IO_BLOCK_SAMPLES];
 static float g_features[AUDIO_EVENT_FEATURE_SIZE];
 static float g_probabilities[AUDIO_EVENT_CLASS_COUNT];
+static struct capture_state_s g_capture_state;
 
 #ifdef AUDIO_EVENT_HAS_DISPLAY
 static uint64_t g_cooldown_start_ms;
@@ -369,26 +388,245 @@ static void ring_append(size_t *write_position, const int16_t *samples,
   for (i = 0; i < sample_count; i++)
     {
       g_audio_ring[*write_position] = samples[i];
-      *write_position = (*write_position + 1) % AUDIO_EVENT_CLIP_SAMPLES;
+      *write_position = (*write_position + 1) % AUDIO_RING_SAMPLES;
     }
 }
 
 static void ring_copy_window(size_t write_position)
 {
-  size_t tail = AUDIO_EVENT_CLIP_SAMPLES - write_position;
+  size_t start = (write_position + AUDIO_RING_SAMPLES -
+                  AUDIO_EVENT_CLIP_SAMPLES) % AUDIO_RING_SAMPLES;
+  size_t first = AUDIO_RING_SAMPLES - start;
 
-  memcpy(g_audio_window, &g_audio_ring[write_position],
-         tail * sizeof(int16_t));
-  if (write_position > 0)
+  if (first > AUDIO_EVENT_CLIP_SAMPLES)
     {
-      memcpy(&g_audio_window[tail], g_audio_ring,
-             write_position * sizeof(int16_t));
+      first = AUDIO_EVENT_CLIP_SAMPLES;
+    }
+
+  memcpy(g_audio_window, &g_audio_ring[start], first * sizeof(int16_t));
+  if (first < AUDIO_EVENT_CLIP_SAMPLES)
+    {
+      memcpy(&g_audio_window[first], g_audio_ring,
+             (AUDIO_EVENT_CLIP_SAMPLES - first) * sizeof(int16_t));
     }
 }
 
-static int process_window(size_t write_position, uint64_t timestamp_ms,
-                          uint64_t wall_timestamp_ms, bool audio_stats,
-                          bool oled_enabled, bool profile)
+static bool capture_is_running(struct capture_state_s *state)
+{
+  bool running;
+
+  pthread_mutex_lock(&state->lock);
+  running = state->running;
+  pthread_mutex_unlock(&state->lock);
+  return running;
+}
+
+static void *capture_thread_main(void *arg)
+{
+  struct capture_state_s *state = (struct capture_state_s *)arg;
+
+  while (capture_is_running(state))
+    {
+      ssize_t count = audio_capture_read(g_audio_block,
+                                         AUDIO_IO_BLOCK_SAMPLES);
+
+      if (count < 0)
+        {
+          pthread_mutex_lock(&state->lock);
+          state->result = (int)count;
+          state->running = false;
+          pthread_mutex_unlock(&state->lock);
+          sem_post(&state->semaphore);
+          break;
+        }
+
+      if (count == 0)
+        {
+          pthread_mutex_lock(&state->lock);
+          state->result = -ENODATA;
+          state->running = false;
+          pthread_mutex_unlock(&state->lock);
+          sem_post(&state->semaphore);
+          break;
+        }
+
+      pthread_mutex_lock(&state->lock);
+      ring_append(&state->write_position, g_audio_block, (size_t)count);
+      state->total_samples += (uint64_t)count;
+      pthread_mutex_unlock(&state->lock);
+      sem_post(&state->semaphore);
+    }
+
+  return NULL;
+}
+
+static int capture_worker_start(struct capture_state_s *state)
+{
+  pthread_attr_t attr;
+  struct sched_param param;
+  int capture_priority;
+  bool attr_initialized = false;
+  int ret;
+
+  memset(state, 0, sizeof(*state));
+  ret = pthread_mutex_init(&state->lock, NULL);
+  if (ret != 0)
+    {
+      return -ret;
+    }
+
+  ret = sem_init(&state->semaphore, 0, 0);
+  if (ret != 0)
+    {
+      pthread_mutex_destroy(&state->lock);
+      return -errno;
+    }
+
+  state->running = true;
+  capture_priority = CONFIG_EXAMPLES_AUDIO_EVENT_PRIORITY +
+                     AUDIO_CAPTURE_PRIORITY_BOOST;
+  if (capture_priority > SCHED_PRIORITY_MAX)
+    {
+      capture_priority = SCHED_PRIORITY_MAX;
+    }
+
+  ret = pthread_attr_init(&attr);
+  if (ret != 0)
+    {
+      state->running = false;
+      sem_destroy(&state->semaphore);
+      pthread_mutex_destroy(&state->lock);
+      return -ret;
+    }
+
+  attr_initialized = true;
+  ret = pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
+  if (ret != 0)
+    {
+      goto attr_error;
+    }
+
+  ret = pthread_attr_setschedpolicy(&attr, SCHED_RR);
+  if (ret != 0)
+    {
+      goto attr_error;
+    }
+
+  memset(&param, 0, sizeof(param));
+  param.sched_priority = capture_priority;
+  ret = pthread_attr_setschedparam(&attr, &param);
+  if (ret != 0)
+    {
+      goto attr_error;
+    }
+
+  ret = pthread_create(&state->thread, &attr, capture_thread_main, state);
+  pthread_attr_destroy(&attr);
+  attr_initialized = false;
+  if (ret != 0)
+    {
+      state->running = false;
+      sem_destroy(&state->semaphore);
+      pthread_mutex_destroy(&state->lock);
+      return -ret;
+    }
+
+  state->thread_created = true;
+  printf("[app] capture worker priority=%d main=%d\n",
+         capture_priority, CONFIG_EXAMPLES_AUDIO_EVENT_PRIORITY);
+  return 0;
+
+attr_error:
+  if (attr_initialized)
+    {
+      pthread_attr_destroy(&attr);
+    }
+
+  state->running = false;
+  sem_destroy(&state->semaphore);
+  pthread_mutex_destroy(&state->lock);
+  return -ret;
+}
+
+static void capture_worker_stop(struct capture_state_s *state)
+{
+  pthread_mutex_lock(&state->lock);
+  state->running = false;
+  pthread_mutex_unlock(&state->lock);
+  sem_post(&state->semaphore);
+
+  if (state->thread_created)
+    {
+      pthread_join(state->thread, NULL);
+      state->thread_created = false;
+    }
+
+  sem_destroy(&state->semaphore);
+  pthread_mutex_destroy(&state->lock);
+}
+
+static int capture_copy_latest_window(struct capture_state_s *state,
+                                      uint64_t *total_samples)
+{
+  int ret = 0;
+
+  pthread_mutex_lock(&state->lock);
+  if (state->result < 0)
+    {
+      ret = state->result;
+    }
+  else if (state->total_samples < AUDIO_EVENT_CLIP_SAMPLES)
+    {
+      ret = -EAGAIN;
+    }
+  else
+    {
+      ring_copy_window(state->write_position);
+      *total_samples = state->total_samples;
+    }
+
+  pthread_mutex_unlock(&state->lock);
+  return ret;
+}
+
+static int capture_wait_for_samples(struct capture_state_s *state,
+                                    uint64_t target_samples)
+{
+  int ret = 0;
+
+  for (;;)
+    {
+      pthread_mutex_lock(&state->lock);
+      if (state->result < 0)
+        {
+          ret = state->result;
+        }
+      else if (!state->running)
+        {
+          ret = -ENODATA;
+        }
+      else if (state->total_samples >= target_samples)
+        {
+          ret = 0;
+        }
+      else
+        {
+          ret = -EAGAIN;
+        }
+
+      pthread_mutex_unlock(&state->lock);
+
+      if (ret != -EAGAIN)
+        {
+          return ret;
+        }
+
+      sem_wait(&state->semaphore);
+    }
+}
+
+static int process_window(uint64_t timestamp_ms, uint64_t wall_timestamp_ms,
+                          bool audio_stats, bool oled_enabled, bool profile)
 {
   struct event_detection_s detection;
 #ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
@@ -411,7 +649,6 @@ static int process_window(size_t write_position, uint64_t timestamp_ms,
   (void)oled_enabled;
 #endif
 
-  ring_copy_window(write_position);
   copy_done_ms = monotonic_ms();
   if (audio_stats)
     {
@@ -518,6 +755,129 @@ static int process_window(size_t write_position, uint64_t timestamp_ms,
   return 0;
 }
 
+#ifdef AUDIO_EVENT_HAS_DISPLAY
+static void update_display_cooldown(uint64_t timestamp_ms, bool oled_active)
+{
+  if (g_cooldown_duration_ms > 0)
+    {
+      uint64_t elapsed = timestamp_ms - g_cooldown_start_ms;
+
+      if (elapsed >= g_cooldown_duration_ms)
+        {
+          g_cooldown_duration_ms = 0;
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_UI
+          audio_event_ui_set_listening();
+#endif
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
+          if (oled_active)
+            {
+              audio_event_oled_ui_set_listening();
+            }
+#endif
+        }
+      else
+        {
+          uint32_t remaining =
+              (uint32_t)(g_cooldown_duration_ms - elapsed);
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_UI
+          audio_event_ui_update_cooldown(remaining);
+#endif
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
+          if (oled_active)
+            {
+              audio_event_oled_ui_update_cooldown(remaining);
+            }
+#endif
+        }
+    }
+}
+#endif
+
+static int run_device_loop(const struct app_options_s *options,
+                           bool oled_active, uint64_t wall_start_ms,
+                           unsigned int *windows)
+{
+  const uint64_t hop_samples =
+      AUDIO_EVENT_SAMPLE_RATE * CONFIG_EXAMPLES_AUDIO_EVENT_HOP_MS / 1000;
+  uint64_t target_samples = AUDIO_EVENT_CLIP_SAMPLES;
+  int ret;
+
+#ifndef AUDIO_EVENT_HAS_DISPLAY
+  (void)oled_active;
+#endif
+
+  if (hop_samples == 0 || hop_samples > AUDIO_EVENT_CLIP_SAMPLES)
+    {
+      fprintf(stderr, "[app] invalid hop configuration\n");
+      return -EINVAL;
+    }
+
+  printf("[app] capture worker: ring=%u samples window=%u hop=%llu\n",
+         (unsigned int)AUDIO_RING_SAMPLES,
+         (unsigned int)AUDIO_EVENT_CLIP_SAMPLES,
+         (unsigned long long)hop_samples);
+
+  ret = capture_worker_start(&g_capture_state);
+  if (ret < 0)
+    {
+      fprintf(stderr, "[app] capture worker start failed: %d\n", ret);
+      return ret;
+    }
+
+  for (;;)
+    {
+      uint64_t snapshot_samples = 0;
+      uint64_t timestamp_ms;
+      uint64_t wall_timestamp_ms;
+
+      ret = capture_wait_for_samples(&g_capture_state, target_samples);
+      if (ret < 0)
+        {
+          fprintf(stderr, "[app] audio read failed: %d\n", ret);
+          break;
+        }
+
+      ret = capture_copy_latest_window(&g_capture_state, &snapshot_samples);
+      if (ret == -EAGAIN)
+        {
+          continue;
+        }
+
+      if (ret < 0)
+        {
+          fprintf(stderr, "[app] audio snapshot failed: %d\n", ret);
+          break;
+        }
+
+      timestamp_ms = snapshot_samples * 1000 / AUDIO_EVENT_SAMPLE_RATE;
+      wall_timestamp_ms = elapsed_ms(wall_start_ms);
+
+      ret = process_window(timestamp_ms, wall_timestamp_ms,
+                           options->audio_stats, oled_active,
+                           options->profile);
+      if (ret < 0)
+        {
+          break;
+        }
+
+#ifdef AUDIO_EVENT_HAS_DISPLAY
+      update_display_cooldown(timestamp_ms, oled_active);
+#endif
+
+      (*windows)++;
+      if (options->once)
+        {
+          ret = 0;
+          break;
+        }
+
+      target_samples = snapshot_samples + hop_samples;
+    }
+
+  capture_worker_stop(&g_capture_state);
+  return ret;
+}
+
 int audio_event_main(int argc, char *argv[])
 {
   struct app_options_s options;
@@ -616,6 +976,16 @@ int audio_event_main(int argc, char *argv[])
     }
 #endif
 
+  if (options.mode == INPUT_MODE_DEVICE)
+    {
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
+      ret = run_device_loop(&options, oled_active, wall_start_ms, &windows);
+#else
+      ret = run_device_loop(&options, false, wall_start_ms, &windows);
+#endif
+      goto cleanup;
+    }
+
   for (;;)
     {
       size_t request = samples_until_inference;
@@ -626,14 +996,7 @@ int audio_event_main(int argc, char *argv[])
           request = AUDIO_IO_BLOCK_SAMPLES;
         }
 
-      if (options.mode == INPUT_MODE_FILE)
-        {
-          count = audio_file_read(&file_source, g_audio_block, request);
-        }
-      else
-        {
-          count = audio_capture_read(g_audio_block, request);
-        }
+      count = audio_file_read(&file_source, g_audio_block, request);
 
       if (count < 0)
         {
@@ -675,8 +1038,9 @@ int audio_event_main(int argc, char *argv[])
           bool oled_enabled = false;
 #endif
 
-          ret = process_window(write_position, timestamp_ms,
-                               wall_timestamp_ms, options.audio_stats,
+          ring_copy_window(write_position);
+          ret = process_window(timestamp_ms, wall_timestamp_ms,
+                               options.audio_stats,
                                oled_enabled, options.profile);
           if (ret < 0)
             {
@@ -684,39 +1048,7 @@ int audio_event_main(int argc, char *argv[])
             }
 
 #ifdef AUDIO_EVENT_HAS_DISPLAY
-          /* Update cooldown progress */
-          if (g_cooldown_duration_ms > 0)
-            {
-              uint64_t elapsed = timestamp_ms - g_cooldown_start_ms;
-
-              if (elapsed >= g_cooldown_duration_ms)
-                {
-                  g_cooldown_duration_ms = 0;
-#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_UI
-                  audio_event_ui_set_listening();
-#endif
-#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
-                  if (oled_active)
-                    {
-                      audio_event_oled_ui_set_listening();
-                    }
-#endif
-                }
-              else
-                {
-                  uint32_t remaining =
-                      (uint32_t)(g_cooldown_duration_ms - elapsed);
-#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_UI
-                  audio_event_ui_update_cooldown(remaining);
-#endif
-#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
-                  if (oled_active)
-                    {
-                      audio_event_oled_ui_update_cooldown(remaining);
-                    }
-#endif
-                }
-            }
+          update_display_cooldown(timestamp_ms, oled_enabled);
 #endif
 
           windows++;
