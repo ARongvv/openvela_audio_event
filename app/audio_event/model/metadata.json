@@ -22,9 +22,16 @@
     "background": 2,
     "silence": 3
   },
-  "model_size": "small",
-  "parameter_count": 2148,
+  "model_size": "medium",
+  "model_config": [
+    32,
+    48,
+    64
+  ],
+  "parameter_count": 8884,
   "quantization": "int8",
+  "dropout": 0.2,
+  "l2_weight_decay": 0.0001,
   "feature_backend": "tensorflow_log_mel",
   "threshold_recommendation": {
     "knock": 0.75,
@@ -32,8 +39,8 @@
   },
   "trigger_recommendation": "alarm after probability >= 0.75 for 2 consecutive inferences",
   "metrics": {
-    "test_accuracy": 0.9154589371980676,
-    "false_alarm_rate": 0.052884615384615384,
-    "miss_rate": 0.0825242718446602
+    "test_accuracy": 0.9543859649122807,
+    "false_alarm_rate": 0.015228426395939087,
+    "miss_rate": 0.028409090909090908
   }
 }
