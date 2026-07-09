@@ -1,41 +1,35 @@
 # ccf_audioevent
 
-`ccf_audioevent` 是一个面向 openvela 的本地音频事件检测作品目录，核心目标是在
-模拟器和 ESP32-S3 DevKit + INMP441 真机上运行 `audio_event` 应用，完成音频采集、
-特征提取、TFLite Micro 推理和本地告警闭环。
+`ccf_audioevent` 是一个面向 openvela 的本地音频事件检测作品目录。当前主路径是
+`ESP32-S3-N16R8 DevKit + INMP441 数字麦克风 + 0.96 寸 I2C OLED`，核心应用是
+`audio_event`：采集音频、提取 log-mel/delta 特征、运行 TFLite Micro 模型，并在
+OLED 上显示检测状态。
+
+`audio_record` 和 `audio_test` 是辅助工具：前者用于导出实录 WAV，后者用于检查
+I2S/INMP441 采集质量。goldfish 模拟器仍保留，用于文件输入、模型加载和大屏 LVGL UI
+验证，但放在真机主流程之后。
 
 ## 目录结构
 
 ```text
 ccf_audioevent/
-├── app/audio_event/                  # audio_event 应用源码
-│   ├── ui/                            # 320x240 LVGL dashboard
-│   └── ui_oled/                       # 128x64 OLED compact UI
-├── app/audio_record/                 # 短录音 WAV base64 导出工具
-├── app/audio_test/                   # 麦克风 PCM 采集诊断工具
-├── board/esp32s3-devkit/             # ESP32-S3 DevKit + INMP441 自定义板级适配
+├── app/audio_event/                  # 主应用：音频事件检测
+│   ├── model/                         # TFLite Micro 模型与元信息
+│   ├── ui/                            # 320x240 LVGL dashboard，模拟器使用
+│   └── ui_oled/                       # 128x64 OLED compact UI，真机使用
+├── app/audio_record/                 # 辅助工具：录音并导出 WAV base64
+├── app/audio_test/                   # 辅助工具：PCM/INMP441 采集诊断
+├── board/esp32s3-devkit/             # 当前真机主 board
 ├── board/goldfish-arm64/configs/
-│   └── audio_event/defconfig         # goldfish-arm64 模拟器配置源文件
+│   └── audio_event/                  # goldfish 模拟器配置源文件
 ├── archive/esp32s3-box-3/            # ESP32-S3-BOX-3 历史适配归档
-├── scripts/                          # 字体等通用辅助脚本
-└── readme.md                         # 本文档
+├── scripts/                          # 字体等辅助脚本
+└── readme.md
 ```
-
-应用源码最终需要映射到 openvela 工作区的 `apps/examples/audio_event`。
-录音导出工具最终需要映射到 `apps/examples/audio_record`。
-麦克风诊断工具最终需要映射到 `apps/examples/audio_test`。
-模拟器配置最终需要出现在 `vendor/openvela/boards/vela/configs/goldfish-audio_event`。
-ESP32-S3 DevKit + INMP441 板级代码最终需要映射到
-`vendor/espressif/boards/esp32s3/esp32s3-devkit`。
-
-当前真机主路径是 `ESP32-S3 DevKit + INMP441 + 0.96 OLED`。ESP32-S3-BOX-3
-ES7210 真机采集链路未形成稳定闭环，相关 board、补丁脚本和问题文档已归档到
-`archive/esp32s3-box-3/`，不再作为 active target 维护。
 
 ## 工作区软链接
 
-在 openvela 工作区根目录执行以下命令，将 `ccf_audioevent` 中的源码挂到构建系统能找到
-的位置。
+在 openvela 根目录执行：
 
 ```bash
 ln -sfnT /home/arongw/openvela/ccf_audioevent/app/audio_event \
@@ -47,193 +41,209 @@ ln -sfnT /home/arongw/openvela/ccf_audioevent/app/audio_record \
 ln -sfnT /home/arongw/openvela/ccf_audioevent/app/audio_test \
   /home/arongw/openvela/apps/examples/audio_test
 
+ln -sfnT /home/arongw/openvela/ccf_audioevent/board/esp32s3-devkit \
+  /home/arongw/openvela/vendor/espressif/boards/esp32s3/esp32s3-devkit
+
 mkdir -p /home/arongw/openvela/vendor/openvela/boards/vela/configs/goldfish-audio_event
 rm -f /home/arongw/openvela/vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig
 ln -sfn /home/arongw/openvela/ccf_audioevent/board/goldfish-arm64/configs/audio_event/defconfig \
   /home/arongw/openvela/vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig
-
-ln -sfnT /home/arongw/openvela/ccf_audioevent/board/esp32s3-devkit \
-  /home/arongw/openvela/vendor/espressif/boards/esp32s3/esp32s3-devkit
 ```
 
-检查软链接：
+检查：
 
 ```bash
 readlink -f apps/examples/audio_event
 readlink -f apps/examples/audio_record
 readlink -f apps/examples/audio_test
-readlink -f vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig
 readlink -f vendor/espressif/boards/esp32s3/esp32s3-devkit
+readlink -f vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig
 ```
 
-期望 `apps/examples/audio_event`、`apps/examples/audio_record`、
-`apps/examples/audio_test`、
-`goldfish-audio_event/defconfig` 和
-`esp32s3-devkit` 都指向
-`/home/arongw/openvela/ccf_audioevent/...`。
+`goldfish-audio_event` 目录本身必须是
+`vendor/openvela/boards/vela/configs/` 下的真实目录，只软链接其中的 `defconfig`。
+不要把整个 `goldfish-audio_event` 目录软链接到 `ccf_audioevent`，否则非 CMake 构建会
+报 `File Make.defs could not be found`。
 
-`audio_record` 和 `audio_test` 是新增 example。`apps/examples/Kconfig` 是自动生成文件，
-先确保上面的 `apps/examples/audio_record`、`apps/examples/audio_test` 软链接存在，再重新
-configure 或构建，让 Kconfig 生成阶段自动加入：
+`audio_record` 和 `audio_test` 是新增 example。软链接存在后重新 configure 或构建，
+`apps/examples/Kconfig` 生成阶段会自动加入：
 
 ```text
 source "/home/arongw/openvela/apps/examples/audio_record/Kconfig"
 source "/home/arongw/openvela/apps/examples/audio_test/Kconfig"
 ```
 
-如果刷新配置后仍看不到 `CONFIG_EXAMPLES_AUDIO_RECORD` 或 `CONFIG_EXAMPLES_AUDIO_TEST`，
-优先检查软链接是否存在，而不是长期手工维护 `apps/examples/Kconfig`。
+如果 NSH 中没有 `audio_record` 或 `audio_test`，优先检查软链接和重新 configure 状态。
 
-注意：`goldfish-audio_event` 目录本身必须保留为
-`vendor/openvela/boards/vela/configs/` 下的真实目录，只软链接其中的 `defconfig`
-文件。不要把整个 `goldfish-audio_event` 目录软链接到 `ccf_audioevent`，否则非 CMake
-构建会把它当成完整 board 路径，导致 `File Make.defs could not be found`。
+## 真机硬件
 
-## 模拟器构建
-
-goldfish-arm64 模拟器配置使用 openvela 的通用 `vela` board，因此最终配置路径放在：
-
-```text
-vendor/openvela/boards/vela/configs/goldfish-audio_event/
-```
-
-推荐使用 CMake 构建：
-
-```bash
-./build.sh vendor/openvela/boards/vela/configs/goldfish-audio_event/ --cmake -j8
-```
-
-CMake 构建后，输出目录为：
-
-```text
-cmake_out/vela_goldfish-audio_event/
-```
-
-运行模拟器：
-
-```bash
-./emulator.sh cmake_out/vela_goldfish-audio_event/
-```
-
-也可以使用 make 构建：
-
-```bash
-./build.sh vendor/openvela/boards/vela/configs/goldfish-audio_event/ -j8
-```
-
-make 构建后，产物主要在 `nuttx/` 下；如果要用 `emulator.sh`，需要手动整理一个
-out 目录：
-
-```bash
-mkdir -p cmake_out/vela_goldfish-audio_event
-cp nuttx/.config cmake_out/vela_goldfish-audio_event/
-cp nuttx/vela_*.bin cmake_out/vela_goldfish-audio_event/
-cp ccf_audioevent/board/goldfish-arm64/configs/audio_event/config.ini \
-  cmake_out/vela_goldfish-audio_event/
-rm -f cmake_out/vela_goldfish-audio_event/nuttx
-ln -s ../../nuttx/nuttx cmake_out/vela_goldfish-audio_event/nuttx
-
-./emulator.sh cmake_out/vela_goldfish-audio_event/
-```
-
-`config.ini` 将 goldfish 显示固定为 `320x240` 横向模式，用于调试完整 LVGL
-dashboard。若之前已经启动过模拟器并生成了旧的
-`hardware-qemu.ini`，需要重新启动模拟器；必要时删除旧的
-`cmake_out/vela_goldfish-audio_event/hardware-qemu.ini` 后再启动。
-
-进入 NSH 后可先验证应用是否注册：
-
-```text
-nsh> help | grep audio_event
-nsh> audio_event --model-smoke
-```
-
-模拟器更适合做模型加载、文件输入和 UI 基础验证。默认采集设备配置为
-`/dev/audio/pcm0c`，如设备节点不存在，可优先使用文件模式：
-
-```text
-nsh> audio_event --file /data/res/audio/cough_2.wav --repeat 100
-```
-
-## ESP32-S3-BOX-3 归档
-
-ESP32-S3-BOX-3 不再作为 `ccf_audioevent` 的 active target。历史 board、ES7210
-诊断代码、构建补丁脚本和硬件问题文档集中保留在：
-
-```text
-archive/esp32s3-box-3/
-```
-
-这部分材料仅用于回溯 BOX-3 的 ES7210、LCD、GT911 和构建补丁问题。当前真机构建、
-烧录、麦克风采集、OLED 显示和模型验证均以 `esp32s3-devkit` 配置为准。
-
-## 真机构建（ESP32-S3 DevKit + INMP441）
-
-当前真机构建使用 ESP32-S3-N16R8 DevKit 外接 INMP441 数字麦克风，使用独立的
-custom board：
+当前真机构建使用 `esp32s3-devkit`：
 
 ```text
 vendor/espressif/boards/esp32s3/esp32s3-devkit/configs/audio_event/
 ```
 
-当前默认接线：
+### INMP441 接线
 
-| INMP441 引脚 | ESP32-S3 DevKit 连接 | 说明 / 配置项 |
+| INMP441 引脚 | ESP32-S3 DevKit | 说明 / 配置 |
 | --- | --- | --- |
-| VDD | 3V3 | 使用 3.3 V 供电，不要接 5 V |
-| GND | GND | 与开发板共地 |
+| VDD | 3V3 | 使用 3.3 V，不要接 5 V |
+| GND | GND | 共地 |
 | SCK / BCLK | GPIO18 | `CONFIG_ESP32S3_I2S1_BCLKPIN=18` |
 | WS / LRCK | GPIO17 | `CONFIG_ESP32S3_I2S1_WSPIN=17` |
 | SD / DOUT | GPIO15 | `CONFIG_ESP32S3_I2S1_DINPIN=15` |
-| L/R | GND | 选择 Left slot，对应 `CONFIG_EXAMPLES_AUDIO_EVENT_INMP441_SLOT=0` |
+| L/R | GND | 选择 Left slot，即 slot 0 |
 
-INMP441 不需要 MCLK，当前 devkit 配置只使用 I2S1 的 `BCLK`、`WS/LRCK` 和 `DIN`
-三根音频信号线。若将 `L/R` 接到 3V3，应把应用侧 slot 改为
-`CONFIG_EXAMPLES_AUDIO_EVENT_INMP441_SLOT=1` 后重新构建。
+INMP441 不需要 MCLK。当前 I2S1 采集为 `16 kHz, 2ch, 32-bit`，应用侧选择 slot 0，
+再右移 16 位转换为模型需要的 `16 kHz, mono, int16`。
 
-0.96 寸 I2C OLED 用于做最小显示闭环，当前按 SSD1306 128x64、7-bit I2C 地址
-`0x3C` 配置：
+若把 `L/R` 接到 3V3，应将应用侧 slot 改为 1 后重新构建。
 
-| OLED 引脚 | ESP32-S3 DevKit 连接 | 说明 / 配置项 |
+### 0.96 寸 OLED 接线
+
+| OLED 引脚 | ESP32-S3 DevKit | 说明 / 配置 |
 | --- | --- | --- |
-| VCC | 3V3 | 使用 3.3 V 供电 |
-| GND | GND | 与开发板共地 |
+| VCC | 3V3 | 使用 3.3 V |
+| GND | GND | 共地 |
 | SCL | GPIO5 | `CONFIG_ESP32S3_I2C0_SCLPIN=5` |
 | SDA | GPIO4 | `CONFIG_ESP32S3_I2C0_SDAPIN=4` |
 | I2C 地址 | `0x3C` | `CONFIG_SSD1306_I2CADDR=60` |
 
-启动后 board bring-up 会初始化 I2C0 和 OLED，并在屏幕上显示：
+启动后 board bring-up 会初始化 I2C0 和 OLED。若屏幕亮但内容镜像、错位或缺字，先确认
+模块到底是 SSD1306 还是 SH1106 兼容屏；SH1106 常见 132 列内部显存，需要单独适配。
 
-```text
-CCF AUDIO
-OLED OK
-I2C 0x3C
+## 真机构建和烧录
+
+构建：
+
+```bash
+./build.sh vendor/espressif/boards/esp32s3/esp32s3-devkit/configs/audio_event/ -j8
 ```
 
-看到这三行字，说明 3V3/GND、I2C0 SDA/SCL、OLED 地址和 SSD1306 基础初始化已经形成
-最小闭环。如果屏幕亮但内容错位或无字，先确认模块是否为 SH1106 兼容屏；这类屏常见为
-132 列内部显存，后续需要把 OLED 型号配置从 `CONFIG_LCD_UG2864HSWEG01` 调整到
-对应的 SH1106 配置。
+烧录并打开串口：
 
-`audio_event` 显示分为两条 UI 路线：
+```bash
+cd nuttx && make flash ESPTOOL_PORT=/dev/ttyACM0 ESPTOOL_BAUD=921600 && cd ..
+picocom -b 115200 /dev/ttyACM0
+```
 
-| 目标 | UI 后端 | 配置 | 说明 |
-| --- | --- | --- | --- |
-| goldfish | LVGL dashboard | `CONFIG_EXAMPLES_AUDIO_EVENT_UI` | 320x240 彩屏，显示波形、四类概率、检测状态和参数 |
-| ESP32-S3 DevKit + 0.96 OLED | OLED compact UI | `CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI` | 128x64 单色屏，只显示当前类别、置信度、RMS/音量、告警和冷却 |
+开发板如果有两个 Type-C 口，通常一个是 USB/JTAG/COM，另一个是 USB OTG。串口监视使用
+COM 口；烧录后若没有马上进 NSH，按一下 RESET。
 
-OLED compact UI 不是把 320x240 dashboard 缩小，而是独立的小屏状态页。默认监听时显示：
+进入 NSH 后先确认 app 注册：
+
+```text
+nsh> help
+```
+
+期望 Builtin Apps 中包含：
+
+```text
+audio_event     audio_record    audio_test
+```
+
+## audio_event 主应用
+
+`audio_event` 是主流程。它默认面向 16 kHz、1 秒、mono int16 输入，当前模型使用
+`49 x 40 x 3` 的 log-mel + delta 特征，类别顺序为：
+
+```text
+knock, cough, background, silence
+```
+
+常用启动命令：
+
+```text
+nsh> audio_event --device /dev/audio/pcm_in1 --audio-stats
+```
+
+诊断时建议加上 profile：
+
+```text
+nsh> audio_event --device /dev/audio/pcm_in1 --audio-stats --profile
+```
+
+如果怀疑 OLED/I2C 影响音频采集，可临时关闭 OLED：
+
+```text
+nsh> audio_event --device /dev/audio/pcm_in1 --audio-stats --profile --no-oled
+```
+
+只验证模型能否加载和推理：
+
+```text
+nsh> audio_event --model-smoke
+```
+
+只跑一轮设备采集：
+
+```text
+nsh> audio_event --device /dev/audio/pcm_in1 --audio-stats --once
+```
+
+### 运行日志判断
+
+真机 INMP441 路径启动后应看到类似日志：
+
+```text
+[audio] configure input pcm rate=16000 channels=2 bits=32
+[audio] INMP441 adapter: slot=0 shift=16 output=mono int16
+[audio] capturing /dev/audio/pcm_in1 at 16000 Hz, device=2ch/32-bit, app=mono/16-bit
+[app] capture worker: ring=32000 samples window=16000 hop=4000
+```
+
+含义：
+
+- `device=2ch/32-bit`：I2S 驱动按 INMP441 的 32-bit slot 采集。
+- `app=mono/16-bit`：应用已转换成模型输入格式。
+- `ring=32000`：采集线程维护 2 秒环形缓冲区。
+- `window=16000`：每次推理取最新 1 秒音频。
+- `hop=4000`：默认每 250 ms 尝试一次新窗口。
+
+`--audio-stats` 会打印每个 1 秒窗口的统计：
+
+```text
+[audio_stats] t=1024 ms wall=1050 ms min=-4439 max=28605 mean=3627 rms=8558 zero=0/16000
+[infer] t=1024 ms wall=1050 ms class=background probs_permille=[39 23 934 4]
+```
+
+字段说明：
+
+- `t`：音频流时间，按已采集样本数换算。
+- `wall`：真实墙钟时间。
+- `min/max`：该窗口内 PCM16 最小/最大样本值，出现负数是正常的。
+- `mean`：直流偏置，理想情况下应接近 0。
+- `rms`：音量/能量，敲门、咳嗽时会明显升高。
+- `zero`：值为 0 的样本数量，过高可能是静音段、slot 不对或缓冲异常。
+- `probs_permille`：四类概率的千分比，顺序是 `[knock cough background silence]`。
+
+当前真机阈值建议：
+
+```text
+knock >= 380 permille
+cough >= 750 permille
+consecutive hits = 2
+```
+
+敲门实测常见概率不如咳嗽尖锐，因此敲门阈值低于咳嗽阈值。若误报偏多，先把
+`CONFIG_EXAMPLES_AUDIO_EVENT_KNOCK_THRESHOLD` 提到 `420` 左右再测试。
+
+### OLED 显示
+
+DevKit 真机启用 `CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI`，不是把 320x240 LVGL 页面缩小，
+而是独立的 128x64 compact UI。
+
+监听时显示当前状态、置信度和音量：
 
 ```text
 AUDIO EVENT
-
 BGND / QUIET / KNOCK / COUGH
 CONF xx%
-RMS  xxxx
+RMS xxxx
 [volume bar]
 ```
 
-触发目标事件时显示：
+触发时显示目标事件：
 
 ```text
 KNOCK!
@@ -249,39 +259,31 @@ COOLDOWN
 LAST KNOCK
 ```
 
-这样 DevKit 真机侧保留“小屏一眼看结论”，模拟器侧保留“完整可视化调试”。
+## audio_record 录音导出工具
 
-该配置启用 I2S1 RX，并将采集设备注册为：
+`audio_record` 用来把真机采集到的 INMP441 音频导出为 WAV，方便在电脑上听、看波形、
+检查削波和静音段。它不是主检测应用。
 
-```text
-/dev/audio/pcm_in1
-```
-
-构建命令：
-
-```bash
-./build.sh vendor/espressif/boards/esp32s3/esp32s3-devkit/configs/audio_event/ -j8
-```
-
-烧录并打开串口监视：
-
-```bash
-cd nuttx && make flash ESPTOOL_PORT=/dev/ttyACM0 ESPTOOL_BAUD=921600 && cd ..
-picocom -b 115200 /dev/ttyACM0
-```
-
-启动后先验证命令是否注册：
+短录音：
 
 ```text
-nsh> help | grep audio
 nsh> audio_record --device /dev/audio/pcm_in1 --seconds 2
-nsh> audio_test --device /dev/audio/pcm_in1 --channels 2 --seconds 5
-nsh> audio_event --model-smoke
-nsh> audio_event --device /dev/audio/pcm_in1 --audio-stats
 ```
 
-`audio_record` 会先在板端缓存一小段录音，采集完成后再在串口中输出标准 WAV 的
-base64 文本：
+最长录音由 `CONFIG_EXAMPLES_AUDIO_RECORD_MAX_SECONDS` 控制，当前为 60 秒：
+
+```text
+nsh> audio_record --device /dev/audio/pcm_in1 --seconds 60
+```
+
+也可以临时指定 INMP441 slot 和缩放：
+
+```text
+nsh> audio_record --device /dev/audio/pcm_in1 --seconds 3 --slot 0 --shift 16
+```
+
+`audio_record` 不会自动把文件保存到电脑。它会先在板端内存中缓存录音，采集完成后在
+串口输出 WAV 的 base64：
 
 ```text
 WAV_BASE64_BEGIN
@@ -289,31 +291,25 @@ WAV_BASE64_BEGIN
 WAV_BASE64_END
 ```
 
-在电脑端只复制两行 marker 中间的 base64 内容到 `record.b64`，然后解码：
+电脑端只复制两行 marker 中间的 base64 正文到 `record.b64`，然后解码：
 
 ```bash
 base64 -d record.b64 > record.wav
 ```
 
-也可以让 `picocom` 直接保存串口日志，避免手工复制大段 base64：
+长录音建议用 `picocom --logfile` 保存串口日志：
 
 ```bash
 picocom -b 115200 /dev/ttyACM0 --logfile audio_record.log
 ```
 
-在 NSH 中运行录音命令：
-
-```text
-nsh> audio_record --device /dev/audio/pcm_in1 --seconds 2
-```
-
-验证 PSRAM 长录音时可运行：
+NSH 中执行：
 
 ```text
 nsh> audio_record --device /dev/audio/pcm_in1 --seconds 60
 ```
 
-退出 `picocom` 后，从日志中提取 marker 中间的 base64 并生成 WAV：
+退出 `picocom` 后提取 WAV：
 
 ```bash
 sed -n '/WAV_BASE64_BEGIN/,/WAV_BASE64_END/p' audio_record.log \
@@ -322,116 +318,136 @@ sed -n '/WAV_BASE64_BEGIN/,/WAV_BASE64_END/p' audio_record.log \
   | base64 -d > record.wav
 ```
 
-检查 WAV 格式：
+检查和播放：
 
 ```bash
 file record.wav
 ls -lh record.wav
-```
-
-正常应显示为 16 kHz、mono、16-bit PCM WAV。播放可使用：
-
-```bash
 aplay record.wav
 ```
 
-如果没有 `aplay`，也可以使用 `ffplay record.wav` 或 Audacity 打开。注意
-`record.b64` 中只能保留 base64 正文，不要混入 `WAV_BASE64_BEGIN`、
-`WAV_BASE64_END`、`nsh>` 提示符或 `[audio_record]` 日志。
-
-默认录制 2 秒、16 kHz、mono、int16 WAV。当前 devkit 配置已启用 N16R8 的
-octal PSRAM，并把 PSRAM 加入 common heap，`audio_record` 可通过 `--seconds N`
-最长录制 60 秒。60 秒 mono int16 录音缓存约占：
+正常应是 16 kHz、mono、16-bit PCM WAV。60 秒缓存约占：
 
 ```text
 16000 samples/s * 60 s * 2 bytes = 1,920,000 bytes
 ```
 
-`audio_record` 仍然是“先采集到板端内存，采集完成后再输出 base64”，不是边录边往串口
-实时输出。这样 WAV 头里的数据长度是确定的，电脑端提取出的 `record.wav` 更稳定。长录音
-会在采集完成后输出很长一段 base64，建议用 `picocom --logfile` 保存串口日志后再解码。
+因此长录音依赖 ESP32-S3-N16R8 的 PSRAM 已加入 heap。如果提示分配失败，先确认固件是
+用 `esp32s3-devkit/configs/audio_event` 重新 configure 并烧录的。
 
-如果运行 60 秒录音时提示 `cannot allocate ... bytes`，先确认本次固件确实由
-`esp32s3-devkit/configs/audio_event/defconfig` 重新 configure，并在启动日志或
-`nsh> free` 中确认 PSRAM 已作为额外 heap 可用。
+注意：`record.b64` 中只能保留 base64 正文，不要混入 `WAV_BASE64_BEGIN`、
+`WAV_BASE64_END`、`nsh>` 或 `[audio_record]` 日志。
 
-如果 `audio_test` 或 `audio_event --audio-stats` 已经显示非零数据，说明
-INMP441 到 ESP32-S3 I2S RX 的硬件链路基本打通。若 `audio_event` 日志中出现以下内容，
-说明应用侧已经启用 INMP441 适配，会把 32-bit I2S slot 转成模型需要的
-16 kHz mono PCM16：
+## audio_test 采集诊断工具
+
+`audio_test` 只检查音频采集，不加载模型、不跑 OLED UI。它适合排查硬件接线、I2S slot、
+位宽转换和削波问题。
+
+默认测试：
 
 ```text
-[audio] configure input pcm rate=16000 channels=2 bits=32
-[audio] INMP441 adapter: slot=0 shift=16 output=mono int16
+nsh> audio_test --device /dev/audio/pcm_in1 --seconds 5
 ```
 
-当前 devkit 配置保留：
+显式指定 2 声道诊断：
 
 ```text
-CONFIG_ESP32S3_I2S1_DATA_BIT_WIDTH_32BIT=y
-CONFIG_EXAMPLES_AUDIO_EVENT_INMP441_32BIT=y
-CONFIG_EXAMPLES_AUDIO_EVENT_INMP441_SLOT=0
-CONFIG_EXAMPLES_AUDIO_EVENT_INMP441_SHIFT=16
-```
-
-其中 `SLOT=0` 对应当前 `L/R` 接 GND 的左声道；`SHIFT=16` 是 32-bit 样本转
-16-bit PCM 的初始缩放值。若安静环境下零值比例过高且声音细节偏弱，可后续尝试
-`SHIFT=15` 或 `SHIFT=14` 做幅度标定；若出现长期削波，再调回更大的右移值。
-
-### 麦克风诊断
-
-`audio_test` 是独立的 PCM 采集诊断命令，不加载模型、不初始化 LVGL，只验证
-`/dev/audio/pcm_in1` 是否能输出有效的 16-bit PCM。它每秒打印一次每个声道的
-`min/max/mean/rms/zero/clip`：
-
-```text
-nsh> audio_test --device /dev/audio/pcm_in1 --channels 1 --seconds 5
 nsh> audio_test --device /dev/audio/pcm_in1 --channels 2 --seconds 5
 ```
 
-结果判断：
+INMP441 适配启用时，日志会同时报告 `slot0`、`slot1` 和最终 `mono(slot0)`：
 
-- `rms` 长期接近 0 且 `zero` 接近总采样数：驱动链路可能没有收到麦克风数据。
-- 单声道全零、双声道某一路有 `rms`：重点检查 I2S slot/channel 配置。
-- `clip` 持续增加：输入增益过高或格式解释错误。
-- 对着麦克风敲击或说话时 `rms` 明显升高：采集链路基本可用，再回到
-  `audio_event` 做模型和阈值验证。
+```text
+[audio_test] INMP441 adapter: slot=0 shift=16 output=mono int16; reporting slot0/slot1/mono
+[audio_test] slot0 min=-6486 max=28395 mean=3985 rms=8993 zero=64/16000 clip=0 nearclip=0
+[audio_test] slot1 min=0 max=0 mean=0 rms=0 zero=16000/16000 clip=0 nearclip=0
+```
+
+判断规则：
+
+- `slot0` 有数据、`slot1` 全 0：符合 `L/R` 接 GND 的 INMP441。
+- 两路都全 0：检查 VDD/GND/BCLK/WS/SD 接线和 `/dev/audio/pcm_in1`。
+- 数据在另一 slot：检查 `L/R` 接法或把 slot 改为 1。
+- `clip` 或 `nearclip` 持续增加：输入过大或右移太小，优先增大 shift。
+- 敲击或咳嗽时 `rms` 明显升高：采集链路基本可用，再回到 `audio_event` 验证模型。
+
+## 模拟器构建和运行
+
+goldfish-arm64 模拟器主要用于文件输入、模型加载和 320x240 LVGL dashboard 验证。它不是
+当前真机主路径。
+
+最终配置路径：
+
+```text
+vendor/openvela/boards/vela/configs/goldfish-audio_event/
+```
+
+推荐 CMake 构建：
+
+```bash
+./build.sh vendor/openvela/boards/vela/configs/goldfish-audio_event/ --cmake -j8
+```
+
+输出目录：
+
+```text
+cmake_out/vela_goldfish-audio_event/
+```
+
+运行：
+
+```bash
+./emulator.sh cmake_out/vela_goldfish-audio_event/
+```
+
+进入 NSH 后：
+
+```text
+goldfish-armv8a-ap> audio_event --model-smoke
+goldfish-armv8a-ap> audio_event --file /data/res/audio/cough_2.wav --repeat 100
+```
+
+模拟器默认采集设备为 `/dev/audio/pcm0c`。如果设备节点或 PulseAudio 状态不稳定，优先用
+`--file` 模式验证模型和 UI。
+
+也可以使用 make 构建：
+
+```bash
+./build.sh vendor/openvela/boards/vela/configs/goldfish-audio_event/ -j8
+```
+
+make 构建后若要运行 `emulator.sh`，需要整理 out 目录：
+
+```bash
+mkdir -p cmake_out/vela_goldfish-audio_event
+cp nuttx/.config cmake_out/vela_goldfish-audio_event/
+cp nuttx/vela_*.bin cmake_out/vela_goldfish-audio_event/
+cp ccf_audioevent/board/goldfish-arm64/configs/audio_event/config.ini \
+  cmake_out/vela_goldfish-audio_event/
+rm -f cmake_out/vela_goldfish-audio_event/nuttx
+ln -s ../../nuttx/nuttx cmake_out/vela_goldfish-audio_event/nuttx
+
+./emulator.sh cmake_out/vela_goldfish-audio_event/
+```
+
+`config.ini` 将 goldfish 显示固定为 `320x240` 横向模式。若之前启动过模拟器并生成了旧
+`hardware-qemu.ini`，必要时删除
+`cmake_out/vela_goldfish-audio_event/hardware-qemu.ini` 后再启动。
 
 ## 关键配置
 
-`board/goldfish-arm64/configs/audio_event/defconfig` 主要启用：
-
-- `CONFIG_EXAMPLES_AUDIO_EVENT=y`
-- `CONFIG_EXAMPLES_AUDIO_EVENT_DEVPATH="/dev/audio/pcm0c"`
-- `CONFIG_EXAMPLES_AUDIO_EVENT_UI=y`
-- `CONFIG_TFLITEMICRO=y`
-- `CONFIG_MATH_KISSFFT=y`
-- `CONFIG_SYSTEM_FLATBUFFERS=y`
-
-该配置已经移除与 `audio_event` 无关的重型模拟器组件，避免引入不必要的构建依赖：
-
-- Android Binder / ServiceManager
-- QuickApp / Feature Framework
-- Media server / media tool
-- curl command line
-
-`board/esp32s3-devkit/configs/audio_event/defconfig` 主要启用：
+`board/esp32s3-devkit/configs/audio_event/defconfig` 重点配置：
 
 - `CONFIG_EXAMPLES_AUDIO_EVENT=y`
 - `CONFIG_EXAMPLES_AUDIO_EVENT_DEVPATH="/dev/audio/pcm_in1"`
 - `CONFIG_EXAMPLES_AUDIO_EVENT_INMP441_32BIT=y`
-- `CONFIG_EXAMPLES_AUDIO_EVENT_INMP441_SLOT=0`
-- `CONFIG_EXAMPLES_AUDIO_EVENT_INMP441_SHIFT=16`
+- `CONFIG_EXAMPLES_AUDIO_EVENT_KNOCK_THRESHOLD=380`
+- `CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI=y`
 - `CONFIG_EXAMPLES_AUDIO_RECORD=y`
-- `CONFIG_EXAMPLES_AUDIO_RECORD_DEVPATH="/dev/audio/pcm_in1"`
-- `CONFIG_EXAMPLES_AUDIO_RECORD_INMP441_32BIT=y`
-- `CONFIG_EXAMPLES_AUDIO_RECORD_INMP441_SLOT=0`
-- `CONFIG_EXAMPLES_AUDIO_RECORD_INMP441_SHIFT=16`
 - `CONFIG_EXAMPLES_AUDIO_TEST=y`
 - `CONFIG_EXAMPLES_AUDIO_TEST_CHANNELS=2`
 - `CONFIG_ESP32S3_DEVKIT_INMP441=y`
 - `CONFIG_ESP32S3_DEVKIT_OLED=y`
-- `CONFIG_ESP32S3_I2C0_MASTER_MODE=y`
 - `CONFIG_ESP32S3_I2C0_SCLPIN=5`
 - `CONFIG_ESP32S3_I2C0_SDAPIN=4`
 - `CONFIG_ESP32S3_I2S1_BCLKPIN=18`
@@ -440,12 +456,35 @@ nsh> audio_test --device /dev/audio/pcm_in1 --channels 2 --seconds 5
 - `CONFIG_ESP32S3_I2S1_DATA_BIT_WIDTH_32BIT=y`
 - `CONFIG_LCD_SSD1306_I2C=y`
 - `CONFIG_LCD_UG2864HSWEG01=y`
-- `CONFIG_SSD1306_I2CADDR=60`
-- `CONFIG_LIBCXX=y`
-- `CONFIG_TLS_NELEM=4`
-- `CONFIG_TLS_TASK_NELEM=4`
 - `CONFIG_TFLITEMICRO=y`
 - `CONFIG_MATH_KISSFFT=y`
+- `CONFIG_LIBCXX=y`
+
+`audio_record` 和 `audio_test` 的 INMP441 适配配置由 Kconfig 在
+`CONFIG_ESP32S3_DEVKIT_INMP441=y` 时默认启用。默认 slot 为 0，shift 为 16。
+
+`board/goldfish-arm64/configs/audio_event/defconfig` 重点配置：
+
+- `CONFIG_EXAMPLES_AUDIO_EVENT=y`
+- `CONFIG_EXAMPLES_AUDIO_EVENT_DEVPATH="/dev/audio/pcm0c"`
+- `CONFIG_EXAMPLES_AUDIO_EVENT_UI=y`
+- `CONFIG_TFLITEMICRO=y`
+- `CONFIG_MATH_KISSFFT=y`
+- `CONFIG_SYSTEM_FLATBUFFERS=y`
+
+goldfish 配置已尽量移除与 `audio_event` 无关的重型组件，例如 Android Binder、
+QuickApp、Feature Framework、Media server 和 curl。
+
+## ESP32-S3-BOX-3 归档
+
+ESP32-S3-BOX-3 不再作为 active target。历史 board、ES7210 诊断代码、构建补丁脚本和
+硬件问题文档集中保留在：
+
+```text
+archive/esp32s3-box-3/
+```
+
+当前真机构建、烧录、麦克风采集、OLED 显示和模型验证均以 `esp32s3-devkit` 为准。
 
 ## Manifest 建议
 
@@ -458,52 +497,52 @@ nsh> audio_test --device /dev/audio/pcm_in1 --channels 2 --seconds 5
           dest="apps/examples/audio_record"/>
 <linkfile src="app/audio_test"
           dest="apps/examples/audio_test"/>
+<linkfile src="board/esp32s3-devkit"
+          dest="vendor/espressif/boards/esp32s3/esp32s3-devkit"/>
 <linkfile src="board/goldfish-arm64/configs/audio_event/defconfig"
           dest="vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig"/>
 <linkfile src="board/goldfish-arm64/configs/audio_event/config.ini"
           dest="vendor/openvela/boards/vela/configs/goldfish-audio_event/config.ini"/>
-<linkfile src="board/esp32s3-devkit"
-          dest="vendor/espressif/boards/esp32s3/esp32s3-devkit"/>
 ```
-
-这样评委或其他开发者同步仓库后，不需要手工复制文件，只要使用对应的构建路径即可。
-
-## 注意事项
-
-- `ccf_audioevent/app/audio_event/.git` 已清理，避免应用目录成为嵌套 Git 仓库。
-- goldfish-arm64 的配置不是完整 board，只是 `vendor/openvela/boards/vela` 的一个
-  config，因此不要直接用 `ccf_audioevent/board/goldfish-arm64/configs/audio_event/`
-  作为 `build.sh` 路径。
-- 非 CMake 构建不会自动准备 `cmake_out/vela_goldfish-audio_event/`，运行模拟器前需要
-  手动复制 `.config`、`vela_*.bin` 并链接 `nuttx`。
-- 当前真机构建目标是 ESP32-S3 DevKit + INMP441，配置路径为
-  `vendor/espressif/boards/esp32s3/esp32s3-devkit/configs/audio_event/`。
-  BOX-3 配置已归档，不再作为 active target。
-- 真机音频采集路径是 `/dev/audio/pcm_in1`，模拟器默认路径是 `/dev/audio/pcm0c`。
-- ESP32-S3 DevKit + INMP441 的 `audio_event` 已按 32-bit I2S slot 采集，并在应用层
-  转成模型输入所需的 16-bit mono PCM。若更改 INMP441 的 `L/R` 接法，需要同步调整
-  `CONFIG_EXAMPLES_AUDIO_EVENT_INMP441_SLOT`。
-- 若 UI 初始化失败，`audio_event` 会继续运行，可先用 `--model-smoke` 或 `--file`
-  模式确认推理链路。
 
 ## 常见问题
 
-### File Make.defs could not be found
+### `audio_event` 一直是 silence 或 background
+
+先运行：
+
+```text
+nsh> audio_test --device /dev/audio/pcm_in1 --seconds 5
+```
+
+确认 slot、rms、zero、clip 正常后，再用：
+
+```text
+nsh> audio_event --device /dev/audio/pcm_in1 --audio-stats --profile --no-oled
+```
+
+检查模型输入窗口是否有真实声音。如果 `audio_test` 正常而模型不稳定，优先导出 WAV，
+听实录音频并检查训练域是否和 INMP441 实录域一致。
+
+### `audio_record` 没有在电脑生成文件
+
+这是正常的。`audio_record` 只通过串口输出 base64，需要在电脑端保存日志并解码为
+`record.wav`。
+
+### `File Make.defs could not be found`
 
 通常是把整个 `vendor/openvela/boards/vela/configs/goldfish-audio_event` 目录软链接到了
-`ccf_audioevent/board/goldfish-arm64/configs/audio_event`。修复方式是删除该目录软链，
-创建真实目录，并只软链接 `defconfig` 文件。
+`ccf_audioevent/board/goldfish-arm64/configs/audio_event`。修复方式是创建真实目录，只软链
+`defconfig` 文件。
 
 ### Binder AIDL target 重复
 
-如果出现 `android_binder_IServiceManager` target 重复，说明配置里仍启用了 Android
-Binder。`audio_event` 不依赖 Binder，应确认 defconfig 中没有
+说明 goldfish 配置里仍启用了 Android Binder。`audio_event` 不依赖 Binder，应确认没有
 `CONFIG_ANDROID_BINDER=y`、`CONFIG_ANDROID_SERVICEMANAGER=y`、`CONFIG_BINDER_EXAMPLES=y`
 和 `CONFIG_DRIVERS_BINDER=y`。
 
-### CONFIG_HAP_APP_PATH 未定义
+### `CONFIG_HAP_APP_PATH` 未定义
 
-如果 `feature/audio_impl.c` 报 `CONFIG_HAP_APP_PATH` 未定义，说明配置仍拉入了
-QuickApp / Feature Framework / Media server。`audio_event` 模拟器配置不需要这些框架，
-应确认 defconfig 中没有 `CONFIG_QUICKAPP=y`、`CONFIG_FEATURE_FRAMEWORK=y`、
+说明配置仍拉入了 QuickApp / Feature Framework / Media server。`audio_event` 不需要这些
+框架，应确认没有 `CONFIG_QUICKAPP=y`、`CONFIG_FEATURE_FRAMEWORK=y`、
 `CONFIG_MEDIA_SERVER=y` 和 `CONFIG_MEDIA_TOOL=y`。
