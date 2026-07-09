@@ -12,7 +12,9 @@
 #define AUDIO_EVENT_FFT_SIZE              512
 #define AUDIO_EVENT_FEATURE_FRAMES         49
 #define AUDIO_EVENT_FEATURE_BINS           40
-#define AUDIO_EVENT_FEATURE_SIZE         1960
+#define AUDIO_EVENT_FEATURE_CHANNELS        3
+#define AUDIO_EVENT_FEATURE_PLANE_SIZE   1960
+#define AUDIO_EVENT_FEATURE_SIZE         5880
 #define AUDIO_EVENT_CLASS_COUNT             4
 
 enum audio_event_class_e

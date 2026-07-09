@@ -1,5 +1,5 @@
 /*
- * TensorFlow-compatible log-mel feature extraction.
+ * TensorFlow-compatible log-mel + delta feature extraction.
  */
 
 #ifndef __APPS_EXAMPLES_AUDIO_EVENT_DSP_FEATURE_EXTRACT_H

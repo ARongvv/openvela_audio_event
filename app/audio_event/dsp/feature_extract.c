@@ -1,5 +1,5 @@
 /*
- * TensorFlow-compatible 49 x 40 log-mel frontend.
+ * TensorFlow-compatible 49 x 40 x 3 log-mel frontend.
  */
 
 #include <errno.h>
@@ -35,6 +35,46 @@ static float g_band_edge_mel[AUDIO_EVENT_FEATURE_BINS + 2];
 static float hertz_to_mel(float hertz)
 {
   return 1127.0f * logf(1.0f + hertz / 700.0f);
+}
+
+static size_t feature_index(size_t frame, size_t band, size_t channel)
+{
+  return ((frame * AUDIO_EVENT_FEATURE_BINS + band) *
+          AUDIO_EVENT_FEATURE_CHANNELS) + channel;
+}
+
+static size_t clamp_frame(int frame)
+{
+  if (frame < 0)
+    {
+      return 0;
+    }
+
+  if (frame >= AUDIO_EVENT_FEATURE_FRAMES)
+    {
+      return AUDIO_EVENT_FEATURE_FRAMES - 1;
+    }
+
+  return (size_t)frame;
+}
+
+static float temporal_delta(const float *features, size_t frame, size_t band,
+                            size_t channel)
+{
+  float numerator = 0.0f;
+  int n;
+
+  for (n = 1; n <= 2; n++)
+    {
+      size_t prev = clamp_frame((int)frame - n);
+      size_t next = clamp_frame((int)frame + n);
+
+      numerator += (float)n *
+                   (features[feature_index(next, band, channel)] -
+                    features[feature_index(prev, band, channel)]);
+    }
+
+  return numerator / 10.0f;
 }
 
 int feature_extract_init(void)
@@ -76,9 +116,10 @@ int feature_extract_init(void)
                       (AUDIO_EVENT_FEATURE_BINS + 1);
     }
 
-  printf("[feature] log-mel ready: frames=%d bins=%d fft=%d\n",
+  printf("[feature] log-mel+delta ready: frames=%d bins=%d channels=%d "
+         "fft=%d\n",
          AUDIO_EVENT_FEATURE_FRAMES, AUDIO_EVENT_FEATURE_BINS,
-         AUDIO_EVENT_FFT_SIZE);
+         AUDIO_EVENT_FEATURE_CHANNELS, AUDIO_EVENT_FFT_SIZE);
   return 0;
 }
 
@@ -163,7 +204,29 @@ int feature_extract_compute(const int16_t *samples, size_t sample_count,
               value = FEATURE_MAX;
             }
 
-          features[frame * AUDIO_EVENT_FEATURE_BINS + band] = value;
+          features[feature_index(frame, band, 0)] = value;
+        }
+    }
+
+  for (frame = 0; frame < AUDIO_EVENT_FEATURE_FRAMES; frame++)
+    {
+      int band;
+
+      for (band = 0; band < AUDIO_EVENT_FEATURE_BINS; band++)
+        {
+          features[feature_index(frame, band, 1)] =
+              temporal_delta(features, frame, band, 0);
+        }
+    }
+
+  for (frame = 0; frame < AUDIO_EVENT_FEATURE_FRAMES; frame++)
+    {
+      int band;
+
+      for (band = 0; band < AUDIO_EVENT_FEATURE_BINS; band++)
+        {
+          features[feature_index(frame, band, 2)] =
+              temporal_delta(features, frame, band, 1);
         }
     }
 
