@@ -50,6 +50,7 @@ struct app_options_s
   bool model_smoke;
   bool audio_stats;
   bool no_oled;
+  bool profile;
 };
 
 static const char *const g_event_names[AUDIO_EVENT_CLASS_COUNT] =
@@ -123,11 +124,21 @@ static uint64_t elapsed_ms(uint64_t start_ms)
   return now_ms - start_ms;
 }
 
+static uint64_t diff_ms(uint64_t start_ms, uint64_t end_ms)
+{
+  if (end_ms < start_ms)
+    {
+      return 0;
+    }
+
+  return end_ms - start_ms;
+}
+
 static void usage(const char *program)
 {
   printf("Usage: %s [--file PATH | --device PATH] [--once] "
-         "[--repeat N] [--model-smoke] [--audio-stats] [--no-oled]\n",
-         program);
+         "[--repeat N] [--model-smoke] [--audio-stats] "
+         "[--no-oled] [--profile]\n", program);
   printf("  --file PATH    Read 16 kHz mono PCM16 or WAV from HostFS\n");
   printf("  --device PATH  Read from a NuttX Audio capture device\n");
   printf("  --once         Stop after the first one-second inference\n");
@@ -135,6 +146,7 @@ static void usage(const char *program)
   printf("  --model-smoke  Invoke the model with silence features\n");
   printf("  --audio-stats  Print PCM min/max/mean/rms/zero_count per window\n");
   printf("  --no-oled      Disable OLED init and updates for audio diagnostics\n");
+  printf("  --profile      Print per-window processing time breakdown\n");
 }
 
 static int parse_options(int argc, char **argv, struct app_options_s *options)
@@ -148,6 +160,7 @@ static int parse_options(int argc, char **argv, struct app_options_s *options)
   options->model_smoke = false;
   options->audio_stats = false;
   options->no_oled = false;
+  options->profile = false;
 
   for (i = 1; i < argc; i++)
     {
@@ -187,6 +200,10 @@ static int parse_options(int argc, char **argv, struct app_options_s *options)
       else if (strcmp(argv[i], "--no-oled") == 0)
         {
           options->no_oled = true;
+        }
+      else if (strcmp(argv[i], "--profile") == 0)
+        {
+          options->profile = true;
         }
       else if (strcmp(argv[i], "--help") == 0 ||
                strcmp(argv[i], "-h") == 0)
@@ -371,7 +388,7 @@ static void ring_copy_window(size_t write_position)
 
 static int process_window(size_t write_position, uint64_t timestamp_ms,
                           uint64_t wall_timestamp_ms, bool audio_stats,
-                          bool oled_enabled)
+                          bool oled_enabled, bool profile)
 {
   struct event_detection_s detection;
 #ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
@@ -380,17 +397,28 @@ static int process_window(size_t write_position, uint64_t timestamp_ms,
   int top_confidence;
 #endif
   int ret;
+  uint64_t profile_start_ms = monotonic_ms();
+  uint64_t copy_done_ms;
+  uint64_t stats_done_ms;
+  uint64_t feature_done_ms;
+  uint64_t infer_done_ms;
+  uint64_t log_done_ms;
+  uint64_t ui_done_ms;
+  uint64_t detector_done_ms;
+  uint64_t alert_done_ms;
 
 #ifndef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
   (void)oled_enabled;
 #endif
 
   ring_copy_window(write_position);
+  copy_done_ms = monotonic_ms();
   if (audio_stats)
     {
       print_audio_stats(g_audio_window, AUDIO_EVENT_CLIP_SAMPLES,
                         timestamp_ms, wall_timestamp_ms);
     }
+  stats_done_ms = monotonic_ms();
 
   ret = feature_extract_compute(g_audio_window, AUDIO_EVENT_CLIP_SAMPLES,
                                 g_features, AUDIO_EVENT_FEATURE_SIZE);
@@ -399,6 +427,7 @@ static int process_window(size_t write_position, uint64_t timestamp_ms,
       fprintf(stderr, "[feature] compute failed: %d\n", ret);
       return ret;
     }
+  feature_done_ms = monotonic_ms();
 
   ret = event_classifier_predict(g_features, AUDIO_EVENT_FEATURE_SIZE,
                                  g_probabilities,
@@ -408,8 +437,10 @@ static int process_window(size_t write_position, uint64_t timestamp_ms,
       fprintf(stderr, "[model] prediction failed: %d\n", ret);
       return ret;
     }
+  infer_done_ms = monotonic_ms();
 
   print_probabilities(timestamp_ms, wall_timestamp_ms);
+  log_done_ms = monotonic_ms();
 
 #ifdef CONFIG_EXAMPLES_AUDIO_EVENT_UI
   audio_event_ui_update_probs(g_probabilities,
@@ -425,6 +456,7 @@ static int process_window(size_t write_position, uint64_t timestamp_ms,
       audio_event_oled_ui_update_audio(top_class, top_confidence, rms);
     }
 #endif
+  ui_done_ms = monotonic_ms();
 
   ret = event_detector_update(g_probabilities, AUDIO_EVENT_CLASS_COUNT,
                               timestamp_ms, &detection);
@@ -432,6 +464,7 @@ static int process_window(size_t write_position, uint64_t timestamp_ms,
     {
       return ret;
     }
+  detector_done_ms = monotonic_ms();
 
   if (detection.fired)
     {
@@ -461,6 +494,25 @@ static int process_window(size_t write_position, uint64_t timestamp_ms,
           audio_event_oled_ui_notify_cooldown(g_cooldown_duration_ms);
         }
 #endif
+    }
+  alert_done_ms = monotonic_ms();
+
+  if (profile)
+    {
+      printf("[profile] t=%llu ms wall=%llu ms copy=%llu stats=%llu "
+             "feature=%llu infer=%llu log=%llu ui=%llu detector=%llu "
+             "alert=%llu total=%llu ms\n",
+             (unsigned long long)timestamp_ms,
+             (unsigned long long)wall_timestamp_ms,
+             (unsigned long long)diff_ms(profile_start_ms, copy_done_ms),
+             (unsigned long long)diff_ms(copy_done_ms, stats_done_ms),
+             (unsigned long long)diff_ms(stats_done_ms, feature_done_ms),
+             (unsigned long long)diff_ms(feature_done_ms, infer_done_ms),
+             (unsigned long long)diff_ms(infer_done_ms, log_done_ms),
+             (unsigned long long)diff_ms(log_done_ms, ui_done_ms),
+             (unsigned long long)diff_ms(ui_done_ms, detector_done_ms),
+             (unsigned long long)diff_ms(detector_done_ms, alert_done_ms),
+             (unsigned long long)diff_ms(profile_start_ms, alert_done_ms));
     }
 
   return 0;
@@ -617,16 +669,15 @@ int audio_event_main(int argc, char *argv[])
           uint64_t timestamp_ms = total_samples * 1000 /
                                   AUDIO_EVENT_SAMPLE_RATE;
           uint64_t wall_timestamp_ms = elapsed_ms(wall_start_ms);
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
+          bool oled_enabled = oled_active;
+#else
+          bool oled_enabled = false;
+#endif
 
           ret = process_window(write_position, timestamp_ms,
-                               wall_timestamp_ms,
-                               options.audio_stats,
-#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
-                               oled_active
-#else
-                               false
-#endif
-                               );
+                               wall_timestamp_ms, options.audio_stats,
+                               oled_enabled, options.profile);
           if (ret < 0)
             {
               break;
