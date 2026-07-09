@@ -2,7 +2,7 @@
 
 ## 1. 概述
 
-为 `audio_event` 音频事件检测 Demo 设计基于 LVGL 的图形化界面，目标平台为 NuttX RTOS (openvela)，屏幕规格 240×320 纵向 LCD（如 ESP32-S3-BOX 系列）。
+为 `audio_event` 音频事件检测 Demo 设计基于 LVGL 的图形化界面，目标平台为 NuttX RTOS (openvela)，屏幕规格 320×240，主要用于 goldfish 模拟器上的完整调试视图。
 
 **设计风格**：仪表盘风格，科技感强，以实时数据可视化为核心。
 

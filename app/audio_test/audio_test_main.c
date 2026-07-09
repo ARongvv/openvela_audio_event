@@ -49,15 +49,6 @@
 #define AUDIO_TEST_FALLBACK_MAX_BUFFERS 4
 #define AUDIO_TEST_FALLBACK_MAX_BYTES 2048
 #define AUDIO_TEST_MAX_BLOCK_FRAMES 1024
-#define AUDIO_TEST_ES7210_REINIT_DELAY_MS 50
-#define AUDIO_TEST_ES7210_I2C_PORT 0
-#define AUDIO_TEST_ES7210_I2C_ADDR 0x40
-#define AUDIO_TEST_ES7210_I2C_FREQUENCY 100000
-
-#ifdef CONFIG_ESP32S3_BOX_AUDIO
-extern int esp32s3_es7210_initialize(int i2c_port, uint8_t i2c_addr,
-                                     uint32_t i2c_frequency);
-#endif
 
 struct audio_test_options_s
 {
@@ -66,7 +57,6 @@ struct audio_test_options_s
   unsigned int channels;
   unsigned int seconds;
   unsigned int block_frames;
-  bool es7210_reinit_after_start;
 };
 
 struct audio_test_capture_s
@@ -115,10 +105,6 @@ static void audio_test_usage(void)
   printf("  --block-frames N    frames per read 1..%d, default %d\n",
          AUDIO_TEST_MAX_BLOCK_FRAMES,
          CONFIG_EXAMPLES_AUDIO_TEST_BLOCK_FRAMES);
-  printf("  --es7210\n");
-  printf("                       BOX-3 diagnostic: reinitialize ES7210 after\n");
-  printf("                       audio capture start, delay %d ms\n",
-         AUDIO_TEST_ES7210_REINIT_DELAY_MS);
   printf("  --help              show this message\n");
 }
 
@@ -153,7 +139,6 @@ static int parse_options(int argc, char *argv[],
   options->channels = CONFIG_EXAMPLES_AUDIO_TEST_CHANNELS;
   options->seconds = AUDIO_TEST_DEFAULT_SECONDS;
   options->block_frames = CONFIG_EXAMPLES_AUDIO_TEST_BLOCK_FRAMES;
-  options->es7210_reinit_after_start = false;
 
   for (i = 1; i < argc; i++)
     {
@@ -210,11 +195,6 @@ static int parse_options(int argc, char *argv[],
 
           options->block_frames = value;
         }
-      else if (strcmp(arg, "--es7210") == 0 ||
-               strcmp(arg, "--es7210-reinit-after-start") == 0)
-        {
-          options->es7210_reinit_after_start = true;
-        }
       else
         {
           fprintf(stderr, "[audio_test] unknown option: %s\n", arg);
@@ -234,39 +214,6 @@ static int parse_options(int argc, char *argv[],
     }
 
   return 0;
-}
-
-static int audio_test_es7210_reinit_after_start(void)
-{
-#ifdef CONFIG_ESP32S3_BOX_AUDIO
-  int ret;
-
-  printf("[audio_test] wait %d ms before ES7210 reinit\n",
-         AUDIO_TEST_ES7210_REINIT_DELAY_MS);
-  usleep(AUDIO_TEST_ES7210_REINIT_DELAY_MS * 1000);
-
-  printf("[audio_test] reinitialize ES7210 after audio start "
-         "(i2c%d addr=0x%02x freq=%u)\n",
-         AUDIO_TEST_ES7210_I2C_PORT,
-         (unsigned int)AUDIO_TEST_ES7210_I2C_ADDR,
-         (unsigned int)AUDIO_TEST_ES7210_I2C_FREQUENCY);
-
-  ret = esp32s3_es7210_initialize(AUDIO_TEST_ES7210_I2C_PORT,
-                                  AUDIO_TEST_ES7210_I2C_ADDR,
-                                  AUDIO_TEST_ES7210_I2C_FREQUENCY);
-  if (ret < 0)
-    {
-      fprintf(stderr, "[audio_test] ES7210 reinit failed: %d\n", ret);
-      return ret;
-    }
-
-  printf("[audio_test] ES7210 reinit after audio start OK\n");
-  return 0;
-#else
-  fprintf(stderr, "[audio_test] ES7210 reinit is only available with "
-          "CONFIG_ESP32S3_BOX_AUDIO\n");
-  return -ENOTSUP;
-#endif
 }
 
 static uint32_t isqrt_u64(uint64_t value)
@@ -790,16 +737,6 @@ int audio_test_main(int argc, char *argv[])
   if (ret < 0)
     {
       return EXIT_FAILURE;
-    }
-
-  if (options.es7210_reinit_after_start)
-    {
-      ret = audio_test_es7210_reinit_after_start();
-      if (ret < 0)
-        {
-          capture_deinit(&capture);
-          return EXIT_FAILURE;
-        }
     }
 
   for (second = 0; second < options.seconds; second++)

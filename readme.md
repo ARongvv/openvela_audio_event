@@ -13,11 +13,11 @@ ccf_audioevent/
 │   └── ui_oled/                       # 128x64 OLED compact UI
 ├── app/audio_record/                 # 短录音 WAV base64 导出工具
 ├── app/audio_test/                   # 麦克风 PCM 采集诊断工具
-├── board/esp32s3-box-3/              # ESP32-S3-BOX-3 自定义板级适配
 ├── board/esp32s3-devkit/             # ESP32-S3 DevKit + INMP441 自定义板级适配
 ├── board/goldfish-arm64/configs/
 │   └── audio_event/defconfig         # goldfish-arm64 模拟器配置源文件
-├── scripts/                          # 构建、字体和 BOX-3 修复辅助脚本
+├── archive/esp32s3-box-3/            # ESP32-S3-BOX-3 历史适配归档
+├── scripts/                          # 字体等通用辅助脚本
 └── readme.md                         # 本文档
 ```
 
@@ -25,10 +25,12 @@ ccf_audioevent/
 录音导出工具最终需要映射到 `apps/examples/audio_record`。
 麦克风诊断工具最终需要映射到 `apps/examples/audio_test`。
 模拟器配置最终需要出现在 `vendor/openvela/boards/vela/configs/goldfish-audio_event`。
-ESP32-S3-BOX-3 板级代码最终需要映射到
-`vendor/espressif/boards/esp32s3/esp32s3-box-3`。
 ESP32-S3 DevKit + INMP441 板级代码最终需要映射到
 `vendor/espressif/boards/esp32s3/esp32s3-devkit`。
+
+当前真机主路径是 `ESP32-S3 DevKit + INMP441 + 0.96 OLED`。ESP32-S3-BOX-3
+ES7210 真机采集链路未形成稳定闭环，相关 board、补丁脚本和问题文档已归档到
+`archive/esp32s3-box-3/`，不再作为 active target 维护。
 
 ## 工作区软链接
 
@@ -50,9 +52,6 @@ rm -f /home/arongw/openvela/vendor/openvela/boards/vela/configs/goldfish-audio_e
 ln -sfn /home/arongw/openvela/ccf_audioevent/board/goldfish-arm64/configs/audio_event/defconfig \
   /home/arongw/openvela/vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig
 
-ln -sfnT /home/arongw/openvela/ccf_audioevent/board/esp32s3-box-3 \
-  /home/arongw/openvela/vendor/espressif/boards/esp32s3/esp32s3-box-3
-
 ln -sfnT /home/arongw/openvela/ccf_audioevent/board/esp32s3-devkit \
   /home/arongw/openvela/vendor/espressif/boards/esp32s3/esp32s3-devkit
 ```
@@ -64,14 +63,13 @@ readlink -f apps/examples/audio_event
 readlink -f apps/examples/audio_record
 readlink -f apps/examples/audio_test
 readlink -f vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig
-readlink -f vendor/espressif/boards/esp32s3/esp32s3-box-3
 readlink -f vendor/espressif/boards/esp32s3/esp32s3-devkit
 ```
 
 期望 `apps/examples/audio_event`、`apps/examples/audio_record`、
 `apps/examples/audio_test`、
 `goldfish-audio_event/defconfig` 和
-`esp32s3-box-3`、`esp32s3-devkit` 都指向
+`esp32s3-devkit` 都指向
 `/home/arongw/openvela/ccf_audioevent/...`。
 
 `audio_record` 和 `audio_test` 是新增 example。`apps/examples/Kconfig` 是自动生成文件，
@@ -138,8 +136,8 @@ ln -s ../../nuttx/nuttx cmake_out/vela_goldfish-audio_event/nuttx
 ./emulator.sh cmake_out/vela_goldfish-audio_event/
 ```
 
-`config.ini` 将 goldfish 显示固定为 `320x240` 横向模式，用于对齐
-ESP32-S3-BOX-3 的小屏 UI。若之前已经启动过模拟器并生成了旧的
+`config.ini` 将 goldfish 显示固定为 `320x240` 横向模式，用于调试完整 LVGL
+dashboard。若之前已经启动过模拟器并生成了旧的
 `hardware-qemu.ini`，需要重新启动模拟器；必要时删除旧的
 `cmake_out/vela_goldfish-audio_event/hardware-qemu.ini` 后再启动。
 
@@ -157,46 +155,17 @@ nsh> audio_event --model-smoke
 nsh> audio_event --file /data/res/audio/cough_2.wav --repeat 100
 ```
 
-## ESP32-S3-BOX-3 构建（保留适配）
+## ESP32-S3-BOX-3 归档
 
-ESP32-S3-BOX-3 适配仍保留在仓库中，主要用于回溯 ES7210 和 BOX-3 板级问题。
-当前真机主路径使用后面的 `esp32s3-devkit` 配置。
-
-BOX-3 使用自定义 board：
+ESP32-S3-BOX-3 不再作为 `ccf_audioevent` 的 active target。历史 board、ES7210
+诊断代码、构建补丁脚本和硬件问题文档集中保留在：
 
 ```text
-vendor/espressif/boards/esp32s3/esp32s3-box-3/configs/audio_event/
+archive/esp32s3-box-3/
 ```
 
-构建命令：
-
-```bash
-./build.sh vendor/espressif/boards/esp32s3/esp32s3-box-3/configs/audio_event/ --cmake -j8
-```
-
-烧录并打开串口监视：
-
-```bash
-cd nuttx && make flash ESPTOOL_PORT=/dev/ttyACM0 ESPTOOL_BAUD=921600 && cd ..
-picocom -b 115200 /dev/ttyACM0
-```
-
-如果开发板枚举为其他串口设备，请将 `/dev/ttyACM0` 替换为实际端口。
-
-该配置启用 ES7210 麦克风初始化，并将 I2S1 RX 注册为：
-
-```text
-/dev/audio/pcm_in1
-```
-
-烧录启动后可验证：
-
-```text
-nsh> help | grep audio_event
-nsh> audio_event --model-smoke
-nsh> audio_event --device /dev/audio/pcm_in1 --audio-stats --once
-nsh> audio_event --device /dev/audio/pcm_in1
-```
+这部分材料仅用于回溯 BOX-3 的 ES7210、LCD、GT911 和构建补丁问题。当前真机构建、
+烧录、麦克风采集、OLED 显示和模型验证均以 `esp32s3-devkit` 配置为准。
 
 ## 真机构建（ESP32-S3 DevKit + INMP441）
 
@@ -250,7 +219,7 @@ I2C 0x3C
 
 | 目标 | UI 后端 | 配置 | 说明 |
 | --- | --- | --- | --- |
-| goldfish / ESP32-S3-BOX-3 | LVGL dashboard | `CONFIG_EXAMPLES_AUDIO_EVENT_UI` | 320x240 彩屏，显示波形、四类概率、检测状态和参数 |
+| goldfish | LVGL dashboard | `CONFIG_EXAMPLES_AUDIO_EVENT_UI` | 320x240 彩屏，显示波形、四类概率、检测状态和参数 |
 | ESP32-S3 DevKit + 0.96 OLED | OLED compact UI | `CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI` | 128x64 单色屏，只显示当前类别、置信度、RMS/音量、告警和冷却 |
 
 OLED compact UI 不是把 320x240 dashboard 缩小，而是独立的小屏状态页。默认监听时显示：
@@ -280,7 +249,7 @@ COOLDOWN
 LAST KNOCK
 ```
 
-这样 DevKit 真机侧保留“小屏一眼看结论”，模拟器和 BOX-3 侧保留“完整可视化调试”。
+这样 DevKit 真机侧保留“小屏一眼看结论”，模拟器侧保留“完整可视化调试”。
 
 该配置启用 I2S1 RX，并将采集设备注册为：
 
@@ -420,16 +389,6 @@ nsh> audio_test --device /dev/audio/pcm_in1 --channels 1 --seconds 5
 nsh> audio_test --device /dev/audio/pcm_in1 --channels 2 --seconds 5
 ```
 
-如果怀疑 ES7210 初始化早于 I2S 时钟启动，可以使用启动后重初始化诊断：
-
-```text
-nsh> audio_test --device /dev/audio/pcm_in1 --channels 2 --seconds 10 --es7210
-```
-
-该选项会在 `audio_test` 启动采集后等待 50 ms，再重新执行一次 BOX-3 ES7210
-初始化序列。如果重初始化后的后续秒数从全零变为非零，说明根因高度指向
-ES7210 初始化时 I2S `MCLK/BCLK/LRCK` 尚未稳定。
-
 结果判断：
 
 - `rms` 长期接近 0 且 `zero` 接近总采样数：驱动链路可能没有收到麦克风数据。
@@ -455,20 +414,6 @@ ES7210 初始化时 I2S `MCLK/BCLK/LRCK` 尚未稳定。
 - QuickApp / Feature Framework
 - Media server / media tool
 - curl command line
-
-`board/esp32s3-box-3/configs/audio_event/defconfig` 主要启用：
-
-- `CONFIG_EXAMPLES_AUDIO_EVENT=y`
-- `CONFIG_EXAMPLES_AUDIO_EVENT_DEVPATH="/dev/audio/pcm_in1"`
-- `CONFIG_EXAMPLES_AUDIO_TEST=y`
-- `CONFIG_EXAMPLES_AUDIO_TEST_DEVPATH="/dev/audio/pcm_in1"`
-- `CONFIG_ESP32S3_BOX_AUDIO=y`
-- `CONFIG_ESP32S3_I2S1_DINPIN=16`
-- `CONFIG_ESP32S3_I2S1_TX` 未启用，麦克风验证阶段只保留 RX
-- `CONFIG_ESP32S3_BOX_LCD=y`
-- `CONFIG_ESP32S3_BOARD_TOUCHSCREEN=y`
-- `CONFIG_TFLITEMICRO=y`
-- `CONFIG_MATH_KISSFFT=y`
 
 `board/esp32s3-devkit/configs/audio_event/defconfig` 主要启用：
 
@@ -517,8 +462,6 @@ ES7210 初始化时 I2S `MCLK/BCLK/LRCK` 尚未稳定。
           dest="vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig"/>
 <linkfile src="board/goldfish-arm64/configs/audio_event/config.ini"
           dest="vendor/openvela/boards/vela/configs/goldfish-audio_event/config.ini"/>
-<linkfile src="board/esp32s3-box-3"
-          dest="vendor/espressif/boards/esp32s3/esp32s3-box-3"/>
 <linkfile src="board/esp32s3-devkit"
           dest="vendor/espressif/boards/esp32s3/esp32s3-devkit"/>
 ```
@@ -535,7 +478,7 @@ ES7210 初始化时 I2S `MCLK/BCLK/LRCK` 尚未稳定。
   手动复制 `.config`、`vela_*.bin` 并链接 `nuttx`。
 - 当前真机构建目标是 ESP32-S3 DevKit + INMP441，配置路径为
   `vendor/espressif/boards/esp32s3/esp32s3-devkit/configs/audio_event/`。
-  BOX-3 配置仅作为保留适配。
+  BOX-3 配置已归档，不再作为 active target。
 - 真机音频采集路径是 `/dev/audio/pcm_in1`，模拟器默认路径是 `/dev/audio/pcm0c`。
 - ESP32-S3 DevKit + INMP441 的 `audio_event` 已按 32-bit I2S slot 采集，并在应用层
   转成模型输入所需的 16-bit mono PCM。若更改 INMP441 的 `L/R` 接法，需要同步调整
