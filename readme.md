@@ -1,4 +1,4 @@
-# ccf_audioevent
+# 基于 openvela 的本地音频事件检测系统-ccf_audioevent
 
 `ccf_audioevent` 是一个面向 openvela 的本地音频事件检测作品目录。当前主路径是
 `ESP32-S3-N16R8 DevKit + INMP441 数字麦克风 + 0.96 寸 I2C OLED`，核心应用是
@@ -8,6 +8,12 @@ OLED 上显示检测状态。
 `audio_record` 和 `audio_test` 是辅助工具：前者用于导出实录 WAV，后者用于检查
 I2S/INMP441 采集质量。goldfish 模拟器仍保留，用于文件输入、模型加载和大屏 LVGL UI
 验证，但放在真机主流程之后。
+
+## 初赛任务
+- [ ]离线本地闭环：完成采集 → 预处理/特征提取 → 模型识别 → 输出/告警（LED/蜂鸣器/屏幕/串口等）全流程在端侧完成；结果可验证、可重复运行。
+- [ ]基础类别覆盖：至少支持 2 类音频事件（如玻璃破碎、咳嗽），提供事件定义与触发口径说明。
+- [ ]可复现与工程化：提供清晰的运行/部署说明，一键运行方式，具备基本异常处理。
+
 
 ## 目录结构
 
@@ -117,7 +123,17 @@ INMP441 不需要 MCLK。当前 I2S1 采集为 `16 kHz, 2ch, 32-bit`，应用侧
 构建：
 
 ```bash
+cd openvela
 ./build.sh vendor/espressif/boards/esp32s3/esp32s3-devkit/configs/audio_event/ -j8
+```
+
+注意在 `distclean` 后的首次构建时，脚本需要在构建**并行运行**。
+因为 `esp-hal-3rdparty` 的 git clone 和 patch 是构建过程中异步执行的，
+Fix 2 和 Fix 3 会等待目标文件出现（最多 180 秒）。
+```bash
+bash ccf_audioevent/scripts/fix_box3_mbedtls_header_priority.sh
+bash ccf_audioevent/scripts/fix_box3_mbedtls_disable_ccm.sh &
+bash ccf_audioevent/scripts/fix_box3_spinlock_initializer.sh &
 ```
 
 烧录并打开串口：
