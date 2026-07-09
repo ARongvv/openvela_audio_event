@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "alert/event_alert.h"
 #include "audio/audio_capture.h"
@@ -48,6 +49,7 @@ struct app_options_s
   bool once;
   bool model_smoke;
   bool audio_stats;
+  bool no_oled;
 };
 
 static const char *const g_event_names[AUDIO_EVENT_CLASS_COUNT] =
@@ -97,16 +99,42 @@ static uint64_t isqrt_u64(uint64_t value)
   return result;
 }
 
+static uint64_t monotonic_ms(void)
+{
+  struct timespec ts;
+
+  if (clock_gettime(CLOCK_MONOTONIC, &ts) < 0)
+    {
+      return 0;
+    }
+
+  return (uint64_t)ts.tv_sec * 1000 + (uint64_t)ts.tv_nsec / 1000000;
+}
+
+static uint64_t elapsed_ms(uint64_t start_ms)
+{
+  uint64_t now_ms = monotonic_ms();
+
+  if (now_ms < start_ms)
+    {
+      return 0;
+    }
+
+  return now_ms - start_ms;
+}
+
 static void usage(const char *program)
 {
   printf("Usage: %s [--file PATH | --device PATH] [--once] "
-         "[--repeat N] [--model-smoke] [--audio-stats]\n", program);
+         "[--repeat N] [--model-smoke] [--audio-stats] [--no-oled]\n",
+         program);
   printf("  --file PATH    Read 16 kHz mono PCM16 or WAV from HostFS\n");
   printf("  --device PATH  Read from a NuttX Audio capture device\n");
   printf("  --once         Stop after the first one-second inference\n");
   printf("  --repeat N     Repeat file input N times (default: 1)\n");
   printf("  --model-smoke  Invoke the model with silence features\n");
   printf("  --audio-stats  Print PCM min/max/mean/rms/zero_count per window\n");
+  printf("  --no-oled      Disable OLED init and updates for audio diagnostics\n");
 }
 
 static int parse_options(int argc, char **argv, struct app_options_s *options)
@@ -119,6 +147,7 @@ static int parse_options(int argc, char **argv, struct app_options_s *options)
   options->once = false;
   options->model_smoke = false;
   options->audio_stats = false;
+  options->no_oled = false;
 
   for (i = 1; i < argc; i++)
     {
@@ -155,6 +184,10 @@ static int parse_options(int argc, char **argv, struct app_options_s *options)
         {
           options->audio_stats = true;
         }
+      else if (strcmp(argv[i], "--no-oled") == 0)
+        {
+          options->no_oled = true;
+        }
       else if (strcmp(argv[i], "--help") == 0 ||
                strcmp(argv[i], "-h") == 0)
         {
@@ -173,7 +206,8 @@ static int parse_options(int argc, char **argv, struct app_options_s *options)
 }
 
 static void print_audio_stats(const int16_t *samples, size_t sample_count,
-                              uint64_t timestamp_ms)
+                              uint64_t timestamp_ms,
+                              uint64_t wall_timestamp_ms)
 {
   int16_t min_sample = 0;
   int16_t max_sample = 0;
@@ -216,9 +250,11 @@ static void print_audio_stats(const int16_t *samples, size_t sample_count,
 
   mean = sum / (int64_t)sample_count;
   rms = isqrt_u64(sum_squares / sample_count);
-  printf("[audio_stats] t=%llu ms min=%d max=%d mean=%lld rms=%llu "
+  printf("[audio_stats] t=%llu ms wall=%llu ms "
+         "min=%d max=%d mean=%lld rms=%llu "
          "zero=%u/%u\n",
-         (unsigned long long)timestamp_ms, min_sample, max_sample,
+         (unsigned long long)timestamp_ms,
+         (unsigned long long)wall_timestamp_ms, min_sample, max_sample,
          (long long)mean, (unsigned long long)rms, zero_count,
          (unsigned int)sample_count);
 }
@@ -276,12 +312,15 @@ static int probability_permille(float probability)
   return value;
 }
 
-static void print_probabilities(uint64_t timestamp_ms)
+static void print_probabilities(uint64_t timestamp_ms,
+                                uint64_t wall_timestamp_ms)
 {
   int best = best_class(g_probabilities);
 
-  printf("[infer] t=%llu ms class=%s probs_permille=[%d %d %d %d]\n",
-         (unsigned long long)timestamp_ms, g_event_names[best],
+  printf("[infer] t=%llu ms wall=%llu ms class=%s "
+         "probs_permille=[%d %d %d %d]\n",
+         (unsigned long long)timestamp_ms,
+         (unsigned long long)wall_timestamp_ms, g_event_names[best],
          probability_permille(g_probabilities[0]),
          probability_permille(g_probabilities[1]),
          probability_permille(g_probabilities[2]),
@@ -301,7 +340,7 @@ static int run_model_smoke(void)
       return ret;
     }
 
-  print_probabilities(0);
+  print_probabilities(0, 0);
   return 0;
 }
 
@@ -331,7 +370,8 @@ static void ring_copy_window(size_t write_position)
 }
 
 static int process_window(size_t write_position, uint64_t timestamp_ms,
-                          bool audio_stats)
+                          uint64_t wall_timestamp_ms, bool audio_stats,
+                          bool oled_enabled)
 {
   struct event_detection_s detection;
 #ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
@@ -341,11 +381,15 @@ static int process_window(size_t write_position, uint64_t timestamp_ms,
 #endif
   int ret;
 
+#ifndef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
+  (void)oled_enabled;
+#endif
+
   ring_copy_window(write_position);
   if (audio_stats)
     {
       print_audio_stats(g_audio_window, AUDIO_EVENT_CLIP_SAMPLES,
-                        timestamp_ms);
+                        timestamp_ms, wall_timestamp_ms);
     }
 
   ret = feature_extract_compute(g_audio_window, AUDIO_EVENT_CLIP_SAMPLES,
@@ -365,7 +409,7 @@ static int process_window(size_t write_position, uint64_t timestamp_ms,
       return ret;
     }
 
-  print_probabilities(timestamp_ms);
+  print_probabilities(timestamp_ms, wall_timestamp_ms);
 
 #ifdef CONFIG_EXAMPLES_AUDIO_EVENT_UI
   audio_event_ui_update_probs(g_probabilities,
@@ -373,10 +417,13 @@ static int process_window(size_t write_position, uint64_t timestamp_ms,
 #endif
 
 #ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
-  rms = compute_audio_rms(g_audio_window, AUDIO_EVENT_CLIP_SAMPLES);
-  top_class = best_class(g_probabilities);
-  top_confidence = probability_permille(g_probabilities[top_class]);
-  audio_event_oled_ui_update_audio(top_class, top_confidence, rms);
+  if (oled_enabled)
+    {
+      rms = compute_audio_rms(g_audio_window, AUDIO_EVENT_CLIP_SAMPLES);
+      top_class = best_class(g_probabilities);
+      top_confidence = probability_permille(g_probabilities[top_class]);
+      audio_event_oled_ui_update_audio(top_class, top_confidence, rms);
+    }
 #endif
 
   ret = event_detector_update(g_probabilities, AUDIO_EVENT_CLASS_COUNT,
@@ -403,13 +450,16 @@ static int process_window(size_t write_position, uint64_t timestamp_ms,
 #endif
 
 #ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
-      audio_event_oled_ui_notify_detection(detection.class_id,
-                                           (int)(detection.confidence *
-                                                 1000.0f + 0.5f));
-      g_cooldown_start_ms = timestamp_ms;
-      g_cooldown_duration_ms =
-          (uint32_t)CONFIG_EXAMPLES_AUDIO_EVENT_COOLDOWN_MS;
-      audio_event_oled_ui_notify_cooldown(g_cooldown_duration_ms);
+      if (oled_enabled)
+        {
+          audio_event_oled_ui_notify_detection(detection.class_id,
+                                               (int)(detection.confidence *
+                                                     1000.0f + 0.5f));
+          g_cooldown_start_ms = timestamp_ms;
+          g_cooldown_duration_ms =
+              (uint32_t)CONFIG_EXAMPLES_AUDIO_EVENT_COOLDOWN_MS;
+          audio_event_oled_ui_notify_cooldown(g_cooldown_duration_ms);
+        }
 #endif
     }
 
@@ -423,9 +473,13 @@ int audio_event_main(int argc, char *argv[])
   size_t write_position = 0;
   size_t samples_until_inference = AUDIO_EVENT_CLIP_SAMPLES;
   uint64_t total_samples = 0;
+  uint64_t wall_start_ms = 0;
   unsigned int windows = 0;
   bool file_open = false;
   bool capture_open = false;
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
+  bool oled_active = false;
+#endif
   int ret;
 
   memset(&file_source, 0, sizeof(file_source));
@@ -465,6 +519,8 @@ int audio_event_main(int argc, char *argv[])
       fprintf(stderr, "[alert] init failed: %d, serial output remains\n", ret);
     }
 
+  wall_start_ms = monotonic_ms();
+
   if (options.mode == INPUT_MODE_FILE)
     {
       ret = audio_file_open(&file_source, options.path,
@@ -494,9 +550,17 @@ int audio_event_main(int argc, char *argv[])
 #endif
 
 #ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
-  if (audio_event_oled_ui_init() < 0)
+  if (options.no_oled)
+    {
+      printf("[app] OLED disabled by --no-oled\n");
+    }
+  else if (audio_event_oled_ui_init() < 0)
     {
       fprintf(stderr, "[app] OLED UI init failed, continuing without OLED\n");
+    }
+  else
+    {
+      oled_active = true;
     }
 #endif
 
@@ -552,8 +616,17 @@ int audio_event_main(int argc, char *argv[])
         {
           uint64_t timestamp_ms = total_samples * 1000 /
                                   AUDIO_EVENT_SAMPLE_RATE;
+          uint64_t wall_timestamp_ms = elapsed_ms(wall_start_ms);
+
           ret = process_window(write_position, timestamp_ms,
-                               options.audio_stats);
+                               wall_timestamp_ms,
+                               options.audio_stats,
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
+                               oled_active
+#else
+                               false
+#endif
+                               );
           if (ret < 0)
             {
               break;
@@ -572,7 +645,10 @@ int audio_event_main(int argc, char *argv[])
                   audio_event_ui_set_listening();
 #endif
 #ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
-                  audio_event_oled_ui_set_listening();
+                  if (oled_active)
+                    {
+                      audio_event_oled_ui_set_listening();
+                    }
 #endif
                 }
               else
@@ -583,7 +659,10 @@ int audio_event_main(int argc, char *argv[])
                   audio_event_ui_update_cooldown(remaining);
 #endif
 #ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
-                  audio_event_oled_ui_update_cooldown(remaining);
+                  if (oled_active)
+                    {
+                      audio_event_oled_ui_update_cooldown(remaining);
+                    }
 #endif
                 }
             }
@@ -615,7 +694,10 @@ cleanup:
 #endif
 
 #ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
-  audio_event_oled_ui_deinit();
+  if (oled_active)
+    {
+      audio_event_oled_ui_deinit();
+    }
 #endif
 
   if (file_open)
