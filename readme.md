@@ -9,6 +9,18 @@ OLED 上显示检测状态。
 I2S/INMP441 采集质量。goldfish 模拟器仍保留，用于文件输入、模型加载和大屏 LVGL UI
 验证，但放在真机主流程之后。
 
+## 初赛要求对应关系
+
+| 初赛要求 | 当前实现 | 对应材料 |
+| --- | --- | --- |
+| 离线本地闭环 | `audio_event` 在端侧完成采集、特征提取、TFLite Micro 推理和 OLED/串口输出 | 本文“快速开始”“audio_event 主应用” |
+| 至少 2 类音频事件 | 当前支持 `knock`、`cough`，并保留 `background`、`silence` 作为背景/静音类别 | [docs/事件定义与触发口径说明.md](docs/事件定义与触发口径说明.md) |
+| 可复现运行 | 提供仓库拉取、openvela 软链接、ESP32-S3 DevKit 构建、烧录和运行命令 | 本文“准备工作”“快速开始”“真机构建和烧录” |
+| 基本异常处理 | 覆盖音频设备打开失败、采集全 0、OLED 不可用、模型加载失败等场景 | [docs/异常处理.md](docs/异常处理.md) |
+| 运行演示 | 提供真机运行日志和演示视频 | [logs/演示日志.md](logs/演示日志.md)、[logs/演示视频.mp4](logs/演示视频.mp4) |
+| 延迟与误报/漏报数据 | 提供端侧延迟、训练集/测试集指标和已知限制 | [docs/性能与评估.md](docs/性能与评估.md) |
+| 开源协议与第三方声明 | 补充项目协议、NOTICE 和第三方依赖/数据集声明 | [LICENSE](LICENSE)、[NOTICE](NOTICE)、[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) |
+
 ## 初赛任务
 1. 离线本地闭环：完成采集 → 预处理/特征提取 → 模型识别 → 输出/告警（LED/蜂鸣器/屏幕/串口等）全流程在端侧完成；结果可验证、可重复运行。
 2. 基础类别覆盖：至少支持 2 类音频事件（如玻璃破碎、咳嗽），提供事件定义与触发口径说明。
@@ -165,17 +177,8 @@ picocom -b 115200 /dev/ttyACM0
 nsh> audio_event --device /dev/audio/pcm_in1 --audio-stats
 ```
 
-若需要先验证采集链路：
-
-```text
-nsh> audio_test --device /dev/audio/pcm_in1 --seconds 5
-```
-
-若需要导出实录 WAV：
-
-```text
-nsh> audio_record --device /dev/audio/pcm_in1 --seconds 2
-```
+`audio_test`、`audio_record` 和 goldfish 模拟器属于辅助验证路径，README 只保留主流程；
+采集诊断、录音导出和模拟器构建运行见“辅助工具和模拟器”。
 
 ## 基础指标摘要
 
@@ -410,180 +413,13 @@ COOLDOWN
 LAST KNOCK
 ```
 
-## audio_record 录音导出工具
+## 辅助工具和模拟器
 
-`audio_record` 用来把真机采集到的 INMP441 音频导出为 WAV，方便在电脑上听、看波形、
-检查削波和静音段。它不是主检测应用。
+README 以 `audio_event` 真机闭环为主。辅助工具和模拟器说明拆分到 docs：
 
-短录音：
-
-```text
-nsh> audio_record --device /dev/audio/pcm_in1 --seconds 2
-```
-
-最长录音由 `CONFIG_EXAMPLES_AUDIO_RECORD_MAX_SECONDS` 控制，当前为 60 秒：
-
-```text
-nsh> audio_record --device /dev/audio/pcm_in1 --seconds 60
-```
-
-也可以临时指定 INMP441 slot 和缩放：
-
-```text
-nsh> audio_record --device /dev/audio/pcm_in1 --seconds 3 --slot 0 --shift 16
-```
-
-`audio_record` 不会自动把文件保存到电脑。它会先在板端内存中缓存录音，采集完成后在
-串口输出 WAV 的 base64：
-
-```text
-WAV_BASE64_BEGIN
-...
-WAV_BASE64_END
-```
-
-电脑端只复制两行 marker 中间的 base64 正文到 `record.b64`，然后解码：
-
-```bash
-base64 -d record.b64 > record.wav
-```
-
-长录音建议用 `picocom --logfile` 保存串口日志：
-
-```bash
-picocom -b 115200 /dev/ttyACM0 --logfile audio_record.log
-```
-
-NSH 中执行：
-
-```text
-nsh> audio_record --device /dev/audio/pcm_in1 --seconds 60
-```
-
-退出 `picocom` 后提取 WAV：
-
-```bash
-sed -n '/WAV_BASE64_BEGIN/,/WAV_BASE64_END/p' audio_record.log \
-  | sed '1d;$d' \
-  | tr -d '\r' \
-  | base64 -d > record.wav
-```
-
-检查和播放：
-
-```bash
-file record.wav
-ls -lh record.wav
-aplay record.wav
-```
-
-正常应是 16 kHz、mono、16-bit PCM WAV。60 秒缓存约占：
-
-```text
-16000 samples/s * 60 s * 2 bytes = 1,920,000 bytes
-```
-
-因此长录音依赖 ESP32-S3-N16R8 的 PSRAM 已加入 heap。如果提示分配失败，先确认固件是
-用 `esp32s3-devkit/configs/audio_event` 重新 configure 并烧录的。
-
-注意：`record.b64` 中只能保留 base64 正文，不要混入 `WAV_BASE64_BEGIN`、
-`WAV_BASE64_END`、`nsh>` 或 `[audio_record]` 日志。
-
-## audio_test 采集诊断工具
-
-`audio_test` 只检查音频采集，不加载模型、不跑 OLED UI。它适合排查硬件接线、I2S slot、
-位宽转换和削波问题。
-
-默认测试：
-
-```text
-nsh> audio_test --device /dev/audio/pcm_in1 --seconds 5
-```
-
-显式指定 2 声道诊断：
-
-```text
-nsh> audio_test --device /dev/audio/pcm_in1 --channels 2 --seconds 5
-```
-
-INMP441 适配启用时，日志会同时报告 `slot0`、`slot1` 和最终 `mono(slot0)`：
-
-```text
-[audio_test] INMP441 adapter: slot=0 shift=16 output=mono int16; reporting slot0/slot1/mono
-[audio_test] slot0 min=-6486 max=28395 mean=3985 rms=8993 zero=64/16000 clip=0 nearclip=0
-[audio_test] slot1 min=0 max=0 mean=0 rms=0 zero=16000/16000 clip=0 nearclip=0
-```
-
-判断规则：
-
-- `slot0` 有数据、`slot1` 全 0：符合 `L/R` 接 GND 的 INMP441。
-- 两路都全 0：检查 VDD/GND/BCLK/WS/SD 接线和 `/dev/audio/pcm_in1`。
-- 数据在另一 slot：检查 `L/R` 接法或把 slot 改为 1。
-- `clip` 或 `nearclip` 持续增加：输入过大或右移太小，优先增大 shift。
-- 敲击或咳嗽时 `rms` 明显升高：采集链路基本可用，再回到 `audio_event` 验证模型。
-
-## 模拟器构建和运行
-
-goldfish-arm64 模拟器主要用于文件输入、模型加载和 320x240 LVGL dashboard 验证。它不是
-当前真机主路径。
-
-最终配置路径：
-
-```text
-vendor/openvela/boards/vela/configs/goldfish-audio_event/
-```
-
-推荐 CMake 构建：
-
-```bash
-./build.sh vendor/openvela/boards/vela/configs/goldfish-audio_event/ --cmake -j8
-```
-
-输出目录：
-
-```text
-cmake_out/vela_goldfish-audio_event/
-```
-
-运行：
-
-```bash
-./emulator.sh cmake_out/vela_goldfish-audio_event/
-```
-
-进入 NSH 后：
-
-```text
-goldfish-armv8a-ap> audio_event --model-smoke
-goldfish-armv8a-ap> audio_event --file /data/res/audio/cough_2.wav --repeat 100
-```
-
-模拟器默认采集设备为 `/dev/audio/pcm0c`。如果设备节点或 PulseAudio 状态不稳定，优先用
-`--file` 模式验证模型和 UI。
-
-也可以使用 make 构建：
-
-```bash
-./build.sh vendor/openvela/boards/vela/configs/goldfish-audio_event/ -j8
-```
-
-make 构建后若要运行 `emulator.sh`，需要整理 out 目录：
-
-```bash
-mkdir -p cmake_out/vela_goldfish-audio_event
-cp nuttx/.config cmake_out/vela_goldfish-audio_event/
-cp nuttx/vela_*.bin cmake_out/vela_goldfish-audio_event/
-cp ccf_audio/board/goldfish-arm64/configs/audio_event/config.ini \
-  cmake_out/vela_goldfish-audio_event/
-rm -f cmake_out/vela_goldfish-audio_event/nuttx
-ln -s ../../nuttx/nuttx cmake_out/vela_goldfish-audio_event/nuttx
-
-./emulator.sh cmake_out/vela_goldfish-audio_event/
-```
-
-`config.ini` 将 goldfish 显示固定为 `320x240` 横向模式。若之前启动过模拟器并生成了旧
-`hardware-qemu.ini`，必要时删除
-`cmake_out/vela_goldfish-audio_event/hardware-qemu.ini` 后再启动。
+- [`docs/audio_test采集诊断.md`](docs/audio_test采集诊断.md)：检查 INMP441 接线、I2S slot、位宽转换和削波。
+- [`docs/audio_record录音导出.md`](docs/audio_record录音导出.md)：录制真机 WAV，通过串口 base64 导出到电脑。
+- [`docs/goldfish模拟器.md`](docs/goldfish模拟器.md)：goldfish-arm64 构建、运行和 320x240 LVGL dashboard 验证。
 
 ## 关键配置
 
@@ -656,141 +492,7 @@ archive/esp32s3-box-3/
           dest="vendor/openvela/boards/vela/configs/goldfish-audio_event/config.ini"/>
 ```
 
-## 常见问题
+## 常见问题和排障
 
-### `audio_event` 一直是 silence 或 background
-
-先运行：
-
-```text
-nsh> audio_test --device /dev/audio/pcm_in1 --seconds 5
-```
-
-确认 slot、rms、zero、clip 正常后，再用：
-
-```text
-nsh> audio_event --device /dev/audio/pcm_in1 --audio-stats --profile --no-oled
-```
-
-检查模型输入窗口是否有真实声音。如果 `audio_test` 正常而模型不稳定，优先导出 WAV，
-听实录音频并检查训练域是否和 INMP441 实录域一致。
-
-### `audio_record` 没有在电脑生成文件
-
-这是正常的。`audio_record` 只通过串口输出 base64，需要在电脑端保存日志并解码为
-`record.wav`。
-
-### `File Make.defs could not be found`
-
-通常是把整个 `vendor/openvela/boards/vela/configs/goldfish-audio_event` 目录软链接到了
-`ccf_audio/board/goldfish-arm64/configs/audio_event`。修复方式是创建真实目录，只软链
-`defconfig` 文件。
-
-### ESP32-S3 `audio_event` 编译问题排查
-
-ESP32-S3 真机构建依赖 openvela 的 `build.sh`、`envsetup.sh`、Xtensa toolchain、
-Espressif HAL 和 NuttX ESP32-S3 I2S 代码。遇到编译失败时，优先按下面顺序排查。
-
-#### SmartHome 配置干扰
-
-如果同一工作区也在构建 `openvela_smarthome`，并且 SmartHome defconfig 中启用了
-`CONFIG_FEATURE_FRAMEWORK=y` 和 `CONFIG_QUICKAPP=y`，可能会拉入依赖
-`quickapp_inspector.h` 等文件的模块，导致与 `audio_event` 无关的编译错误。
-
-处理方式是在 SmartHome 的 defconfig 中关闭：
-
-```text
-# CONFIG_FEATURE_FRAMEWORK is not set
-# CONFIG_QUICKAPP is not set
-```
-
-示例路径：
-
-```text
-<openvela-root>/openvela_smarthome/board/goldfish-arm64/configs/smart_home/defconfig
-```
-
-#### `xtensa-esp32s3-elf-gcc` 找不到
-
-`build.sh` 内部会重新 source `envsetup.sh`，因此手动 `export PATH=...` 可能被重置。
-如果 openvela 的工具链自动发现逻辑不能识别
-`prebuilts/gcc/linux-x86_64/xtensa-esp32s3-elf/`，可以在 prebuilts 目录下建立兼容软链接：
-
-```bash
-cd "$OPENVELA_ROOT/prebuilts/gcc/linux-x86_64"
-ln -sfn xtensa-esp32s3-elf xtensa-elf
-```
-
-核心判断：如果当前 shell 中 `which xtensa-esp32s3-elf-gcc` 正常，但 `build.sh` 中仍然找不到，
-优先怀疑 `envsetup.sh` 重置 PATH 或工具链自动发现路径不匹配。
-
-#### `CONFIG_ESP32S3_STORAGE_MTD_OFFSET` / `CONFIG_ESP32S3_STORAGE_MTD_SIZE` 未定义
-
-如果自定义 board 的 Kconfig 没有补齐 ESP32-S3 SPI Flash 存储分区配置，而 defconfig 又启用
-`CONFIG_ESP32S3_SPIFLASH=y`，可能触发 storage MTD 相关宏未定义。当前 `audio_event` 不需要
-SPI Flash 存储分区，可以关闭：
-
-```text
-# CONFIG_ESP32S3_SPIFLASH is not set
-```
-
-目标配置：
-
-```text
-ccf_audio/board/esp32s3-devkit/configs/audio_event/defconfig
-```
-
-#### `nxmutex_lock` / `nxmutex_unlock` 链接错误
-
-如果 `nuttx/arch/xtensa/src/chip/esp32s3_i2s.c` 调用了 `nxmutex_lock()` /
-`nxmutex_unlock()`，但没有包含 `nuttx/mutex.h`，在
-`CONFIG_LIBC_SEM_MUTEX_NOINLINE` 未开启时，编译器可能把 static inline 函数当成外部符号，
-最终链接失败。
-
-本地临时修复是在 `esp32s3_i2s.c` 的 include 区域加入：
-
-```c
-#include <nuttx/mutex.h>
-```
-
-这是 NuttX ESP32-S3 I2S 代码侧问题，不属于 `audio_event` 应用逻辑。
-
-#### `esptool.py` 版本或 PATH 问题
-
-NuttX ESP32-S3 构建会检查 `esptool.py` 版本，要求通常不低于
-`nuttx/tools/esp32s3/Config.mk` 中的 `ESPTOOL_MIN_VERSION`。如果系统 `esptool.py`
-版本过低，或 `~/.local/bin` 被 `envsetup.sh` 重置后不在 PATH 中，可能导致构建或烧录失败。
-
-处理方式：
-
-```bash
-python3 -m pip install --user --upgrade esptool
-mkdir -p "$OPENVELA_ROOT/prebuilts/tools/python/bin"
-ln -sf "$HOME/.local/bin/esptool.py" \
-  "$OPENVELA_ROOT/prebuilts/tools/python/bin/esptool.py"
-```
-
-#### 根因小结
-
-| 类别 | 现象 | 常见根因 | 处理 |
-| --- | --- | --- | --- |
-| 环境 | toolchain / esptool 找不到 | `build.sh` 重新 source `envsetup.sh` 后 PATH 被重置 | 把工具放到 envsetup 可发现路径，或建立 prebuilts 软链接 |
-| 配置 | STORAGE_MTD 宏未定义 | 自定义 board Kconfig 不完整，且启用了不需要的 SPIFLASH | 关闭 `CONFIG_ESP32S3_SPIFLASH` |
-| 源码 | `nxmutex_*` 链接失败 | ESP32-S3 I2S 源文件缺少 `nuttx/mutex.h` | 在 `esp32s3_i2s.c` 补 include |
-| 外部配置 | QuickApp / Feature Framework 编译失败 | SmartHome 配置拉入无关模块 | 在 SmartHome defconfig 中关闭相关配置 |
-
-经验教训：`build.sh` 内部会重新 source `envsetup.sh`，手动 `export PATH=...` 只对当前 shell
-有用，不一定能稳定影响完整构建流程。对工具链和 `esptool.py`，更稳妥的方式是放到
-openvela prebuilts 可发现路径，或者使用持久化环境配置。
-
-### Binder AIDL target 重复
-
-说明 goldfish 配置里仍启用了 Android Binder。`audio_event` 不依赖 Binder，应确认没有
-`CONFIG_ANDROID_BINDER=y`、`CONFIG_ANDROID_SERVICEMANAGER=y`、`CONFIG_BINDER_EXAMPLES=y`
-和 `CONFIG_DRIVERS_BINDER=y`。
-
-### `CONFIG_HAP_APP_PATH` 未定义
-
-说明配置仍拉入了 QuickApp / Feature Framework / Media server。`audio_event` 不需要这些
-框架，应确认没有 `CONFIG_QUICKAPP=y`、`CONFIG_FEATURE_FRAMEWORK=y`、
-`CONFIG_MEDIA_SERVER=y` 和 `CONFIG_MEDIA_TOOL=y`。
+常见运行、采集、模拟器和 ESP32-S3 构建问题统一放在
+[`docs/常见问题.md`](docs/常见问题.md)。
