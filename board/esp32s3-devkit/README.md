@@ -10,8 +10,8 @@ development board connected to an external INMP441 digital microphone.
 Create the vendor board entry as a symbolic link to this directory:
 
 ```bash
-OPENVELA_ROOT=/path/to/openvela
-cd "$OPENVELA_ROOT"
+cd openvela
+OPENVELA_ROOT="$(pwd)"
 mkdir -p vendor/espressif/boards/esp32s3
 ln -sfn "$OPENVELA_ROOT/ccf_audioevent/board/esp32s3-devkit" \
   vendor/espressif/boards/esp32s3/esp32s3-devkit
@@ -37,14 +37,14 @@ the generic ESP32-S3 I2S RX audio device.
 ## Build
 
 ```bash
-cd /path/to/openvela
+cd openvela
 ./build.sh vendor/espressif/boards/esp32s3/esp32s3-devkit/configs/audio_event/ -j8
 ```
 
 ## Flash and monitor
 
 ```bash
-cd /path/to/openvela/nuttx
+cd openvela/nuttx
 make flash ESPTOOL_PORT=/dev/ttyACM0 ESPTOOL_BAUD=921600
 cd ..
 picocom -b 115200 /dev/ttyACM0

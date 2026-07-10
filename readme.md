@@ -17,7 +17,7 @@ I2S/INMP441 采集质量。goldfish 模拟器仍保留，用于文件输入、�
 ## 目录结构
 
 ```text
-ccf_audioevent/
+ccf_audio/
 ├── app/audio_event/                  # 主应用：音频事件检测
 │   ├── model/                         # TFLite Micro 模型与元信息
 │   ├── ui/                            # 320x240 LVGL dashboard，模拟器使用
@@ -47,53 +47,54 @@ ccf_audioevent/
 ### 1. 准备 openvela 工作区
 
 先准备可构建的 openvela 工作区，并确认可以在 openvela 根目录执行 `./build.sh`。
-下文统一用 `$OPENVELA_ROOT` 表示 openvela 根目录：
+下文默认从 openvela 的上一级目录进入工作区：
 
 ```bash
-OPENVELA_ROOT=/path/to/openvela
-cd "$OPENVELA_ROOT"
+cd openvela
+OPENVELA_ROOT="$(pwd)"
 ```
 
-### 2. 拉取 ccf_audioevent 仓库
+### 2. 拉取 ccf_audio 仓库
 
-推荐将本仓库放在 openvela 根目录下，目录名保持为 `ccf_audioevent`：
+推荐将本仓库放在 openvela 根目录下。Git 拉取后的默认目录名是 `ccf_audio`：
 
 ```bash
-cd "$OPENVELA_ROOT"
-git clone https://gitlink.org.cn/yang1234/ccf_audio.git ccf_audioevent
+cd openvela
+git clone https://gitlink.org.cn/yang1234/ccf_audio.git
 ```
 
 如果本地已经存在该目录，进入后更新即可：
 
 ```bash
-cd "$OPENVELA_ROOT/ccf_audioevent"
+cd openvela/ccf_audio
 git pull --ff-only
 ```
 
 ### 3. 建立工作区软链接
 
-`ccf_audioevent` 作为独立作品仓维护，openvela 构建系统需要通过软链接找到 example app、
+`ccf_audio` 作为独立作品仓维护，openvela 构建系统需要通过软链接找到 example app、
 board 和模拟器配置。在 openvela 根目录执行：
 
 ```bash
-OPENVELA_ROOT=/path/to/openvela
-cd "$OPENVELA_ROOT"
+cd openvela
+OPENVELA_ROOT="$(pwd)"
+CCF_AUDIO_ROOT="$OPENVELA_ROOT/ccf_audio"
 
-ln -sfnT "$OPENVELA_ROOT/ccf_audioevent/app/audio_event" \
+ln -sfnT "$CCF_AUDIO_ROOT/app/audio_event" \
   "$OPENVELA_ROOT/apps/examples/audio_event"
 
-ln -sfnT "$OPENVELA_ROOT/ccf_audioevent/app/audio_record" \
+ln -sfnT "$CCF_AUDIO_ROOT/app/audio_record" \
   "$OPENVELA_ROOT/apps/examples/audio_record"
 
-ln -sfnT "$OPENVELA_ROOT/ccf_audioevent/app/audio_test" \
+ln -sfnT "$CCF_AUDIO_ROOT/app/audio_test" \
   "$OPENVELA_ROOT/apps/examples/audio_test"
 
-ln -sfnT "$OPENVELA_ROOT/ccf_audioevent/board/esp32s3-devkit" \
+ln -sfnT "$CCF_AUDIO_ROOT/board/esp32s3-devkit" \
   "$OPENVELA_ROOT/vendor/espressif/boards/esp32s3/esp32s3-devkit"
 
 mkdir -p "$OPENVELA_ROOT/vendor/openvela/boards/vela/configs/goldfish-audio_event"
 rm -f "$OPENVELA_ROOT/vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig"
-ln -sfn "$OPENVELA_ROOT/ccf_audioevent/board/goldfish-arm64/configs/audio_event/defconfig" \
+ln -sfn "$CCF_AUDIO_ROOT/board/goldfish-arm64/configs/audio_event/defconfig" \
   "$OPENVELA_ROOT/vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig"
 ```
 
@@ -109,7 +110,7 @@ readlink -f vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig
 
 `goldfish-audio_event` 目录本身必须是
 `vendor/openvela/boards/vela/configs/` 下的真实目录，只软链接其中的 `defconfig`。
-不要把整个 `goldfish-audio_event` 目录软链接到 `ccf_audioevent`，否则非 CMake 构建会
+不要把整个 `goldfish-audio_event` 目录软链接到 `ccf_audio`，否则非 CMake 构建会
 报 `File Make.defs could not be found`。
 
 `audio_record` 和 `audio_test` 是新增 example。软链接存在后重新 configure 或构建，
@@ -127,9 +128,28 @@ source "<openvela-root>/apps/examples/audio_test/Kconfig"
 完成准备工作后，构建 ESP32-S3 DevKit 真机固件：
 
 ```bash
-cd "$OPENVELA_ROOT"
-./build.sh vendor/espressif/boards/esp32s3/esp32s3-devkit/configs/audio_event/ -j8
+cd openvela
+OPENVELA_ROOT="$(pwd)"
+CCF_AUDIO_ROOT="$OPENVELA_ROOT/ccf_audio"
+
+bash "$CCF_AUDIO_ROOT/scripts/fix_box3_mbedtls_header_priority.sh"
+
+./build.sh vendor/espressif/boards/esp32s3/esp32s3-devkit/configs/audio_event/ -j8 &
+BUILD_PID=$!
+
+bash "$CCF_AUDIO_ROOT/scripts/fix_box3_mbedtls_disable_ccm.sh" &
+CCM_FIX_PID=$!
+bash "$CCF_AUDIO_ROOT/scripts/fix_box3_spinlock_initializer.sh" &
+SPINLOCK_FIX_PID=$!
+
+wait "$BUILD_PID"
+BUILD_STATUS=$?
+wait "$CCM_FIX_PID" "$SPINLOCK_FIX_PID"
+test "$BUILD_STATUS" -eq 0
 ```
+
+说明：ESP32-S3 首次构建或 `distclean` 后，`esp-hal-3rdparty` 会在构建过程中生成。
+Fix 1 先修正头文件优先级，Fix 2 和 Fix 3 与构建同步运行并等待目标文件出现。
 
 烧录并打开串口：
 
@@ -226,18 +246,29 @@ INMP441 不需要 MCLK。当前 I2S1 采集为 `16 kHz, 2ch, 32-bit`，应用侧
 构建：
 
 ```bash
-cd /path/to/openvela
-./build.sh vendor/espressif/boards/esp32s3/esp32s3-devkit/configs/audio_event/ -j8
+cd openvela
+OPENVELA_ROOT="$(pwd)"
+CCF_AUDIO_ROOT="$OPENVELA_ROOT/ccf_audio"
+
+bash "$CCF_AUDIO_ROOT/scripts/fix_box3_mbedtls_header_priority.sh"
+
+./build.sh vendor/espressif/boards/esp32s3/esp32s3-devkit/configs/audio_event/ -j8 &
+BUILD_PID=$!
+
+bash "$CCF_AUDIO_ROOT/scripts/fix_box3_mbedtls_disable_ccm.sh" &
+CCM_FIX_PID=$!
+bash "$CCF_AUDIO_ROOT/scripts/fix_box3_spinlock_initializer.sh" &
+SPINLOCK_FIX_PID=$!
+
+wait "$BUILD_PID"
+BUILD_STATUS=$?
+wait "$CCM_FIX_PID" "$SPINLOCK_FIX_PID"
+test "$BUILD_STATUS" -eq 0
 ```
 
-注意在 `distclean` 后的首次构建时，脚本需要在构建**并行运行**。
+注意在 `distclean` 后的首次构建时，Fix 2 和 Fix 3 需要与构建**并行运行**。
 因为 `esp-hal-3rdparty` 的 git clone 和 patch 是构建过程中异步执行的，
-Fix 2 和 Fix 3 会等待目标文件出现（最多 180 秒）。
-```bash
-bash ccf_audioevent/scripts/fix_box3_mbedtls_header_priority.sh
-bash ccf_audioevent/scripts/fix_box3_mbedtls_disable_ccm.sh &
-bash ccf_audioevent/scripts/fix_box3_spinlock_initializer.sh &
-```
+这两个脚本会等待目标文件出现（最多 180 秒）。
 
 烧录并打开串口：
 
@@ -541,7 +572,7 @@ make 构建后若要运行 `emulator.sh`，需要整理 out 目录：
 mkdir -p cmake_out/vela_goldfish-audio_event
 cp nuttx/.config cmake_out/vela_goldfish-audio_event/
 cp nuttx/vela_*.bin cmake_out/vela_goldfish-audio_event/
-cp ccf_audioevent/board/goldfish-arm64/configs/audio_event/config.ini \
+cp ccf_audio/board/goldfish-arm64/configs/audio_event/config.ini \
   cmake_out/vela_goldfish-audio_event/
 rm -f cmake_out/vela_goldfish-audio_event/nuttx
 ln -s ../../nuttx/nuttx cmake_out/vela_goldfish-audio_event/nuttx
@@ -607,7 +638,7 @@ archive/esp32s3-box-3/
 
 ## Manifest 建议
 
-如果后续把 `ccf_audioevent` 作为独立参赛仓复现，建议在 manifest 中加入：
+如果后续把 `ccf_audio` 仓库作为独立参赛仓复现，建议在 manifest 中加入：
 
 ```xml
 <linkfile src="app/audio_event"
@@ -651,8 +682,105 @@ nsh> audio_event --device /dev/audio/pcm_in1 --audio-stats --profile --no-oled
 ### `File Make.defs could not be found`
 
 通常是把整个 `vendor/openvela/boards/vela/configs/goldfish-audio_event` 目录软链接到了
-`ccf_audioevent/board/goldfish-arm64/configs/audio_event`。修复方式是创建真实目录，只软链
+`ccf_audio/board/goldfish-arm64/configs/audio_event`。修复方式是创建真实目录，只软链
 `defconfig` 文件。
+
+### ESP32-S3 `audio_event` 编译问题排查
+
+ESP32-S3 真机构建依赖 openvela 的 `build.sh`、`envsetup.sh`、Xtensa toolchain、
+Espressif HAL 和 NuttX ESP32-S3 I2S 代码。遇到编译失败时，优先按下面顺序排查。
+
+#### SmartHome 配置干扰
+
+如果同一工作区也在构建 `openvela_smarthome`，并且 SmartHome defconfig 中启用了
+`CONFIG_FEATURE_FRAMEWORK=y` 和 `CONFIG_QUICKAPP=y`，可能会拉入依赖
+`quickapp_inspector.h` 等文件的模块，导致与 `audio_event` 无关的编译错误。
+
+处理方式是在 SmartHome 的 defconfig 中关闭：
+
+```text
+# CONFIG_FEATURE_FRAMEWORK is not set
+# CONFIG_QUICKAPP is not set
+```
+
+示例路径：
+
+```text
+<openvela-root>/openvela_smarthome/board/goldfish-arm64/configs/smart_home/defconfig
+```
+
+#### `xtensa-esp32s3-elf-gcc` 找不到
+
+`build.sh` 内部会重新 source `envsetup.sh`，因此手动 `export PATH=...` 可能被重置。
+如果 openvela 的工具链自动发现逻辑不能识别
+`prebuilts/gcc/linux-x86_64/xtensa-esp32s3-elf/`，可以在 prebuilts 目录下建立兼容软链接：
+
+```bash
+cd "$OPENVELA_ROOT/prebuilts/gcc/linux-x86_64"
+ln -sfn xtensa-esp32s3-elf xtensa-elf
+```
+
+核心判断：如果当前 shell 中 `which xtensa-esp32s3-elf-gcc` 正常，但 `build.sh` 中仍然找不到，
+优先怀疑 `envsetup.sh` 重置 PATH 或工具链自动发现路径不匹配。
+
+#### `CONFIG_ESP32S3_STORAGE_MTD_OFFSET` / `CONFIG_ESP32S3_STORAGE_MTD_SIZE` 未定义
+
+如果自定义 board 的 Kconfig 没有补齐 ESP32-S3 SPI Flash 存储分区配置，而 defconfig 又启用
+`CONFIG_ESP32S3_SPIFLASH=y`，可能触发 storage MTD 相关宏未定义。当前 `audio_event` 不需要
+SPI Flash 存储分区，可以关闭：
+
+```text
+# CONFIG_ESP32S3_SPIFLASH is not set
+```
+
+目标配置：
+
+```text
+ccf_audio/board/esp32s3-devkit/configs/audio_event/defconfig
+```
+
+#### `nxmutex_lock` / `nxmutex_unlock` 链接错误
+
+如果 `nuttx/arch/xtensa/src/chip/esp32s3_i2s.c` 调用了 `nxmutex_lock()` /
+`nxmutex_unlock()`，但没有包含 `nuttx/mutex.h`，在
+`CONFIG_LIBC_SEM_MUTEX_NOINLINE` 未开启时，编译器可能把 static inline 函数当成外部符号，
+最终链接失败。
+
+本地临时修复是在 `esp32s3_i2s.c` 的 include 区域加入：
+
+```c
+#include <nuttx/mutex.h>
+```
+
+这是 NuttX ESP32-S3 I2S 代码侧问题，不属于 `audio_event` 应用逻辑。
+
+#### `esptool.py` 版本或 PATH 问题
+
+NuttX ESP32-S3 构建会检查 `esptool.py` 版本，要求通常不低于
+`nuttx/tools/esp32s3/Config.mk` 中的 `ESPTOOL_MIN_VERSION`。如果系统 `esptool.py`
+版本过低，或 `~/.local/bin` 被 `envsetup.sh` 重置后不在 PATH 中，可能导致构建或烧录失败。
+
+处理方式：
+
+```bash
+python3 -m pip install --user --upgrade esptool
+mkdir -p "$OPENVELA_ROOT/prebuilts/tools/python/bin"
+ln -sf "$HOME/.local/bin/esptool.py" \
+  "$OPENVELA_ROOT/prebuilts/tools/python/bin/esptool.py"
+```
+
+#### 根因小结
+
+| 类别 | 现象 | 常见根因 | 处理 |
+| --- | --- | --- | --- |
+| 环境 | toolchain / esptool 找不到 | `build.sh` 重新 source `envsetup.sh` 后 PATH 被重置 | 把工具放到 envsetup 可发现路径，或建立 prebuilts 软链接 |
+| 配置 | STORAGE_MTD 宏未定义 | 自定义 board Kconfig 不完整，且启用了不需要的 SPIFLASH | 关闭 `CONFIG_ESP32S3_SPIFLASH` |
+| 源码 | `nxmutex_*` 链接失败 | ESP32-S3 I2S 源文件缺少 `nuttx/mutex.h` | 在 `esp32s3_i2s.c` 补 include |
+| 外部配置 | QuickApp / Feature Framework 编译失败 | SmartHome 配置拉入无关模块 | 在 SmartHome defconfig 中关闭相关配置 |
+
+经验教训：`build.sh` 内部会重新 source `envsetup.sh`，手动 `export PATH=...` 只对当前 shell
+有用，不一定能稳定影响完整构建流程。对工具链和 `esptool.py`，更稳妥的方式是放到
+openvela prebuilts 可发现路径，或者使用持久化环境配置。
 
 ### Binder AIDL target 重复
 
