@@ -1,0 +1,22 @@
+ccf_audioevent
+Copyright (c) 2026 ccf_audioevent contributors
+
+This project is released under the MIT License. See LICENSE.
+
+This project is built for the openvela/NuttX ecosystem and uses openvela
+components, board support code, audio drivers, graphics drivers, and build
+integration when linked into an openvela workspace. Those upstream components
+retain their original licenses and notices in the openvela source tree.
+
+The audio-event application uses third-party open-source software through the
+openvela apps tree, including TensorFlow Lite Micro, FlatBuffers, KissFFT, LVGL,
+gemmlowp, and ruy. See THIRD_PARTY_NOTICES.md for the dependency and license
+summary.
+
+The current model and evaluation artifacts were produced from a mixed audio
+dataset containing selected samples derived from FSD50K, ESC-50, and
+self-collected recordings. The source datasets retain their own licenses and
+attribution requirements. FSD50K contains clips with mixed Creative Commons
+licenses. ESC-50 is distributed as a Creative Commons Attribution-NonCommercial
+dataset. Self-collected recordings are project data unless otherwise stated.
+See THIRD_PARTY_NOTICES.md and docs/性能与评估.md.
