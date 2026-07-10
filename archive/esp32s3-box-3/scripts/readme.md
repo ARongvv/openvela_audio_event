@@ -26,12 +26,12 @@ Fix 2 和 Fix 3 会等待目标文件出现（最多 180 秒）。
 
 ```bash
 # 终端 1：启动构建
-cd /home/arongw/openvela
+cd /path/to/openvela
 source build/envsetup.sh
 ./build.sh vendor/espressif/boards/esp32s3/esp32s3-box-3/configs/smart_home/ -j8
 
 # 终端 2：并行运行补丁
-cd /home/arongw/openvela
+cd /path/to/openvela
 bash contest2026_031_niudanxianqianchong/scripts/fix_box3_mbedtls_header_priority.sh
 bash contest2026_031_niudanxianqianchong/scripts/fix_box3_mbedtls_disable_ccm.sh &
 bash contest2026_031_niudanxianqianchong/scripts/fix_box3_spinlock_initializer.sh &
@@ -40,7 +40,7 @@ bash contest2026_031_niudanxianqianchong/scripts/fix_box3_spinlock_initializer.s
 也可以一次运行全部（Fix 1 不需要等待，Fix 2 和 3 后台等待）：
 
 ```bash
-cd /home/arongw/openvela
+cd /path/to/openvela
 bash contest2026_031_niudanxianqianchong/scripts/fix_box3_mbedtls_header_priority.sh
 bash contest2026_031_niudanxianqianchong/scripts/fix_box3_mbedtls_disable_ccm.sh &
 bash contest2026_031_niudanxianqianchong/scripts/fix_box3_spinlock_initializer.sh &

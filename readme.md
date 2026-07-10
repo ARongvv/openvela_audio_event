@@ -19,7 +19,8 @@ I2S/INMP441 采集质量。goldfish 模拟器仍保留，用于文件输入、�
 在 openvela 根目录准备软链接后，构建 ESP32-S3 DevKit 真机固件：
 
 ```bash
-cd /home/arongw/openvela
+OPENVELA_ROOT=/path/to/openvela
+cd "$OPENVELA_ROOT"
 ./build.sh vendor/espressif/boards/esp32s3/esp32s3-devkit/configs/audio_event/ -j8
 ```
 
@@ -109,22 +110,25 @@ ccf_audioevent/
 在 openvela 根目录执行：
 
 ```bash
-ln -sfnT /home/arongw/openvela/ccf_audioevent/app/audio_event \
-  /home/arongw/openvela/apps/examples/audio_event
+OPENVELA_ROOT=/path/to/openvela
+cd "$OPENVELA_ROOT"
 
-ln -sfnT /home/arongw/openvela/ccf_audioevent/app/audio_record \
-  /home/arongw/openvela/apps/examples/audio_record
+ln -sfnT "$OPENVELA_ROOT/ccf_audioevent/app/audio_event" \
+  "$OPENVELA_ROOT/apps/examples/audio_event"
 
-ln -sfnT /home/arongw/openvela/ccf_audioevent/app/audio_test \
-  /home/arongw/openvela/apps/examples/audio_test
+ln -sfnT "$OPENVELA_ROOT/ccf_audioevent/app/audio_record" \
+  "$OPENVELA_ROOT/apps/examples/audio_record"
 
-ln -sfnT /home/arongw/openvela/ccf_audioevent/board/esp32s3-devkit \
-  /home/arongw/openvela/vendor/espressif/boards/esp32s3/esp32s3-devkit
+ln -sfnT "$OPENVELA_ROOT/ccf_audioevent/app/audio_test" \
+  "$OPENVELA_ROOT/apps/examples/audio_test"
 
-mkdir -p /home/arongw/openvela/vendor/openvela/boards/vela/configs/goldfish-audio_event
-rm -f /home/arongw/openvela/vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig
-ln -sfn /home/arongw/openvela/ccf_audioevent/board/goldfish-arm64/configs/audio_event/defconfig \
-  /home/arongw/openvela/vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig
+ln -sfnT "$OPENVELA_ROOT/ccf_audioevent/board/esp32s3-devkit" \
+  "$OPENVELA_ROOT/vendor/espressif/boards/esp32s3/esp32s3-devkit"
+
+mkdir -p "$OPENVELA_ROOT/vendor/openvela/boards/vela/configs/goldfish-audio_event"
+rm -f "$OPENVELA_ROOT/vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig"
+ln -sfn "$OPENVELA_ROOT/ccf_audioevent/board/goldfish-arm64/configs/audio_event/defconfig" \
+  "$OPENVELA_ROOT/vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig"
 ```
 
 检查：
@@ -146,8 +150,8 @@ readlink -f vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig
 `apps/examples/Kconfig` 生成阶段会自动加入：
 
 ```text
-source "/home/arongw/openvela/apps/examples/audio_record/Kconfig"
-source "/home/arongw/openvela/apps/examples/audio_test/Kconfig"
+source "<openvela-root>/apps/examples/audio_record/Kconfig"
+source "<openvela-root>/apps/examples/audio_test/Kconfig"
 ```
 
 如果 NSH 中没有 `audio_record` 或 `audio_test`，优先检查软链接和重新 configure 状态。
@@ -194,7 +198,7 @@ INMP441 不需要 MCLK。当前 I2S1 采集为 `16 kHz, 2ch, 32-bit`，应用侧
 构建：
 
 ```bash
-cd openvela
+cd /path/to/openvela
 ./build.sh vendor/espressif/boards/esp32s3/esp32s3-devkit/configs/audio_event/ -j8
 ```
 

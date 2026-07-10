@@ -1,7 +1,7 @@
 /*******************************************************************************
  * Size: 20 px
  * Bpp: 1
- * Opts: --font /home/arongw/openvela/apps/graphics/lvgl/lvgl/scripts/built_in_font/Montserrat-Medium.ttf -r 0x20-0x7F --font /home/arongw/openvela/apps/graphics/lvgl/lvgl/scripts/built_in_font/FontAwesome5-Solid+Brands+Regular.woff -r 0xF001,0xF00B,0xF013,0xF026,0xF027,0xF028,0xF04B,0xF04C,0xF071,0xF079,0xF0EB,0xF0F3,0xF130 --size 20 --bpp 1 --format lvgl -o /home/arongw/openvela/contest2026_031_niudanxianqianchong/app/audio_event/ui/lv_font_montserrat_20_bin.c
+ * Opts: --font <openvela-root>/apps/graphics/lvgl/lvgl/scripts/built_in_font/Montserrat-Medium.ttf -r 0x20-0x7F --font <openvela-root>/apps/graphics/lvgl/lvgl/scripts/built_in_font/FontAwesome5-Solid+Brands+Regular.woff -r 0xF001,0xF00B,0xF013,0xF026,0xF027,0xF028,0xF04B,0xF04C,0xF071,0xF079,0xF0EB,0xF0F3,0xF130 --size 20 --bpp 1 --format lvgl -o <project-root>/app/audio_event/ui/lv_font_montserrat_20_bin.c
  ******************************************************************************/
 
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE
@@ -1172,4 +1172,3 @@ lv_font_t lv_font_montserrat_20_bin = {
 
 
 #endif /*#if LV_FONT_MONTSERRAT_20_BIN*/
-
