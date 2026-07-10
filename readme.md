@@ -14,12 +14,119 @@ I2S/INMP441 采集质量。goldfish 模拟器仍保留，用于文件输入、�
 2. 基础类别覆盖：至少支持 2 类音频事件（如玻璃破碎、咳嗽），提供事件定义与触发口径说明。
 3. 可复现与工程化：提供清晰的运行/部署说明，一键运行方式，具备基本异常处理。
 
-## 快速开始
+## 目录结构
 
-在 openvela 根目录准备软链接后，构建 ESP32-S3 DevKit 真机固件：
+```text
+ccf_audioevent/
+├── app/audio_event/                  # 主应用：音频事件检测
+│   ├── model/                         # TFLite Micro 模型与元信息
+│   ├── ui/                            # 320x240 LVGL dashboard，模拟器使用
+│   └── ui_oled/                       # 128x64 OLED compact UI，真机使用
+├── app/audio_record/                 # 辅助工具：录音并导出 WAV base64
+├── app/audio_test/                   # 辅助工具：PCM/INMP441 采集诊断
+├── board/esp32s3-devkit/             # 当前真机主 board
+├── board/goldfish-arm64/configs/
+│   └── audio_event/                  # goldfish 模拟器配置源文件
+├── archive/esp32s3-box-3/            # ESP32-S3-BOX-3 历史适配归档
+├── docs/                             # 赛题、异常处理、性能评估和事件口径文档
+├── train/                            # 模型训练脚本与训练产物
+│   ├── train_audio_event_model.py     # 小型模型训练脚本（当前部署模型）
+│   ├── train_large_model.py           # 中/大型模型训练脚本（复赛模型优化备用）
+│   ├── small_clean/                   # small 模型训练产物（含 metrics/模型文件）
+│   ├── medium_clean/                  # medium 模型训练产物
+│   └── large_clean/                   # large 模型训练产物
+├── scripts/                          # 字体等辅助脚本
+├── LICENSE                           # 项目源码开源协议
+├── NOTICE                            # 项目和数据来源声明
+├── THIRD_PARTY_NOTICES.md            # 第三方依赖和数据集许可摘要
+└── readme.md
+```
+
+## 准备工作
+
+### 1. 准备 openvela 工作区
+
+先准备可构建的 openvela 工作区，并确认可以在 openvela 根目录执行 `./build.sh`。
+下文统一用 `$OPENVELA_ROOT` 表示 openvela 根目录：
 
 ```bash
 OPENVELA_ROOT=/path/to/openvela
+cd "$OPENVELA_ROOT"
+```
+
+### 2. 拉取 ccf_audioevent 仓库
+
+推荐将本仓库放在 openvela 根目录下，目录名保持为 `ccf_audioevent`：
+
+```bash
+cd "$OPENVELA_ROOT"
+git clone https://gitlink.org.cn/yang1234/ccf_audio.git ccf_audioevent
+```
+
+如果本地已经存在该目录，进入后更新即可：
+
+```bash
+cd "$OPENVELA_ROOT/ccf_audioevent"
+git pull --ff-only
+```
+
+### 3. 建立工作区软链接
+
+`ccf_audioevent` 作为独立作品仓维护，openvela 构建系统需要通过软链接找到 example app、
+board 和模拟器配置。在 openvela 根目录执行：
+
+```bash
+OPENVELA_ROOT=/path/to/openvela
+cd "$OPENVELA_ROOT"
+
+ln -sfnT "$OPENVELA_ROOT/ccf_audioevent/app/audio_event" \
+  "$OPENVELA_ROOT/apps/examples/audio_event"
+
+ln -sfnT "$OPENVELA_ROOT/ccf_audioevent/app/audio_record" \
+  "$OPENVELA_ROOT/apps/examples/audio_record"
+
+ln -sfnT "$OPENVELA_ROOT/ccf_audioevent/app/audio_test" \
+  "$OPENVELA_ROOT/apps/examples/audio_test"
+
+ln -sfnT "$OPENVELA_ROOT/ccf_audioevent/board/esp32s3-devkit" \
+  "$OPENVELA_ROOT/vendor/espressif/boards/esp32s3/esp32s3-devkit"
+
+mkdir -p "$OPENVELA_ROOT/vendor/openvela/boards/vela/configs/goldfish-audio_event"
+rm -f "$OPENVELA_ROOT/vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig"
+ln -sfn "$OPENVELA_ROOT/ccf_audioevent/board/goldfish-arm64/configs/audio_event/defconfig" \
+  "$OPENVELA_ROOT/vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig"
+```
+
+检查：
+
+```bash
+readlink -f apps/examples/audio_event
+readlink -f apps/examples/audio_record
+readlink -f apps/examples/audio_test
+readlink -f vendor/espressif/boards/esp32s3/esp32s3-devkit
+readlink -f vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig
+```
+
+`goldfish-audio_event` 目录本身必须是
+`vendor/openvela/boards/vela/configs/` 下的真实目录，只软链接其中的 `defconfig`。
+不要把整个 `goldfish-audio_event` 目录软链接到 `ccf_audioevent`，否则非 CMake 构建会
+报 `File Make.defs could not be found`。
+
+`audio_record` 和 `audio_test` 是新增 example。软链接存在后重新 configure 或构建，
+`apps/examples/Kconfig` 生成阶段会自动加入：
+
+```text
+source "<openvela-root>/apps/examples/audio_record/Kconfig"
+source "<openvela-root>/apps/examples/audio_test/Kconfig"
+```
+
+如果 NSH 中没有 `audio_record` 或 `audio_test`，优先检查软链接和重新 configure 状态。
+
+## 快速开始
+
+完成准备工作后，构建 ESP32-S3 DevKit 真机固件：
+
+```bash
 cd "$OPENVELA_ROOT"
 ./build.sh vendor/espressif/boards/esp32s3/esp32s3-devkit/configs/audio_event/ -j8
 ```
@@ -76,85 +183,6 @@ nsh> audio_record --device /dev/audio/pcm_in1 --seconds 2
 当前模型训练数据来源包括 FSD50K、ESC-50 以及自采音频。FSD50K 含混合 Creative
 Commons 许可音频片段，ESC-50 整体为 Creative Commons Attribution-NonCommercial
 3.0；商业使用前需要单独审查数据来源和模型派生物合规性。
-
-## 目录结构
-
-```text
-ccf_audioevent/
-├── app/audio_event/                  # 主应用：音频事件检测
-│   ├── model/                         # TFLite Micro 模型与元信息
-│   ├── ui/                            # 320x240 LVGL dashboard，模拟器使用
-│   └── ui_oled/                       # 128x64 OLED compact UI，真机使用
-├── app/audio_record/                 # 辅助工具：录音并导出 WAV base64
-├── app/audio_test/                   # 辅助工具：PCM/INMP441 采集诊断
-├── board/esp32s3-devkit/             # 当前真机主 board
-├── board/goldfish-arm64/configs/
-│   └── audio_event/                  # goldfish 模拟器配置源文件
-├── archive/esp32s3-box-3/            # ESP32-S3-BOX-3 历史适配归档
-├── docs/                             # 赛题、异常处理、性能评估和事件口径文档
-├── train/                            # 模型训练脚本与训练产物
-│   ├── train_audio_event_model.py     # 小型模型训练脚本（当前部署模型）
-│   ├── train_large_model.py           # 中/大型模型训练脚本（复赛模型优化备用）
-│   ├── small_clean/                   # small 模型训练产物（含 metrics/模型文件）
-│   ├── medium_clean/                  # medium 模型训练产物
-│   └── large_clean/                   # large 模型训练产物
-├── scripts/                          # 字体等辅助脚本
-├── LICENSE                           # 项目源码开源协议
-├── NOTICE                            # 项目和数据来源声明
-├── THIRD_PARTY_NOTICES.md            # 第三方依赖和数据集许可摘要
-└── readme.md
-```
-
-## 工作区软链接
-
-在 openvela 根目录执行：
-
-```bash
-OPENVELA_ROOT=/path/to/openvela
-cd "$OPENVELA_ROOT"
-
-ln -sfnT "$OPENVELA_ROOT/ccf_audioevent/app/audio_event" \
-  "$OPENVELA_ROOT/apps/examples/audio_event"
-
-ln -sfnT "$OPENVELA_ROOT/ccf_audioevent/app/audio_record" \
-  "$OPENVELA_ROOT/apps/examples/audio_record"
-
-ln -sfnT "$OPENVELA_ROOT/ccf_audioevent/app/audio_test" \
-  "$OPENVELA_ROOT/apps/examples/audio_test"
-
-ln -sfnT "$OPENVELA_ROOT/ccf_audioevent/board/esp32s3-devkit" \
-  "$OPENVELA_ROOT/vendor/espressif/boards/esp32s3/esp32s3-devkit"
-
-mkdir -p "$OPENVELA_ROOT/vendor/openvela/boards/vela/configs/goldfish-audio_event"
-rm -f "$OPENVELA_ROOT/vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig"
-ln -sfn "$OPENVELA_ROOT/ccf_audioevent/board/goldfish-arm64/configs/audio_event/defconfig" \
-  "$OPENVELA_ROOT/vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig"
-```
-
-检查：
-
-```bash
-readlink -f apps/examples/audio_event
-readlink -f apps/examples/audio_record
-readlink -f apps/examples/audio_test
-readlink -f vendor/espressif/boards/esp32s3/esp32s3-devkit
-readlink -f vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig
-```
-
-`goldfish-audio_event` 目录本身必须是
-`vendor/openvela/boards/vela/configs/` 下的真实目录，只软链接其中的 `defconfig`。
-不要把整个 `goldfish-audio_event` 目录软链接到 `ccf_audioevent`，否则非 CMake 构建会
-报 `File Make.defs could not be found`。
-
-`audio_record` 和 `audio_test` 是新增 example。软链接存在后重新 configure 或构建，
-`apps/examples/Kconfig` 生成阶段会自动加入：
-
-```text
-source "<openvela-root>/apps/examples/audio_record/Kconfig"
-source "<openvela-root>/apps/examples/audio_test/Kconfig"
-```
-
-如果 NSH 中没有 `audio_record` 或 `audio_test`，优先检查软链接和重新 configure 状态。
 
 ## 真机硬件
 
