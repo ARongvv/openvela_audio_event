@@ -9,16 +9,18 @@ OLED 上显示检测状态。
 I2S/INMP441 采集质量。goldfish 模拟器仍保留，用于文件输入、模型加载和大屏 LVGL UI
 验证，但放在真机主流程之后。
 
+按用途整理的文档入口见 [`docs/README.md`](docs/README.md)。
+
 ## 初赛要求对应关系
 
 | 初赛要求 | 当前实现 | 对应材料 |
 | --- | --- | --- |
 | 离线本地闭环 | `audio_event` 在端侧完成采集、特征提取、TFLite Micro 推理和 OLED/串口输出 | 本文“快速开始”“audio_event 主应用” |
-| 至少 2 类音频事件 | 当前支持 `knock`、`cough`，并保留 `background`、`silence` 作为背景/静音类别 | [docs/事件定义与触发口径说明.md](docs/事件定义与触发口径说明.md) |
+| 至少 2 类音频事件 | 当前支持 `knock`、`cough`，并保留 `background`、`silence` 作为背景/静音类别 | [docs/项目基线/事件定义与触发口径说明.md](docs/项目基线/事件定义与触发口径说明.md) |
 | 可复现运行 | 提供仓库拉取、openvela 软链接、ESP32-S3 DevKit 构建、烧录和运行命令 | 本文“准备工作”“快速开始”“真机构建和烧录” |
-| 基本异常处理 | 覆盖音频设备打开失败、采集全 0、OLED 不可用、模型加载失败等场景 | [docs/异常处理.md](docs/异常处理.md) |
+| 基本异常处理 | 覆盖音频设备打开失败、采集全 0、OLED 不可用、模型加载失败等场景 | [docs/使用与调试/异常处理.md](docs/使用与调试/异常处理.md) |
 | 运行演示 | 提供真机运行日志和演示视频 | [logs/演示日志.md](logs/演示日志.md)、[logs/演示视频.mp4](logs/演示视频.mp4) |
-| 延迟与误报/漏报数据 | 提供端侧延迟、训练集/测试集指标和已知限制 | [docs/性能与评估.md](docs/性能与评估.md) |
+| 延迟与误报/漏报数据 | 提供端侧延迟、训练集/测试集指标和已知限制 | [docs/项目基线/性能与评估.md](docs/项目基线/性能与评估.md) |
 | 开源协议与第三方声明 | 补充项目协议、NOTICE 和第三方依赖/数据集声明 | [LICENSE](LICENSE)、[NOTICE](NOTICE)、[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) |
 
 ## 初赛任务
@@ -197,7 +199,7 @@ nsh> audio_event --device /dev/audio/pcm_in1 --audio-stats
 | 端侧单窗口处理耗时 | 约 420 - 430 ms |
 
 详细评估口径、混淆矩阵、阈值说明和端侧延迟说明见
-[`docs/性能与评估.md`](docs/性能与评估.md)。
+[`docs/项目基线/性能与评估.md`](docs/项目基线/性能与评估.md)。
 
 ## 开源协议与合规摘要
 
@@ -417,9 +419,9 @@ LAST KNOCK
 
 README 以 `audio_event` 真机闭环为主。辅助工具和模拟器说明拆分到 docs：
 
-- [`docs/audio_test采集诊断.md`](docs/audio_test采集诊断.md)：检查 INMP441 接线、I2S slot、位宽转换和削波。
-- [`docs/audio_record录音导出.md`](docs/audio_record录音导出.md)：录制真机 WAV，通过串口 base64 导出到电脑。
-- [`docs/goldfish模拟器.md`](docs/goldfish模拟器.md)：goldfish-arm64 构建、运行和 320x240 LVGL dashboard 验证。
+- [`docs/使用与调试/audio_test采集诊断.md`](docs/使用与调试/audio_test采集诊断.md)：检查 INMP441 接线、I2S slot、位宽转换和削波。
+- [`docs/使用与调试/audio_record录音导出.md`](docs/使用与调试/audio_record录音导出.md)：录制真机 WAV，通过串口 base64 导出到电脑。
+- [`docs/使用与调试/goldfish模拟器.md`](docs/使用与调试/goldfish模拟器.md)：goldfish-arm64 构建、运行和 320x240 LVGL dashboard 验证。
 
 ## 关键配置
 
@@ -495,4 +497,4 @@ archive/esp32s3-box-3/
 ## 常见问题和排障
 
 常见运行、采集、模拟器和 ESP32-S3 构建问题统一放在
-[`docs/常见问题.md`](docs/常见问题.md)。
+[`docs/使用与调试/常见问题.md`](docs/使用与调试/常见问题.md)。
