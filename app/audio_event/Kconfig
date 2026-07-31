@@ -74,6 +74,82 @@ config EXAMPLES_AUDIO_EVENT_HOP_MS
 	default 250
 	range 20 1000
 
+config EXAMPLES_AUDIO_EVENT_REMOTE_REPORT
+	bool "Enable asynchronous HTTP remote alert reporting"
+	default n
+	depends on NET_TCP
+	select NETUTILS_WEBCLIENT
+	---help---
+		Send locally confirmed events to an HTTP receiver from a dedicated
+		low-priority worker. Local serial/OLED alerting never depends on
+		network availability. Wi-Fi association, DHCP and DNS must be
+		configured separately for the target board.
+
+if EXAMPLES_AUDIO_EVENT_REMOTE_REPORT
+
+config EXAMPLES_AUDIO_EVENT_REMOTE_DEVICE_ID
+	string "Anonymous remote-report device ID"
+	default "esp32s3-audio-01"
+	---help---
+		A non-personal identifier included in every event payload. Only
+		letters, digits, underscore, hyphen and dot are retained on wire.
+
+config EXAMPLES_AUDIO_EVENT_REMOTE_HTTP_ENDPOINT
+	string "HTTP event endpoint"
+	default ""
+	---help---
+		HTTP URL for POST requests, for example:
+		http://192.168.1.10:8080/api/v1/audio-events
+		Leave empty until a trusted LAN receiver is configured.
+
+config EXAMPLES_AUDIO_EVENT_REMOTE_HTTP_TOKEN
+	string "HTTP bearer token (optional)"
+	default ""
+	---help---
+		Optional Authorization bearer token. Do not commit a real token in
+		defconfig or source control, and do not enable it for an untrusted
+		public network without TLS and certificate verification.
+
+config EXAMPLES_AUDIO_EVENT_REMOTE_QUEUE_DEPTH
+	int "Remote report RAM queue depth"
+	default 8
+	range 1 32
+
+config EXAMPLES_AUDIO_EVENT_REMOTE_HTTP_TIMEOUT_MS
+	int "HTTP inactivity timeout (ms)"
+	default 5000
+	range 1000 60000
+
+config EXAMPLES_AUDIO_EVENT_REMOTE_RETRY_MAX
+	int "Maximum retries after the first send attempt"
+	default 3
+	range 0 10
+
+config EXAMPLES_AUDIO_EVENT_REMOTE_RETRY_INITIAL_MS
+	int "Initial retry backoff (ms)"
+	default 1000
+	range 100 30000
+
+config EXAMPLES_AUDIO_EVENT_REMOTE_RETRY_MAX_DELAY_MS
+	int "Maximum retry backoff (ms)"
+	default 30000
+	range 1000 60000
+
+config EXAMPLES_AUDIO_EVENT_REMOTE_THREAD_STACKSIZE
+	int "Remote reporter thread stack size"
+	default 6144
+	range 2048 16384
+
+config EXAMPLES_AUDIO_EVENT_REMOTE_THREAD_PRIORITY
+	int "Remote reporter thread priority"
+	default 80
+	range 1 255
+	---help---
+		Keep this below the audio application and capture-worker priorities
+		so reporting cannot delay PCM processing.
+
+endif # EXAMPLES_AUDIO_EVENT_REMOTE_REPORT
+
 choice EXAMPLES_AUDIO_EVENT_POWER_MODE
 
 	prompt "Audio processing power mode"

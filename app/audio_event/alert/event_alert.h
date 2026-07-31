@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -22,6 +24,13 @@ void event_alert_deinit(void);
  */
 void event_alert_fire(int event_id, const char *event_name,
                       float confidence);
+
+/**
+ * Fire a local alert and enqueue a remote report with the audio timestamp.
+ * Network transfer is always performed outside this caller's execution path.
+ */
+void event_alert_fire_at(int event_id, const char *event_name,
+                         float confidence, uint64_t monotonic_ms);
 
 #ifdef __cplusplus
 }

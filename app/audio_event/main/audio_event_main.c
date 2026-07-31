@@ -771,9 +771,9 @@ static int process_window(uint64_t timestamp_ms, uint64_t wall_timestamp_ms,
 
   if (detection.fired)
     {
-      event_alert_fire(detection.class_id,
-                       g_event_names[detection.class_id],
-                       detection.confidence);
+      event_alert_fire_at(detection.class_id,
+                          g_event_names[detection.class_id],
+                          detection.confidence, timestamp_ms);
 
 #ifdef CONFIG_EXAMPLES_AUDIO_EVENT_UI
       audio_event_ui_notify_detection(detection.class_id,
