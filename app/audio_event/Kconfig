@@ -74,6 +74,77 @@ config EXAMPLES_AUDIO_EVENT_HOP_MS
 	default 250
 	range 20 1000
 
+choice EXAMPLES_AUDIO_EVENT_POWER_MODE
+
+	prompt "Audio processing power mode"
+	default EXAMPLES_AUDIO_EVENT_POWER_CONTINUOUS
+	---help---
+		Continuous keeps the existing feature extraction and model inference
+		on every inference window. Energy gate keeps I2S capture running but
+		skips DSP/TFLM on quiet windows after startup calibration.
+
+config EXAMPLES_AUDIO_EVENT_POWER_CONTINUOUS
+	bool "Continuous inference (P0 baseline)"
+
+config EXAMPLES_AUDIO_EVENT_POWER_ENERGY_GATE
+	bool "PCM energy gate (P1)"
+
+endchoice
+
+if EXAMPLES_AUDIO_EVENT_POWER_ENERGY_GATE
+
+config EXAMPLES_AUDIO_EVENT_ENERGY_GATE_CALIBRATION_MS
+	int "Startup noise-floor calibration time (ms)"
+	default 2000
+	range 500 10000
+
+config EXAMPLES_AUDIO_EVENT_ENERGY_GATE_RMS_RATIO_PERMILLE
+	int "RMS threshold/noise-floor ratio (permille)"
+	default 2000
+	range 1000 10000
+
+config EXAMPLES_AUDIO_EVENT_ENERGY_GATE_RMS_OFFSET
+	int "RMS threshold offset"
+	default 200
+	range 0 32767
+
+config EXAMPLES_AUDIO_EVENT_ENERGY_GATE_RMS_MIN
+	int "Minimum RMS activity threshold"
+	default 600
+	range 0 32767
+
+config EXAMPLES_AUDIO_EVENT_ENERGY_GATE_RMS_MAX
+	int "Maximum RMS activity threshold"
+	default 6000
+	range 1 32767
+
+config EXAMPLES_AUDIO_EVENT_ENERGY_GATE_PEAK_RATIO_PERMILLE
+	int "Peak threshold/RMS threshold ratio (permille)"
+	default 2500
+	range 1000 20000
+
+config EXAMPLES_AUDIO_EVENT_ENERGY_GATE_PEAK_MIN
+	int "Minimum peak activity threshold"
+	default 1800
+	range 0 32767
+
+config EXAMPLES_AUDIO_EVENT_ENERGY_GATE_NOISE_ALPHA_PERMILLE
+	int "Quiet-block noise-floor update rate (permille)"
+	default 20
+	range 1 1000
+
+config EXAMPLES_AUDIO_EVENT_ENERGY_GATE_ACTIVE_HOLD_MS
+	int "Active hold after last energetic block (ms)"
+	default 1500
+	range 0 10000
+
+config EXAMPLES_AUDIO_EVENT_ENERGY_GATE_FORCE_PROBE_MS
+	int "Quiet forced full-inference interval (ms, 0 disables)"
+	default 5000
+	range 0 60000
+
+endif # EXAMPLES_AUDIO_EVENT_POWER_ENERGY_GATE
+
 config EXAMPLES_AUDIO_EVENT_KNOCK_THRESHOLD
 	int "Knock threshold in permille"
 	default 750

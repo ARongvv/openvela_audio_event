@@ -40,6 +40,7 @@ CFLAGS += ${INCDIR_PREFIX}$(APPDIR)/examples/audio_event
 CSRCS  = main/audio_event_main.c
 CSRCS += audio/audio_file.c
 CSRCS += audio/audio_capture.c
+CSRCS += power/power_gate.c
 CSRCS += dsp/feature_extract.c
 CSRCS += detector/event_detector.c
 CSRCS += alert/event_alert.c

@@ -11,6 +11,7 @@ if(CONFIG_EXAMPLES_AUDIO_EVENT)
       main/audio_event_main.c
       audio/audio_file.c
       audio/audio_capture.c
+      power/power_gate.c
       dsp/feature_extract.c
       detector/event_detector.c
       model/event_classifier.cc

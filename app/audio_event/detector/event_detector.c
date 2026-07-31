@@ -16,9 +16,14 @@ static uint64_t g_cooldown_until_ms;
 
 void event_detector_init(void)
 {
+  event_detector_reset_candidate();
+  g_cooldown_until_ms = 0;
+}
+
+void event_detector_reset_candidate(void)
+{
   g_candidate = -1;
   g_hits = 0;
-  g_cooldown_until_ms = 0;
 }
 
 int event_detector_update(const float *probabilities, size_t class_count,

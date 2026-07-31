@@ -22,6 +22,7 @@
 #include "detector/event_detector.h"
 #include "dsp/feature_extract.h"
 #include "model/event_classifier.h"
+#include "power/power_gate.h"
 
 #ifdef CONFIG_EXAMPLES_AUDIO_EVENT_UI
 #include "ui/audio_event_ui.h"
@@ -69,6 +70,7 @@ struct capture_state_s
   int result;
   size_t write_position;
   uint64_t total_samples;
+  struct power_gate_s power_gate;
 };
 
 static const char *const g_event_names[AUDIO_EVENT_CLASS_COUNT] =
@@ -380,6 +382,48 @@ static int run_model_smoke(void)
   return 0;
 }
 
+static void print_power_gate_config(void)
+{
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_POWER_ENERGY_GATE
+  printf("[power_gate] mode=energy_gate calibration=%dms rms="
+         "floor*%d/1000+%d clamp=[%d,%d] peak=min=%d ratio=%d/1000 "
+         "hold=%dms probe=%dms\n",
+         CONFIG_EXAMPLES_AUDIO_EVENT_ENERGY_GATE_CALIBRATION_MS,
+         CONFIG_EXAMPLES_AUDIO_EVENT_ENERGY_GATE_RMS_RATIO_PERMILLE,
+         CONFIG_EXAMPLES_AUDIO_EVENT_ENERGY_GATE_RMS_OFFSET,
+         CONFIG_EXAMPLES_AUDIO_EVENT_ENERGY_GATE_RMS_MIN,
+         CONFIG_EXAMPLES_AUDIO_EVENT_ENERGY_GATE_RMS_MAX,
+         CONFIG_EXAMPLES_AUDIO_EVENT_ENERGY_GATE_PEAK_MIN,
+         CONFIG_EXAMPLES_AUDIO_EVENT_ENERGY_GATE_PEAK_RATIO_PERMILLE,
+         CONFIG_EXAMPLES_AUDIO_EVENT_ENERGY_GATE_ACTIVE_HOLD_MS,
+         CONFIG_EXAMPLES_AUDIO_EVENT_ENERGY_GATE_FORCE_PROBE_MS);
+#else
+  printf("[power_gate] mode=continuous\n");
+#endif
+}
+
+static void print_power_gate_stats(const char *source,
+                                   const struct power_gate_stats_s *stats)
+{
+  if (source == NULL || stats == NULL)
+    {
+      return;
+    }
+
+  printf("[power_gate] source=%s enabled=%d calibrated=%d active=%d "
+         "blocks=%llu active_blocks=%llu entries=%llu infer=%llu skip=%llu "
+         "floor=%u rms_threshold=%u peak_threshold=%u last_rms=%u "
+         "last_peak=%u\n",
+         source, stats->enabled, stats->calibrated, stats->active,
+         (unsigned long long)stats->blocks,
+         (unsigned long long)stats->active_blocks,
+         (unsigned long long)stats->active_entries,
+         (unsigned long long)stats->inference_windows,
+         (unsigned long long)stats->skipped_windows,
+         stats->noise_floor_rms, stats->rms_threshold,
+         stats->peak_threshold, stats->last_rms, stats->last_peak);
+}
+
 static void ring_append(size_t *write_position, const int16_t *samples,
                         size_t sample_count)
 {
@@ -453,6 +497,8 @@ static void *capture_thread_main(void *arg)
       pthread_mutex_lock(&state->lock);
       ring_append(&state->write_position, g_audio_block, (size_t)count);
       state->total_samples += (uint64_t)count;
+      power_gate_process(&state->power_gate, g_audio_block, (size_t)count,
+                         state->total_samples);
       pthread_mutex_unlock(&state->lock);
       sem_post(&state->semaphore);
     }
@@ -469,6 +515,7 @@ static int capture_worker_start(struct capture_state_s *state)
   int ret;
 
   memset(state, 0, sizeof(*state));
+  power_gate_init(&state->power_gate);
   ret = pthread_mutex_init(&state->lock, NULL);
   if (ret != 0)
     {
@@ -587,6 +634,25 @@ static int capture_copy_latest_window(struct capture_state_s *state,
 
   pthread_mutex_unlock(&state->lock);
   return ret;
+}
+
+static bool capture_take_power_gate_inference(struct capture_state_s *state,
+                                              uint64_t snapshot_samples)
+{
+  bool run;
+
+  pthread_mutex_lock(&state->lock);
+  run = power_gate_take_inference(&state->power_gate, snapshot_samples);
+  pthread_mutex_unlock(&state->lock);
+  return run;
+}
+
+static void capture_get_power_gate_stats(struct capture_state_s *state,
+                                         struct power_gate_stats_s *stats)
+{
+  pthread_mutex_lock(&state->lock);
+  power_gate_get_stats(&state->power_gate, stats);
+  pthread_mutex_unlock(&state->lock);
 }
 
 static int capture_wait_for_samples(struct capture_state_s *state,
@@ -800,6 +866,7 @@ static int run_device_loop(const struct app_options_s *options,
   const uint64_t hop_samples =
       AUDIO_EVENT_SAMPLE_RATE * CONFIG_EXAMPLES_AUDIO_EVENT_HOP_MS / 1000;
   uint64_t target_samples = AUDIO_EVENT_CLIP_SAMPLES;
+  struct power_gate_stats_s power_stats;
   int ret;
 
 #ifndef AUDIO_EVENT_HAS_DISPLAY
@@ -829,6 +896,7 @@ static int run_device_loop(const struct app_options_s *options,
       uint64_t snapshot_samples = 0;
       uint64_t timestamp_ms;
       uint64_t wall_timestamp_ms;
+      bool run_inference;
 
       ret = capture_wait_for_samples(&g_capture_state, target_samples);
       if (ret < 0)
@@ -851,30 +919,45 @@ static int run_device_loop(const struct app_options_s *options,
 
       timestamp_ms = snapshot_samples * 1000 / AUDIO_EVENT_SAMPLE_RATE;
       wall_timestamp_ms = elapsed_ms(wall_start_ms);
+      run_inference =
+          capture_take_power_gate_inference(&g_capture_state,
+                                            snapshot_samples);
 
-      ret = process_window(timestamp_ms, wall_timestamp_ms,
-                           options->audio_stats, oled_active,
-                           options->profile);
-      if (ret < 0)
+      if (run_inference)
         {
-          break;
+          ret = process_window(timestamp_ms, wall_timestamp_ms,
+                               options->audio_stats, oled_active,
+                               options->profile);
+          if (ret < 0)
+            {
+              break;
+            }
+        }
+      else
+        {
+          event_detector_reset_candidate();
         }
 
 #ifdef AUDIO_EVENT_HAS_DISPLAY
       update_display_cooldown(timestamp_ms, oled_active);
 #endif
 
-      (*windows)++;
-      if (options->once)
+      if (run_inference)
         {
-          ret = 0;
-          break;
+          (*windows)++;
+          if (options->once)
+            {
+              ret = 0;
+              break;
+            }
         }
 
       target_samples = snapshot_samples + hop_samples;
     }
 
+  capture_get_power_gate_stats(&g_capture_state, &power_stats);
   capture_worker_stop(&g_capture_state);
+  print_power_gate_stats("device", &power_stats);
   return ret;
 }
 
@@ -882,12 +965,15 @@ int audio_event_main(int argc, char *argv[])
 {
   struct app_options_s options;
   struct audio_file_s file_source;
+  struct power_gate_s file_power_gate;
+  struct power_gate_stats_s power_stats;
   size_t write_position = 0;
   size_t samples_until_inference = AUDIO_EVENT_CLIP_SAMPLES;
   uint64_t total_samples = 0;
   uint64_t wall_start_ms = 0;
   unsigned int windows = 0;
   bool file_open = false;
+  bool file_power_gate_initialized = false;
   bool capture_open = false;
 #ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
   bool oled_active = false;
@@ -932,9 +1018,12 @@ int audio_event_main(int argc, char *argv[])
     }
 
   wall_start_ms = monotonic_ms();
+  print_power_gate_config();
 
   if (options.mode == INPUT_MODE_FILE)
     {
+      power_gate_init(&file_power_gate);
+      file_power_gate_initialized = true;
       ret = audio_file_open(&file_source, options.path,
                             options.repeat_count);
       file_open = ret == 0;
@@ -1016,6 +1105,8 @@ int audio_event_main(int argc, char *argv[])
           break;
         }
 
+      power_gate_process(&file_power_gate, g_audio_block, (size_t)count,
+                         total_samples + (uint64_t)count);
       ring_append(&write_position, g_audio_block, count);
       total_samples += count;
       samples_until_inference -= count;
@@ -1037,25 +1128,38 @@ int audio_event_main(int argc, char *argv[])
 #else
           bool oled_enabled = false;
 #endif
+          bool run_inference;
 
           ring_copy_window(write_position);
-          ret = process_window(timestamp_ms, wall_timestamp_ms,
-                               options.audio_stats,
-                               oled_enabled, options.profile);
-          if (ret < 0)
+          run_inference =
+              power_gate_take_inference(&file_power_gate, total_samples);
+          if (run_inference)
             {
-              break;
+              ret = process_window(timestamp_ms, wall_timestamp_ms,
+                                   options.audio_stats,
+                                   oled_enabled, options.profile);
+              if (ret < 0)
+                {
+                  break;
+                }
+            }
+          else
+            {
+              event_detector_reset_candidate();
             }
 
 #ifdef AUDIO_EVENT_HAS_DISPLAY
           update_display_cooldown(timestamp_ms, oled_enabled);
 #endif
 
-          windows++;
-          if (options.once)
+          if (run_inference)
             {
-              ret = 0;
-              break;
+              windows++;
+              if (options.once)
+                {
+                  ret = 0;
+                  break;
+                }
             }
 
           samples_until_inference =
@@ -1096,6 +1200,11 @@ cleanup:
   event_alert_deinit();
   feature_extract_deinit();
   event_classifier_deinit();
+  if (file_power_gate_initialized)
+    {
+      power_gate_get_stats(&file_power_gate, &power_stats);
+      print_power_gate_stats("file", &power_stats);
+    }
   printf("[app] stopped, windows=%u status=%d\n", windows, ret);
   return ret < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

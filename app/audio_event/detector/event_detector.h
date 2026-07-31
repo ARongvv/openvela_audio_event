@@ -17,6 +17,7 @@ struct event_detection_s
 };
 
 void event_detector_init(void);
+void event_detector_reset_candidate(void);
 int event_detector_update(const float *probabilities, size_t class_count,
                           uint64_t timestamp_ms,
                           struct event_detection_s *detection);
