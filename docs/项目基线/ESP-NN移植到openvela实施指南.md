@@ -267,6 +267,28 @@ Espressif 的 `esp-tflite-micro` wrapper 是有价值的语义参考，但应针
 锁定的 TFLM 版本进行小范围移植。不要整体替换 TFLM，也不要导入其中的
 `esp_timer_get_time()` 计时逻辑；openvela 的剖析由 TFLM/NuttX 现有工具完成。
 
+### 7.4 模型白名单与逐元素验证
+
+`CONFIG_TFLITEMICRO_ESP_NN=y` 只表示 ESP-NN 源和受控 wrapper 被构建；Conv2D 和
+DepthwiseConv2D 默认仍使用 TFLM reference kernel。先在 benchmark profile 中打开
+`CONFIG_TFLITEMICRO_ESP_NN_TRACE=y`，收集每个算子的 tensor ID、NHWC shape、卷积参数和
+input/filter/output/scratch 地址对齐信息。
+
+Conv2D 只能通过 output tensor ID 白名单启用：
+
+```text
+CONFIG_TFLITEMICRO_ESP_NN_CONV2D_OUTPUT_TENSOR=<tensor-id>
+CONFIG_TFLITEMICRO_ESP_NN_CONV2D_VERIFY=y
+```
+
+`-1` 是默认值，代表不启用任何 ESP-NN Conv2D。当前首轮白名单只接受：batch=1、int8、
+非 group convolution、dilation=1、1x1、stride=1、padding=0、输入通道为 8 的倍数，且
+filter/input/output/scratch 地址满足内核对齐要求。
+
+启用 `VERIFY` 时，wrapper 先把 reference 结果写入独立的 Tensor Arena scratch，再运行
+ESP-NN 并逐字节比较输出。若不一致，会打印首个差异并恢复 reference 输出，使后续算子
+继续使用正确结果。DepthwiseConv2D 在完成自己的逐形状验证前保持 reference backend。
+
 ## 8. 构建和可观测性检查
 
 先通过本地脚本建立链接，再构建 reference 与 ESP-NN 两套固件：
@@ -338,6 +360,8 @@ reference backend 的原状。
 - CMake 和 Make 构建均编入 ESP-NN 的上游 ESP32-S3 源文件清单及 Xtensa 汇编，并对
   ESP-NN 源应用 -O2 -fno-unroll-loops -mlongcalls；
 - 两个 wrapper 移除了 ESP-IDF 的 esp_timer 依赖，应用层与模型代码未修改；
+- benchmark profile 支持 ESP-NN 算子 shape/对齐 trace、Conv2D 单层 output-tensor
+  白名单和 shadow-reference 逐字节验证；默认值保持全部卷积 reference；
 - 已用 xtensa-esp32s3-elf-gcc/g++ -fsyntax-only 验证两个 wrapper、全部 ESP32-S3
   ESP-NN C 源和汇编源；
 - 完整 CMake 固件构建需在不影响其他工作的干净 NuttX 构建环境中执行。当前工作区有
