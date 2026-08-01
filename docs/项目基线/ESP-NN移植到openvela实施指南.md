@@ -19,9 +19,12 @@ int8 input + int8 filter + int32 bias + per-channel quantization
 `Mean`、`FullyConnected`、`Softmax` 仅在算子剖析证明其占比显著时再接入。对于
 当前四分类模型，优先优化 Conv/DepthwiseConv 的风险更低、潜在收益更高。
 
-本文是实施指南，不代表 ESP-NN 已接入。开始前应先按
-[tflm_benchmark 算子剖析](../使用与调试/tflm_benchmark算子剖析.md)取得当前模型的
-算子级基线。
+当前工作区已完成首个实现版本：TFLITEMICRO_ESP_NN 后端替换 Conv2D 和
+DepthwiseConv2D，tflm_benchmark defconfig 默认启用它；audio_event 的生产
+defconfig 保持 reference backend，等待数值回归与真机性能验证后再切换。
+
+开始比较前应先按 [tflm_benchmark 算子剖析](../使用与调试/tflm_benchmark算子剖析.md)
+取得当前模型的算子级基线。
 
 ## 2. 适用性与边界
 
@@ -166,7 +169,8 @@ config TFLITEMICRO_ESP_NN
 CONFIG_TFLITEMICRO_ESP_NN=y
 ```
 
-不要修改默认生产 defconfig，直到数值回归和真机基准全部通过。
+不要修改默认生产 defconfig，直到数值回归和真机基准全部通过。当前验证 profile
+ccf_audioevent/board/esp32s3-devkit/configs/tflm_benchmark/defconfig 已启用该项。
 
 ## 6. CMake 集成
 
@@ -265,7 +269,14 @@ Espressif 的 `esp-tflite-micro` wrapper 是有价值的语义参考，但应针
 
 ## 8. 构建和可观测性检查
 
-先构建 reference 与 ESP-NN 两套固件。ESP-NN 构建完成后，检查：
+先通过本地脚本建立链接，再构建 reference 与 ESP-NN 两套固件：
+
+~~~
+./ccf_audioevent/scripts/link_esp_nn.sh
+./build.sh ccf_audioevent/board/esp32s3-devkit/configs/tflm_benchmark --cmake -j8
+~~~
+
+ESP-NN 构建完成后，检查：
 
 ```sh
 # 在构建输出目录执行，路径按实际目标调整
@@ -320,3 +331,15 @@ profile 固件的构建和板端命令见
 
 每一步都应能够独立构建；`CONFIG_TFLITEMICRO_ESP_NN=n` 时，产物和行为必须保持
 reference backend 的原状。
+
+## 12. 当前实现与验证状态
+
+- 已实现 TFLITEMICRO_ESP_NN：仅依赖 ESP32-S3，且与 CMSIS-NN、Xtensa HiFi 互斥；
+- CMake 和 Make 构建均编入 ESP-NN 的上游 ESP32-S3 源文件清单及 Xtensa 汇编，并对
+  ESP-NN 源应用 -O2 -fno-unroll-loops -mlongcalls；
+- 两个 wrapper 移除了 ESP-IDF 的 esp_timer 依赖，应用层与模型代码未修改；
+- 已用 xtensa-esp32s3-elf-gcc/g++ -fsyntax-only 验证两个 wrapper、全部 ESP32-S3
+  ESP-NN C 源和汇编源；
+- 完整 CMake 固件构建需在不影响其他工作的干净 NuttX 构建环境中执行。当前工作区有
+  既存 Make 构建残留，CMake 按 NuttX 规则要求先 make distclean；不要在未确认前
+  清除该工作区的构建状态。
