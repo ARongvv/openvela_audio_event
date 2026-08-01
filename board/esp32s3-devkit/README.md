@@ -41,6 +41,16 @@ cd openvela
 ./build.sh vendor/espressif/boards/esp32s3/esp32s3-devkit/configs/audio_event/ -j8
 ```
 
+For operator-level TFLite Micro profiling, use the standalone benchmark
+configuration:
+
+```bash
+./build.sh vendor/espressif/boards/esp32s3/esp32s3-devkit/configs/tflm_benchmark/ -j8
+```
+
+See `ccf_audioevent/docs/使用与调试/tflm_benchmark算子剖析.md` for the board command and
+result collection procedure.
+
 ## Flash and monitor
 
 ```bash

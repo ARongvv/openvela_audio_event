@@ -15,17 +15,28 @@
 
 #include "tensorflow/lite/micro/micro_interpreter.h"
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
+#ifdef CONFIG_TFLITEMICRO_DEBUG
+#include "tensorflow/lite/micro/micro_profiler.h"
+#endif
 #include "tensorflow/lite/schema/schema_generated.h"
 
 namespace
 {
 
-alignas(16) uint8_t g_tensor_arena[CONFIG_EXAMPLES_AUDIO_EVENT_ARENA_SIZE];
+#ifndef EVENT_CLASSIFIER_ARENA_SIZE
+#define EVENT_CLASSIFIER_ARENA_SIZE CONFIG_EXAMPLES_AUDIO_EVENT_ARENA_SIZE
+#endif
+
+alignas(16) uint8_t g_tensor_arena[EVENT_CLASSIFIER_ARENA_SIZE];
 
 tflite::MicroInterpreter *g_interpreter;
 TfLiteTensor *g_input;
 TfLiteTensor *g_output;
 size_t g_arena_used;
+
+#ifdef CONFIG_TFLITEMICRO_DEBUG
+tflite::MicroProfiler g_profiler;
+#endif
 
 int tensor_element_count(const TfLiteTensor *tensor)
 {
@@ -98,8 +109,14 @@ extern "C" int event_classifier_init(void)
       resolver_initialized = true;
     }
 
+#ifdef CONFIG_TFLITEMICRO_DEBUG
+  static tflite::MicroInterpreter interpreter(
+      model, resolver, g_tensor_arena, sizeof(g_tensor_arena), nullptr,
+      &g_profiler);
+#else
   static tflite::MicroInterpreter interpreter(
       model, resolver, g_tensor_arena, sizeof(g_tensor_arena));
+#endif
 
   if (interpreter.AllocateTensors() != kTfLiteOk)
     {
@@ -210,6 +227,73 @@ extern "C" int event_classifier_predict(const float *features,
     }
 
   return read_output(probabilities, class_count);
+}
+
+extern "C" int event_classifier_profile(const float *features,
+                                         size_t feature_count,
+                                         unsigned int warmup_count,
+                                         unsigned int repeat_count, bool csv)
+{
+#ifndef CONFIG_TFLITEMICRO_DEBUG
+  (void)features;
+  (void)feature_count;
+  (void)warmup_count;
+  (void)repeat_count;
+  (void)csv;
+  std::fprintf(stderr,
+               "[tflm_benchmark] unavailable: enable "
+               "CONFIG_TFLITEMICRO_DEBUG\n");
+  return -ENOTSUP;
+#else
+  float probabilities[AUDIO_EVENT_CLASS_COUNT];
+  unsigned int run;
+  int ret;
+
+  if (features == nullptr || feature_count != AUDIO_EVENT_FEATURE_SIZE ||
+      repeat_count == 0)
+    {
+      return -EINVAL;
+    }
+
+  g_profiler.ClearEvents();
+  for (run = 0; run < warmup_count; run++)
+    {
+      ret = event_classifier_predict(features, feature_count, probabilities,
+                                     AUDIO_EVENT_CLASS_COUNT);
+      if (ret < 0)
+        {
+          return ret;
+        }
+
+      g_profiler.ClearEvents();
+    }
+
+  std::printf("[tflm_benchmark] warmup=%u repeat=%u csv=%u\n", warmup_count,
+              repeat_count, csv ? 1 : 0);
+  for (run = 0; run < repeat_count; run++)
+    {
+      ret = event_classifier_predict(features, feature_count, probabilities,
+                                     AUDIO_EVENT_CLASS_COUNT);
+      if (ret < 0)
+        {
+          return ret;
+        }
+
+      std::printf("[tflm_benchmark] iteration=%u\n", run + 1);
+      if (csv)
+        {
+          g_profiler.LogCsv();
+        }
+      else
+        {
+          g_profiler.Log();
+        }
+
+      g_profiler.ClearEvents();
+    }
+
+  return 0;
+#endif
 }
 
 extern "C" size_t event_classifier_arena_used(void)

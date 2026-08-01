@@ -21,3 +21,7 @@
 ifneq ($(CONFIG_EXAMPLES_AUDIO_EVENT),)
 CONFIGURED_APPS += $(APPDIR)/examples/audio_event
 endif
+
+ifneq ($(CONFIG_EXAMPLES_TFLM_BENCHMARK),)
+CONFIGURED_APPS += $(APPDIR)/examples/audio_event/tflm_benchmark
+endif

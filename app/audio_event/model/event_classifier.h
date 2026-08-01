@@ -6,6 +6,7 @@
 #define __APPS_EXAMPLES_AUDIO_EVENT_MODEL_EVENT_CLASSIFIER_H
 
 #include <stddef.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -23,6 +24,10 @@ int event_classifier_predict_quantized(const int8_t *features,
                                        size_t feature_count,
                                        float *probabilities,
                                        size_t class_count);
+
+int event_classifier_profile(const float *features, size_t feature_count,
+                             unsigned int warmup_count,
+                             unsigned int repeat_count, bool csv);
 
 size_t event_classifier_arena_used(void);
 

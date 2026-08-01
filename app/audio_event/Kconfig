@@ -279,3 +279,36 @@ config EXAMPLES_AUDIO_EVENT_UI_DEVPATH
 endif # EXAMPLES_AUDIO_EVENT_UI
 
 endif
+
+config EXAMPLES_TFLM_BENCHMARK
+	tristate "audio_event TFLite Micro benchmark"
+	default n
+	depends on TFLITEMICRO && !EXAMPLES_AUDIO_EVENT
+	---help---
+		Build the standalone tflm_benchmark command for the audio_event
+		model. It reuses the production model data and operator resolver,
+		but does not include audio capture, DSP, detection or display code.
+
+		This option is mutually exclusive with EXAMPLES_AUDIO_EVENT because
+		both applications share the same classifier implementation.
+
+if EXAMPLES_TFLM_BENCHMARK
+
+config EXAMPLES_TFLM_BENCHMARK_PROGNAME
+	string "Program name"
+	default "tflm_benchmark"
+
+config EXAMPLES_TFLM_BENCHMARK_PRIORITY
+	int "Task priority"
+	default 100
+
+config EXAMPLES_TFLM_BENCHMARK_STACKSIZE
+	int "Task stack size"
+	default 8192
+
+config EXAMPLES_TFLM_BENCHMARK_ARENA_SIZE
+	int "TFLite Micro tensor arena size"
+	default 65536
+	range 32768 262144
+
+endif # EXAMPLES_TFLM_BENCHMARK
