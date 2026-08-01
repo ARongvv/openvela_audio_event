@@ -19,6 +19,7 @@ are not vendored directly in this repository.
 | --- | --- | --- |
 | openvela / NuttX | RTOS, build system, audio, I2C, LCD, board integration | See `nuttx/LICENSE`, `nuttx/NOTICE`, `apps/LICENSE`, `apps/NOTICE`, and vendor notices in the openvela tree |
 | TensorFlow Lite Micro | int8 model inference | Apache License 2.0; openvela path `apps/mlearning/tflite-micro/` |
+| ESP-NN | ESP32-S3 optimized int8 TFLite Micro kernels under evaluation | Apache License 2.0; vendored at `third_party/esp-nn/`; source revision and import notes are in `third_party/esp-nn/UPSTREAM.md` |
 | FlatBuffers | TFLite model schema/runtime support | Apache License 2.0; openvela path `apps/system/flatbuffers/` |
 | KissFFT | FFT used by the audio feature extractor | BSD-style license from upstream KissFFT; openvela path `apps/math/kissfft/` |
 | gemmlowp | quantized math support used by TFLite Micro | Apache License 2.0; openvela path `apps/math/gemmlowp/` |
@@ -62,6 +63,7 @@ original attribution files and license metadata with the redistributed files.
 - FSD50K release page: https://fsannotator.upf.edu/fsd/release/FSD50K/
 - ESC-50 repository and license: https://github.com/karolpiczak/ESC-50
 - TensorFlow Lite Micro: https://github.com/tensorflow/tflite-micro
+- ESP-NN: https://github.com/espressif/esp-nn
 - FlatBuffers: https://github.com/google/flatbuffers
 - KissFFT: https://github.com/mborgerding/kissfft
 - LVGL: https://github.com/lvgl/lvgl
