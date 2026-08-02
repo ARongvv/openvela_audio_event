@@ -86,8 +86,13 @@ STACKSIZE = $(CONFIG_EXAMPLES_TFLM_BENCHMARK_STACKSIZE)
 MODULE    = $(CONFIG_EXAMPLES_TFLM_BENCHMARK)
 
 CSRCS  = tflm_benchmark/main/tflm_benchmark_main.c
+ifeq ($(CONFIG_EXAMPLES_TFLM_BENCHMARK_BCRESNET1_8CLASS_PREFLIGHT),y)
+CXXSRCS  = model/bcresnet1_8class_preflight.cc
+CXXSRCS += model/bcresnet1_8class_model.cc
+else
 CXXSRCS  = model/event_classifier.cc
 CXXSRCS += model/model.cc
+endif
 CXXFLAGS += -DEVENT_CLASSIFIER_ARENA_SIZE=$(CONFIG_EXAMPLES_TFLM_BENCHMARK_ARENA_SIZE)
 
 endif
