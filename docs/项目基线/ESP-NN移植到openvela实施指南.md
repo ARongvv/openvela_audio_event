@@ -403,6 +403,9 @@ enter/return 地址，串口输出会进入算子计时范围；需要复核节�
 ESP32-S3 的 `CCOUNT` 是每 CPU 周期递增的 32 位计数器。配置
 `CONFIG_TFLITEMICRO_ESP32S3_CCOUNT_PROFILER=y` 后，基准程序有两层计时：
 
+完整的 reference/ESP-NN 构建、采集和结果归档流程见
+[Reference 与 ESP-NN 性能对比操作手册](Reference与ESP-NN性能对比操作手册.md)。
+
 1. `--mode invoke` 在量化输入已复制到 input tensor 后、`Invoke()` 前后读取 CCOUNT；它测量整次
    模型执行，不包含输入量化、输入拷贝、串口打印或统计；
 2. TFLM `MicroProfiler` 的 `GetCurrentTimeTicks()` 改由 CCOUNT 提供。`--mode operator --csv`

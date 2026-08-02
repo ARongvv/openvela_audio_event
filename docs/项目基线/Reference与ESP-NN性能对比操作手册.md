@@ -1,0 +1,175 @@
+# Reference 与 ESP-NN 性能对比操作手册
+
+本文定义 4-class audio event 模型在 ESP32-S3 上的正式性能对比方法。目标是比较：
+
+- **reference**：全部 `Conv2D` 和 `DepthwiseConv2D` 使用 TFLite Micro reference kernel；
+- **ESP-NN 三 Conv2D 组合**：仅 `out_t=23`、`out_t=25`、`out_t=27` 的普通 `Conv2D` 使用
+  ESP-NN；两个 `DepthwiseConv2D` 暂保持 reference。
+
+该对比测量的是模型的纯 `Invoke()` 时延，不代表音频采集、特征提取、检测逻辑、显示或串口输出的
+端到端时延。
+
+## 1. 测试口径
+
+两套固件均使用 ESP32-S3 `CCOUNT` 计数器。计时边界为：量化 int8 输入已经复制入 input tensor 后，
+到 `MicroInterpreter::Invoke()` 返回为止。因此不包含输入准备、输入拷贝、输出打印和统计计算。
+
+| 项目 | 固定条件 |
+| --- | --- |
+| 板卡 | ESP32-S3 DevKit，使用同一块板进行两次测试 |
+| CPU 频率 | 240 MHz |
+| 模型 | 4-class audio event int8，模型大小 11,984 B |
+| 输入 | 内置、确定性非零 int8 `pattern` |
+| 预热/记录 | warmup=20，repeat=100 |
+| 测量输出 | cycle、微秒、min/P50/mean/P95/max、`output_hash` |
+| ESP-NN TRACE/VERIFY | 必须关闭 |
+
+`pattern` 由程序在板端生成，不依赖随机数或串口数据。两套固件使用相同的输入；`output_hash` 相同是
+本次性能比较的数值一致性前提。
+
+## 2. 对比配置
+
+| 名称 | defconfig | 节点选择 |
+| --- | --- | --- |
+| Reference | `tflm_benchmark_espnn_cycles_ref` | 全部 reference；保留 ESP-NN wrapper 的构建条件，但不选择任何节点 |
+| ESP-NN 三 Conv2D | `tflm_benchmark_espnn_cycles` | Conv2D output tensor mask=`0x0a800000`，即 23、25、27 |
+
+两者均启用 `CONFIG_TFLITEMICRO_ESP32S3_CCOUNT_PROFILER=y` 和
+`CONFIG_XTENSA_CP_INITSET=0x0009`。reference 配置保留 ESP-NN wrapper 的编译和链接，避免仅因二进制
+布局、编译条件不同而污染对比。
+
+## 3. 测试前检查
+
+1. 使用稳定供电和数据线；先让固件空闲停在 NSH，确认不会自行复位。
+2. 启动日志中不得出现 `BROWNOUT_RST`、`SHA-256 comparison failed` 或异常重启。
+3. 运行本地建链脚本：
+
+   ```sh
+   ./ccf_audioevent/scripts/link_esp_nn.sh
+   ```
+
+4. reference 与 ESP-NN 测试尽量在同一温度、同一 USB 供电、同一串口设置下连续完成。
+
+若发生 brownout、启动镜像 SHA 失败、panic、输出 hash 改变或 Invoke 失败，当前轮次无效；先解决
+稳定性问题，不得纳入性能统计。
+
+## 4. 采集 Reference 基线
+
+构建并烧录 reference 配置：
+
+```sh
+./build.sh ccf_audioevent/board/esp32s3-devkit/configs/tflm_benchmark_espnn_cycles_ref -j8
+make -C nuttx flash ESPTOOL_PORT=/dev/ttyUSB0
+```
+
+将 `/dev/ttyUSB0` 替换为实际串口。烧录工具应报告数据校验成功；固件进入 NSH 后运行：
+
+```sh
+tflm_benchmark --mode invoke --input pattern --warmup 20 --repeat 100
+```
+
+保存完整串口日志，至少保存以下三行：
+
+```text
+[tflm_benchmark] mode=invoke input=pattern warmup=20 repeat=100 ccount_hz=240000000
+[tflm_benchmark] invoke_cycles ...
+[tflm_benchmark] invoke_us ... output_hash=...
+```
+
+### 当前已测 Reference 结果
+
+| 指标 | 结果 |
+| --- | ---: |
+| Arena 配置/实际使用 | 65,536 B / 22,788 B |
+| `invoke_cycles` min | 83,098,131 |
+| `invoke_cycles` P50 | 83,099,802 |
+| `invoke_cycles` mean | 83,105,174 |
+| `invoke_cycles` P95 | 83,111,918 |
+| `invoke_cycles` max | 83,112,068 |
+| `invoke_us` mean | 346,271 us（346.271 ms） |
+| `invoke_us` P95 | 346,299 us（346.299 ms） |
+| `output_hash` | `0x77a10bab` |
+
+这 100 次记录的 min–max 范围为 13,937 cycles，约 58 us，说明这次 reference 基线具有足够的
+稳定性，可作为 ESP-NN 对照。
+
+## 5. 采集 ESP-NN 三 Conv2D 结果
+
+构建并烧录 ESP-NN 配置：
+
+```sh
+./build.sh ccf_audioevent/board/esp32s3-devkit/configs/tflm_benchmark_espnn_cycles -j8
+make -C nuttx flash ESPTOOL_PORT=/dev/ttyUSB0
+```
+
+进入 NSH 后执行完全相同的命令：
+
+```sh
+tflm_benchmark --mode invoke --input pattern --warmup 20 --repeat 100
+```
+
+先检查：
+
+```text
+ccount_hz=240000000
+output_hash=0x77a10bab
+```
+
+两项任何一项不符合，都不要计算加速比。通过后，将结果填写到下一节的表格。
+
+## 6. 正式结果表与计算
+
+| 指标 | Reference | ESP-NN 三 Conv2D | 计算/判定 |
+| --- | ---: | ---: | --- |
+| mean cycles | 83,105,174 | 待测 | `speedup = reference / ESP-NN` |
+| P95 cycles | 83,111,918 | 待测 | 越小越好 |
+| mean us | 346,271 | 待测 | `cycles / 240` |
+| P95 us | 346,299 | 待测 | `cycles / 240` |
+| output hash | `0x77a10bab` | 待测 | 必须一致 |
+| 稳定性 | 100/100 成功 | 待测 | 必须 100/100 成功 |
+
+计算公式：
+
+```text
+mean_speedup       = 83,105,174 / espnn_mean_cycles
+mean_latency_drop  = (1 - espnn_mean_cycles / 83,105,174) × 100%
+p95_speedup        = 83,111,918 / espnn_p95_cycles
+```
+
+报告中应同时给出 mean 与 P95。不能只报单次最小值，也不能用旧的 10 ms `MicroProfiler` 刻度计算
+正式加速比。
+
+## 7. 每算子 CCOUNT 采集
+
+整次 Invoke 通过后，可进一步解释收益来源。分别在两套固件上运行：
+
+```sh
+tflm_benchmark --mode operator --warmup 10 --repeat 1 --csv
+```
+
+CSV 中的 `Ticks` 单位是 **CPU cycle**。保存原始 CSV；若要得到每个算子的 mean/P95，应在每套固件
+上重复采集足够轮次，并按 Event 序号与 Tag 聚合。重点对比：
+
+| Event | Reference backend | ESP-NN backend | 预期 |
+| --- | --- | --- | --- |
+| Conv2D `out_t=23` | reference | ESP-NN | 明显降 cycle |
+| DepthwiseConv2D `out_t=24` | reference | reference | 接近 |
+| Conv2D `out_t=25` | reference | ESP-NN | 明显降 cycle |
+| DepthwiseConv2D `out_t=26` | reference | reference | 接近 |
+| Conv2D `out_t=27` | reference | ESP-NN | 明显降 cycle |
+
+每算子 cycle 只能说明热点变化；整模型正式时延以第 4、5 节的独立 `--mode invoke` 统计为准。
+
+## 8. 归档清单
+
+每次正式对比应一并保存：
+
+- 两个 defconfig 的 Git commit；
+- apps 与 ccf_audioevent 的 Git commit；
+- 模型 SHA-256 和固件 SHA-256；
+- reference、ESP-NN 的完整串口原始日志；
+- 输出 hash、mean/P95、加速比和稳定性结论；
+- 若结果异常，保存失败日志，不以手工挑选的成功样本替代。
+
+相关实现和 ESP-NN 节点准入过程参见
+[ESP-NN 移植到 openvela 实施指南](ESP-NN移植到openvela实施指南.md)。
