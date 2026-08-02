@@ -33,6 +33,8 @@
 | --- | --- | --- |
 | Reference | `tflm_benchmark_espnn_cycles_ref` | 全部 reference；保留 ESP-NN wrapper 的构建条件，但不选择任何节点 |
 | ESP-NN 三 Conv2D | `tflm_benchmark_espnn_cycles` | Conv2D output tensor mask=`0x0a800000`，即 23、25、27 |
+| ESP-NN 三 Conv2D + DW26 验证 | `tflm_benchmark_espnn_cycles_dw26_verify` | 三 Conv2D + Depthwise `out_t=26`；开启 TRACE/VERIFY，仅用于正确性 |
+| ESP-NN 三 Conv2D + DW26 性能 | `tflm_benchmark_espnn_cycles_dw26` | 三 Conv2D + Depthwise `out_t=26`；关闭 TRACE/VERIFY，用于正式 CCOUNT |
 
 两者均启用 `CONFIG_TFLITEMICRO_ESP32S3_CCOUNT_PROFILER=y` 和
 `CONFIG_XTENSA_CP_INITSET=0x0009`。reference 配置保留 ESP-NN wrapper 的编译和链接，避免仅因二进制
@@ -205,7 +207,34 @@ CSV 中的 `Ticks` 单位是 **CPU cycle**。保存原始 CSV；若要得到每�
 Invoke 统计。两个 DepthwiseConv2D 合计 13,579,403 cycles（56.581 ms），占该快照约 68.04%，
 是当前最主要的优化候选；三个 ESP-NN Conv2D 合计仅 2,956,188 cycles（12.317 ms）。
 
-## 8. 归档清单
+## 8. DW26 组合验证与性能测试
+
+`out_t=26` 是 `[1,25,20,16]` 的 3×3、stride=1、SAME DepthwiseConv2D，满足当前 wrapper 的
+16-channel 白名单。先构建验证 profile：
+
+```sh
+./build.sh ccf_audioevent/board/esp32s3-devkit/configs/tflm_benchmark_espnn_cycles_dw26_verify -j8
+make -C nuttx flash ESPTOOL_PORT=/dev/ttyUSB0
+tflm_benchmark --mode invoke --input pattern --warmup 0 --repeat 1
+```
+
+通过条件是启动日志显示 `DepthwiseConv2D out_t=26` 的 backend 为 `esp-nn`，并出现
+`[espnn-verify] DepthwiseConv2D out_t=26 match bytes=8000`；输出 hash 仍必须是
+`0x77a10bab`。验证固件的 TRACE/VERIFY 会改变 Arena 占用与耗时，不能用于性能结论。
+
+随后构建无 TRACE/VERIFY 的性能 profile：
+
+```sh
+./build.sh ccf_audioevent/board/esp32s3-devkit/configs/tflm_benchmark_espnn_cycles_dw26 -j8
+make -C nuttx flash ESPTOOL_PORT=/dev/ttyUSB0
+tflm_benchmark --mode invoke --input pattern --warmup 20 --repeat 100
+tflm_benchmark --mode operator --warmup 10 --repeat 1 --csv
+```
+
+性能 profile 的 `output_hash` 必须为 `0x77a10bab`，并与三 Conv2D 基线的 19,874,378 mean cycles
+比较。实测结果未写入本文前，不得假设 DW26 一定带来正收益。
+
+## 9. 归档清单
 
 每次正式对比应一并保存：
 

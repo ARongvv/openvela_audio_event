@@ -474,6 +474,13 @@ ESP-NN 固件的单次每算子 CCOUNT 快照进一步确认这一判断：三�
 32.247 ms，合计 56.581 ms（约占事件 cycle 合计的 68.04%）。完整原始 cycle 表、输入口径和
 profiler 开销说明见 [Reference 与 ESP-NN 性能对比操作手册](Reference与ESP-NN性能对比操作手册.md)。
 
+下一阶段新增 `tflm_benchmark_espnn_cycles_dw26_verify` 与
+`tflm_benchmark_espnn_cycles_dw26`：前者在三 Conv2D 组合中对 16-channel Depthwise
+`out_t=26` 保持 TRACE/VERIFY，后者关闭二者并进行 CCOUNT 性能采集。它们只通过现有
+`CONFIG_TFLITEMICRO_ESP_NN_DEPTHWISE_CONV2D_OUTPUT_TENSOR=26` 选择节点，不修改 ESP-NN
+上游源码或 TFLM wrapper。DW26 准入后，才单独评估 12-channel 的 DW24；当前单 ID 白名单不允许
+同时启用两个 Depthwise 节点。
+
 ## 8. 构建和可观测性检查
 
 先通过本地脚本建立链接，再构建 reference 与 ESP-NN 两套固件：
