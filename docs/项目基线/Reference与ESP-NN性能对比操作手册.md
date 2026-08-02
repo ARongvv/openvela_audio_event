@@ -162,6 +162,19 @@ p95_speedup        = 83,111,918 / espnn_p95_cycles
 82.809 ms。报告中应同时给出 mean 与 P95。不能只报单次最小值，也不能用旧的 10 ms
 `MicroProfiler` 刻度计算正式加速比。
 
+### 已测单 Depthwise 组合汇总
+
+在三 Conv2D 基线之上，DW24 与 DW26 已分别完成独立的 100 次 CCOUNT 测量。两者当前由单个
+`CONFIG_TFLITEMICRO_ESP_NN_DEPTHWISE_CONV2D_OUTPUT_TENSOR` 选择，**并未同时启用**；下表用于
+横向比较各个已测组合，不能当作“三 Conv2D + DW24 + DW26”五个节点同时加速的实测结果。
+
+| 配置 | mean cycles | mean 时延 | P95 时延 | output hash | 相对 reference 的 mean 加速 |
+| --- | ---: | ---: | ---: | --- | ---: |
+| 全 reference | 83,105,174 | 346.271 ms | 346.299 ms | `0x77a10bab` | 1.0000× |
+| 三 Conv2D | 19,874,378 | 82.809 ms | 82.825 ms | `0x77a10bab` | 4.1815× |
+| 三 Conv2D + DW26 | 12,570,446 | 52.376 ms | 52.415 ms | `0x77a10bab` | 6.6112× |
+| 三 Conv2D + DW24 | 14,759,659 | 61.498 ms | 61.512 ms | `0x77a10bab` | 5.6306× |
+
 ## 7. 每算子 CCOUNT 采集
 
 整次 Invoke 通过后，可进一步解释收益来源。分别在两套固件上运行：
@@ -255,8 +268,8 @@ DW26 性能 profile 完成 100/100 次 pattern Invoke，`output_hash=0x77a10bab`
 ## 9. DW24 组合验证与性能测试
 
 `out_t=24` 是 `[1,25,20,12]` 的 3×3、stride=1、SAME DepthwiseConv2D。现有 wrapper 对它使用
-12→16 通道补齐的 s16 兼容路径；它已通过单节点验证，但组合性能和 Arena 峰值仍必须重新实测。
-DW24 profile 不选择 DW26，因此能够将 DW24 的收益和风险与三 Conv2D 基线独立比较。
+12→16 通道补齐的 s16 兼容路径。DW24 profile 不选择 DW26，因此能够将 DW24 的收益和风险与三
+Conv2D 基线独立比较。
 
 先在不改变 65,536 B Arena 配置的条件下构建验证 profile：
 
@@ -282,6 +295,24 @@ tflm_benchmark --mode operator --warmup 10 --repeat 1 --csv
 
 将结果与三 Conv2D 基线的 19,874,378 mean cycles / 82.809 ms 比较。只有输出 hash 一致、100/100
 稳定、Arena 有余量且 Event 5 低于约 24.322 ms，DW24 才具备加入后续双 Depthwise 组合的资格。
+
+### 当前已测 DW24 组合结果
+
+DW24 verify profile 已打印 `match bytes=6000`；性能 profile 在 `pattern` 输入下完成 100/100 次
+Invoke，最终 `output_hash=0x77a10bab`。Arena 使用 44,324 B，距 65,536 B 上限还余 21,212 B。
+
+| 指标 | 三 Conv2D | 三 Conv2D + DW24 | 对比 |
+| --- | ---: | ---: | --- |
+| mean cycles | 19,874,378 | 14,759,659 | 1.3465× 加速 |
+| P95 cycles | 19,878,193 | 14,762,974 | 1.3465× 加速 |
+| mean 时延 | 82.809 ms | 61.498 ms | 降低 25.735% |
+| P95 时延 | 82.825 ms | 61.512 ms | 降低约 25.7% |
+| Arena 实际使用 | 32,324 B | 44,324 B | 增加 12,000 B |
+
+相对全 reference 的 346.271 ms mean，该组合达到 5.6306× 总加速。单次 operator 快照中，DW24
+从 5,840,209 cycles（24.334 ms）降至 659,157 cycles（2.746 ms），约 8.86× 加速；此 profile
+中的 DW26 仍为 reference（7,766,015 cycles）。因此 DW24 已满足独立节点的正确性、稳定性和性能
+准入条件，但还没有“三 Conv2D + 两个 Depthwise”同时启用的正式结果。
 
 ## 10. 归档清单
 

@@ -466,8 +466,8 @@ tflm_benchmark --mode operator --warmup 10 --repeat 1 --csv
 
 两套固件均完成 100/100 次记录；ESP-NN 的 min–max 波动约 62 us，未发生卡死、重启或协处理器
 异常。因此，三 Conv2D ESP-NN 组合已满足当前模型的数值一致性、稳定性和性能准入条件。两个
-DepthwiseConv2D 仍保持 reference，是下一阶段的主要优化候选；正式端到端性能仍须在音频采集与
-特征提取链路上单独验证。
+DepthwiseConv2D 随后已分别完成受控 ESP-NN 验证，但尚未同时启用；正式端到端性能仍须在音频采集
+与特征提取链路上单独验证。
 
 ESP-NN 固件的单次每算子 CCOUNT 快照进一步确认这一判断：三个 Conv2D 分别为 4.947 ms、
 5.449 ms 和 1.921 ms，合计 12.317 ms；两个 reference DepthwiseConv2D 为 24.334 ms 和
@@ -476,14 +476,20 @@ profiler 开销说明见 [Reference 与 ESP-NN 性能对比操作手册](Referen
 
 `tflm_benchmark_espnn_cycles_dw26_verify` 已确认 16-channel Depthwise `out_t=26` 与 reference
 逐字节一致；`tflm_benchmark_espnn_cycles_dw26` 的正式 mean 为 52.376 ms，相对三 Conv2D 的
-82.809 ms 再降低 36.750%，相对 reference 的 346.271 ms 达到 6.6112× 总加速。该节点只通过现有
-`CONFIG_TFLITEMICRO_ESP_NN_DEPTHWISE_CONV2D_OUTPUT_TENSOR=26` 选择，不修改 ESP-NN 上游源码
-或 TFLM wrapper。
+82.809 ms 再降低 36.750%，相对 reference 的 346.271 ms 达到 6.6112× 总加速。
 
-DW24 使用同样的受控流程，新增 `tflm_benchmark_espnn_cycles_dw24_verify` 与
-`tflm_benchmark_espnn_cycles_dw24`，只将 Depthwise output tensor ID 改为 24。它走 12→16 通道
-补齐的 s16 兼容路径，历史单节点验证曾申请约 24 KB scratch；因此先保持 65,536 B Arena 进行验证，
-再以实际 `AllocateTensors()` 结果决定是否有足够余量。此阶段同样不改 ESP-NN 上游源码或 wrapper。
+DW24 也已通过相同的受控流程。`tflm_benchmark_espnn_cycles_dw24_verify` 输出
+`[espnn-verify] DepthwiseConv2D out_t=24 match bytes=6000`；性能 profile 的 100 次 `pattern`
+Invoke mean 为 61.498 ms、P95 为 61.512 ms、`output_hash=0x77a10bab`。它相对三 Conv2D 基线
+的 82.809 ms 再降低 25.735%，相对 reference 达到 5.6306× 总加速；Arena 使用 44,324 B，仍余
+21,212 B。DW24 的 12→16 通道补齐 s16 兼容路径在 operator 快照中从 24.334 ms 降至 2.746 ms，
+约 8.86× 加速。
+
+DW24 与 DW26 都只通过现有
+`CONFIG_TFLITEMICRO_ESP_NN_DEPTHWISE_CONV2D_OUTPUT_TENSOR=<tensor-id>` 单选配置接入，未修改
+ESP-NN 上游源码或 TFLM wrapper。因而它们是两个独立组合的正式结果，不是两个 Depthwise 同时启用
+的结果；要测量五个节点同时加速，下一步需要把 Depthwise 的单 tensor ID 白名单扩展为 output mask
+或等价的多节点选择机制，并重新做逐字节验证和 CCOUNT 基准。
 
 为保证多次 benchmark 命令的 Arena 观测可重复，`event_classifier_init()` 现在只对静态
 `MicroInterpreter` 执行一次 `AllocateTensors()`；后续命令复用已分配的 tensor arena，而不会累积
