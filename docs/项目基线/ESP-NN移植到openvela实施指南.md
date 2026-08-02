@@ -332,22 +332,27 @@ CONFIG_TFLITEMICRO_ESP_NN_DEPTHWISE_CONV2D_OUTPUT_TENSOR=<tensor-id>
 CONFIG_TFLITEMICRO_ESP_NN_DEPTHWISE_CONV2D_VERIFY=y
 ```
 
-当前第一阶段只允许旧 4-class 模型的 `out_t=26`：输入/输出均为 `[1,25,20,16]`，filter 为
-`[1,3,3,16]`，depth multiplier=1、stride=1、padding=1、dilation=1。它精确对应 ESP32-S3 的
-16-channel padded 3x3 s8 汇编路径。Prepare 阶段会申请 9,664 B ESP-NN scratch，VERIFY 再申请
-8,000 B reference output；运行时要求 input、output 和 scratch 都为 16-byte 对齐。
+第一阶段验证的 `out_t=26` 输入/输出均为 `[1,25,20,16]`，filter 为 `[1,3,3,16]`，精确对应
+ESP32-S3 的 16-channel padded 3x3 s8 汇编路径。它已通过逐字节与重复 Invoke 验证，Prepare
+阶段申请 9,664 B ESP-NN scratch，VERIFY 再申请 8,000 B reference output。
+
+第二阶段验证 `out_t=24`：输入/输出均为 `[1,25,20,12]`，filter 为 `[1,3,3,12]`，其余参数同为
+depth multiplier=1、stride=1、padding=1、dilation=1。该分支将 12 通道补齐至 16 通道，使用
+ESP-NN padded s16 mult1 实现并压缩回 12 通道输出；它不是 16-channel s8 汇编快路径。Prepare
+阶段申请 24,496 B ESP-NN scratch，VERIFY 再申请 6,000 B reference output；运行时仍要求
+input、output 和 scratch 都为 16-byte 对齐。
 
 验证 profile 将 Conv2D 白名单设为 `-1`，仅打开以下 Depthwise 节点：
 
 ```text
 CONFIG_TFLITEMICRO_ESP_NN_CONV2D_OUTPUT_TENSOR=-1
-CONFIG_TFLITEMICRO_ESP_NN_DEPTHWISE_CONV2D_OUTPUT_TENSOR=26
+CONFIG_TFLITEMICRO_ESP_NN_DEPTHWISE_CONV2D_OUTPUT_TENSOR=24
 CONFIG_TFLITEMICRO_ESP_NN_DEPTHWISE_CONV2D_VERIFY=y
 ```
 
-成功标志为 `[espnn-verify] DepthwiseConv2D out_t=26 match bytes=8000`，并在重复 Invoke 中无
-卡死或协处理器异常。`out_t=24` 是 12 通道，需要 ESP-NN 额外填充至 16 通道；它在 `out_t=26`
-验证完成前保持 reference backend。
+成功标志为 `[espnn-verify] DepthwiseConv2D out_t=24 match bytes=6000`，并在重复 Invoke 中无
+卡死或协处理器异常。为保持单节点验证，`out_t=26` 在本阶段恢复 reference backend；只有
+`out_t=24` 通过后才讨论累计启用。
 
 ## 8. 构建和可观测性检查
 
