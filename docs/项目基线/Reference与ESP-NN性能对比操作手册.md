@@ -164,18 +164,23 @@ p95_speedup        = 83,111,918 / espnn_p95_cycles
 82.809 ms。报告中应同时给出 mean 与 P95。不能只报单次最小值，也不能用旧的 10 ms
 `MicroProfiler` 刻度计算正式加速比。
 
-### 已测单 Depthwise 组合汇总
+### 已测组合总览
 
-在三 Conv2D 基线之上，DW24 与 DW26 已分别完成独立的 100 次 CCOUNT 测量。两者当前由单个
-`CONFIG_TFLITEMICRO_ESP_NN_DEPTHWISE_CONV2D_OUTPUT_TENSOR` 选择，**并未同时启用**；下表用于
-横向比较各个已测组合，不能当作“三 Conv2D + DW24 + DW26”五个节点同时加速的实测结果。
+下表统一采用 ESP32-S3 240 MHz、`pattern` 输入、warmup=20、repeat=100 的独立 Invoke CCOUNT
+结果。DW24/DW26 的两行是保留的单 Depthwise 回归 profile；最后一行才是用 mask `0x05000000`
+同时启用两个 Depthwise 的实际组合测量，不能由前两行相加或推算得到。
 
-| 配置 | mean cycles | mean 时延 | P95 时延 | output hash | 相对 reference 的 mean 加速 |
-| --- | ---: | ---: | ---: | --- | ---: |
-| 全 reference | 83,105,174 | 346.271 ms | 346.299 ms | `0x77a10bab` | 1.0000× |
-| 三 Conv2D | 19,874,378 | 82.809 ms | 82.825 ms | `0x77a10bab` | 4.1815× |
-| 三 Conv2D + DW26 | 12,570,446 | 52.376 ms | 52.415 ms | `0x77a10bab` | 6.6112× |
-| 三 Conv2D + DW24 | 14,759,659 | 61.498 ms | 61.512 ms | `0x77a10bab` | 5.6306× |
+| 配置 | 实际 ESP-NN 节点（output tensor） | mean cycles | mean 时延 | P95 时延 | Arena 使用 | output hash | 相对 reference mean 加速 |
+| --- | --- | ---: | ---: | ---: | ---: | --- | ---: |
+| 全 reference | 无 | 83,105,174 | 346.271 ms | 346.299 ms | 22,788 B | `0x77a10bab` | 1.0000× |
+| 三 Conv2D | 23、25、27 | 19,874,378 | 82.809 ms | 82.825 ms | 32,324 B | `0x77a10bab` | 4.1815× |
+| 三 Conv2D + DW26 | 23、25、26、27 | 12,570,446 | 52.376 ms | 52.415 ms | 32,324 B | `0x77a10bab` | 6.6112× |
+| 三 Conv2D + DW24 | 23、24、25、27 | 14,759,659 | 61.498 ms | 61.512 ms | 44,324 B | `0x77a10bab` | 5.6306× |
+| 三 Conv2D + DW24 + DW26 | 23、24、25、26、27 | 7,427,604 | 30.948 ms | 30.973 ms | 44,324 B | `0x77a10bab` | **11.1887×** |
+
+五节点组合将纯模型 Invoke 相对 reference 降低 **91.062%**，相对三 Conv2D 基线再降低
+**62.627%**。其 44,324 B Arena 仍距 65,536 B 上限余 21,212 B。数值正确性的最终归档条件仍是
+组合 verify profile 在同一次执行中同时输出 DW24、DW26 的 `match` 日志。
 
 ## 7. 每算子 CCOUNT 采集
 
