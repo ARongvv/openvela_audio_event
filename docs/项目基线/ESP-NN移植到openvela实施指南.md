@@ -19,9 +19,10 @@ int8 input + int8 filter + int32 bias + per-channel quantization
 `Mean`、`FullyConnected`、`Softmax` 仅在算子剖析证明其占比显著时再接入。对于
 当前四分类模型，优先优化 Conv/DepthwiseConv 的风险更低、潜在收益更高。
 
-当前工作区已完成首个实现版本：TFLITEMICRO_ESP_NN 后端替换 Conv2D 和
-DepthwiseConv2D，tflm_benchmark defconfig 默认启用它；audio_event 的生产
-defconfig 保持 reference backend，等待数值回归与真机性能验证后再切换。
+当前工作区已完成首个实现版本：构建时以 ESP-NN wrapper 替换 Conv2D 和
+DepthwiseConv2D 的注册实现，但默认 benchmark 和生产 `audio_event` 均保持 reference
+backend。独立的 `tflm_benchmark_espnn_verify` profile 只对白名单中的一个 Conv2D 启用
+ESP-NN 与逐字节校验；audio_event 的生产 defconfig 在数值回归与真机性能验证完成前不切换。
 
 开始比较前应先按 [tflm_benchmark 算子剖析](../使用与调试/tflm_benchmark算子剖析.md)
 取得当前模型的算子级基线。
@@ -162,15 +163,14 @@ config TFLITEMICRO_ESP_NN
 	  Unsupported tensor types or parameters use the TFLM reference fallback.
 ```
 
-在 `ccf_audioevent/board/esp32s3-devkit/configs/` 中另建 ESP-NN 专用 profile，或在
-验证分支的 defconfig 中加入：
+在 `ccf_audioevent/board/esp32s3-devkit/configs/` 中使用独立 ESP-NN 专用 profile，并加入：
 
 ```text
 CONFIG_TFLITEMICRO_ESP_NN=y
 ```
 
-不要修改默认生产 defconfig，直到数值回归和真机基准全部通过。当前验证 profile
-ccf_audioevent/board/esp32s3-devkit/configs/tflm_benchmark/defconfig 已启用该项。
+不要修改默认生产 defconfig，直到数值回归和真机基准全部通过。当前验证 profile 为
+`ccf_audioevent/board/esp32s3-devkit/configs/tflm_benchmark_espnn_verify/defconfig`。
 
 ## 6. CMake 集成
 
@@ -236,8 +236,10 @@ wrapper 需要从 `TfLiteTensor` 读取 NHWC 输入、filter 和 output 的维�
 4. 在 node data 中保存 scratch buffer index；
 5. 保留通用 TFLM 所需的 per-channel multiplier、shift、padding 与 int4 解包 scratch。
 
-ESP-NN scratch 必须来自 Tensor Arena，不得在 `Eval()` 中 `malloc()`，也不得使用全局
-共享临时缓冲区。模型 Arena 配置要以 `AllocateTensors()` 后的实际占用重新评估。
+ESP-NN scratch 必须来自 Tensor Arena，不得在 `Eval()` 中 `malloc()`。ESP-NN S3 dispatcher
+会以内部静态指针保存本次 Invoke 的 Arena scratch；wrapper 必须在每次 Eval 前重新设置它，
+且同一个 interpreter 不得并发 Invoke。模型 Arena 配置要以 `AllocateTensors()` 后的实际
+占用重新评估。
 
 ### 7.2 Eval 阶段
 
@@ -281,18 +283,41 @@ CONFIG_TFLITEMICRO_ESP_NN_CONV2D_OUTPUT_TENSOR=<tensor-id>
 CONFIG_TFLITEMICRO_ESP_NN_CONV2D_VERIFY=y
 ```
 
-`-1` 是默认值，代表不启用任何 ESP-NN Conv2D。当前首轮白名单只接受：batch=1、int8、
+`-1` 是默认值，代表不启用任何 ESP-NN Conv2D。默认白名单只接受 batch=1、int8、
 非 group convolution、dilation=1、1x1、stride=1、padding=0、输入通道为 8 的倍数，且
 input/output/scratch 地址满足内核对齐要求。选中的节点会把常量 filter 复制到一块 8 字节
 对齐的 persistent buffer，再传给 ESP-NN；这避免 FlatBuffer 内的权重起始地址未对齐导致
 SIMD 访问异常。该副本只在白名单实际选中节点时分配，原始模型和 reference kernel 均不变。
 
-当前 `tflm_benchmark` 模型的首个验证目标是 `out_t=27`：它是 `1x1`、stride=1、
-padding=0、输入通道 16 的 Conv2D，但模型内 filter 地址为 `mod 8 = 4`。先配置
-`CONFIG_TFLITEMICRO_ESP_NN_CONV2D_OUTPUT_TENSOR=27` 和
-`CONFIG_TFLITEMICRO_ESP_NN_CONV2D_VERIFY=y`，单次执行 benchmark 并确认
-`[espnn-verify] Conv2D out_t=27 match`；不要在此阶段启用首个 `5x5` Conv2D 或
-DepthwiseConv2D。
+`CONFIG_TFLITEMICRO_ESP_NN_CONV2D_GENERAL=y` 是第二级、默认关闭的受控放宽。它仍要求
+batch=1、int8、非 group convolution、dilation=1 和单一 output tensor 白名单，但将 kernel、
+stride、padding 与输入通道数交给 ESP32-S3 dispatcher 判断。它只能与
+`CONFIG_TFLITEMICRO_ESP_NN_CONV2D_VERIFY=y` 一起用于 bring-up，不能直接用于生产模型。
+
+旧 4-class 模型的首层验证目标为 `out_t=23`：
+
+```text
+input       [1, 49, 40, 3]
+filter      [12, 5, 5, 3]
+output      [1, 25, 20, 12]
+filter_row_size = 5 * 3 = 15  (< 16)
+window_len      = 5 * 5 * 3 = 75 (>= 16)
+```
+
+S3 dispatcher 因此使用 general Conv 的 im2col 路径：每个 5x5x3 窗口复制为连续 75-byte
+向量，尾部补零至 80，再使用 ACCX SIMD dot product。该层的 scratch 约为 1.2 KB；打开
+VERIFY 还会申请 6,000 B 的 reference output scratch。专用 profile
+`tflm_benchmark_espnn_verify` 已显式设置：
+
+```text
+CONFIG_TFLITEMICRO_ESP_NN_CONV2D_OUTPUT_TENSOR=23
+CONFIG_TFLITEMICRO_ESP_NN_CONV2D_GENERAL=y
+CONFIG_TFLITEMICRO_ESP_NN_CONV2D_VERIFY=y
+```
+
+成功条件不是只看到 `esp-nn enter`，而是对零输入、非零固定特征和真实音频特征均出现
+`[espnn-verify] Conv2D out_t=23 match`，连续 Invoke 无卡死、无 arena 分配失败。当前
+DepthwiseConv2D 在完成独立逐形状验证前仍保持 reference backend。
 
 启用 `VERIFY` 时，wrapper 先把 reference 结果写入独立的 Tensor Arena scratch，再运行
 ESP-NN 并逐字节比较输出。若不一致，会打印首个差异并恢复 reference 输出，使后续算子
@@ -304,8 +329,17 @@ ESP-NN 并逐字节比较输出。若不一致，会打印首个差异并恢复 
 
 ~~~
 ./ccf_audioevent/scripts/link_esp_nn.sh
-./build.sh ccf_audioevent/board/esp32s3-devkit/configs/tflm_benchmark --cmake -j8
+./build.sh ccf_audioevent/board/esp32s3-devkit/configs/tflm_benchmark_espnn_verify -j8
 ~~~
+
+该 profile 使用旧 4-class 模型而非 BC-ResNet 预检模型。烧录后先执行：
+
+```sh
+tflm_benchmark --warmup 0 --repeat 1 --csv
+```
+
+确认首层显示 `candidate=1 selected=1`，并且出现 `out_t=23 match` 后，再进行多次重复
+与非零输入回归；不要在首次验证中选择其他 Conv2D 或打开 Depthwise ESP-NN。
 
 ESP-NN 构建完成后，检查：
 
