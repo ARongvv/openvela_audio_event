@@ -121,13 +121,16 @@ extern "C" int event_classifier_init(void)
   static tflite::MicroInterpreter interpreter(
       model, resolver, g_tensor_arena, sizeof(g_tensor_arena));
 #endif
+  static bool tensors_allocated;
 
-  if (interpreter.AllocateTensors() != kTfLiteOk)
+  if (!tensors_allocated && interpreter.AllocateTensors() != kTfLiteOk)
     {
       std::fprintf(stderr, "[model] AllocateTensors failed, arena=%zu\n",
                    sizeof(g_tensor_arena));
       return -ENOMEM;
     }
+
+  tensors_allocated = true;
 
   g_interpreter = &interpreter;
   g_input = interpreter.input(0);
