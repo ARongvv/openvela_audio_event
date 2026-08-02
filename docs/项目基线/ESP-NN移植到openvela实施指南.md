@@ -377,6 +377,27 @@ CONFIG_TFLITEMICRO_ESP_NN_DEPTHWISE_CONV2D_OUTPUT_TENSOR=-1
 enter/return 地址，串口输出会进入算子计时范围；需要复核节点选择时使用 verify profile，而不应
 用 TRACE 版本的 tick 作为性能结论。
 
+### 7.6 三 Conv2D 组合结果
+
+使用上述 profile 在 ESP32-S3 上完成 `--warmup 10 --repeat 50`。三个 Conv2D 均进入 ESP-NN，
+两个 DepthwiseConv2D 保持 reference；50 次运行无卡死、重启或协处理器异常。尾部第 49、50 次
+的算子记录一致如下：
+
+| 算子 | reference 阶段典型耗时 | 三 Conv2D 组合尾部观测 | 说明 |
+| --- | ---: | ---: | --- |
+| Conv2D `out_t=23` | 约 162 ms | 0 ms | 小于 10 ms 计时分辨率 |
+| DepthwiseConv2D `out_t=24` | 约 24 ms | 30 ms | reference |
+| Conv2D `out_t=25` | 约 39 ms | 0 ms | 小于 10 ms 计时分辨率 |
+| DepthwiseConv2D `out_t=26` | 约 32 ms | 30 ms | reference |
+| Conv2D `out_t=27` | 约 75 ms | 10 ms | 已启用 ESP-NN |
+| Mean | 约 12 ms | 10 ms | reference |
+| 整次 Invoke | 约 345 ms | 约 80 ms | 第 49、50 次均为约 80 ms |
+
+这组结果表明，在当前 10 ms 计时粒度下，三 Conv2D 已不再是主要瓶颈，组合时延相对 reference
+基线约下降 77%（约 4.3 倍吞吐提升）。表中的 0 ms 不能解释为零成本，只能解释为小于一个计时
+刻度；在输出更高精度性能数字前，应保留原始 CSV 或引入更高分辨率的计时源。下一阶段优先加入
+已验证的 `out_t=26` DepthwiseConv2D。
+
 ## 8. 构建和可观测性检查
 
 先通过本地脚本建立链接，再构建 reference 与 ESP-NN 两套固件：
