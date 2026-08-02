@@ -487,9 +487,14 @@ Invoke mean 为 61.498 ms、P95 为 61.512 ms、`output_hash=0x77a10bab`。它�
 
 DW24 与 DW26 都只通过现有
 `CONFIG_TFLITEMICRO_ESP_NN_DEPTHWISE_CONV2D_OUTPUT_TENSOR=<tensor-id>` 单选配置接入，未修改
-ESP-NN 上游源码或 TFLM wrapper。因而它们是两个独立组合的正式结果，不是两个 Depthwise 同时启用
-的结果；要测量五个节点同时加速，下一步需要把 Depthwise 的单 tensor ID 白名单扩展为 output mask
-或等价的多节点选择机制，并重新做逐字节验证和 CCOUNT 基准。
+ESP-NN 上游源码或 TFLM wrapper。为测量五个节点同时加速，wrapper 现已补充
+`CONFIG_TFLITEMICRO_ESP_NN_DEPTHWISE_CONV2D_OUTPUT_TENSOR_MASK`：bit N 选择 output tensor N，
+并与旧单 ID 选择器取并集。组合 profile 设置 `0x05000000`，即同时选择 `out_t=24` 和 `out_t=26`；
+旧 DW24/DW26 profile 保持不变，仍可用于单节点回归。
+
+组合验证必须在 TRACE/VERIFY profile 中同时获得 `out_t=24 match bytes=6000` 和
+`out_t=26 match bytes=8000`，再用无 TRACE/VERIFY 的 profile 采集 100 次 CCOUNT。两个单节点结果
+不能相加代替组合结果：它们的 scratch Arena 分配与算子执行边界需要在同一固件中重新测量。
 
 为保证多次 benchmark 命令的 Arena 观测可重复，`event_classifier_init()` 现在只对静态
 `MicroInterpreter` 执行一次 `AllocateTensors()`；后续命令复用已分配的 tensor arena，而不会累积

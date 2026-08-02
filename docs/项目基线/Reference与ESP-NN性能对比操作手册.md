@@ -37,6 +37,8 @@
 | ESP-NN 三 Conv2D + DW26 性能 | `tflm_benchmark_espnn_cycles_dw26` | 三 Conv2D + Depthwise `out_t=26`；关闭 TRACE/VERIFY，用于正式 CCOUNT |
 | ESP-NN 三 Conv2D + DW24 验证 | `tflm_benchmark_espnn_cycles_dw24_verify` | 三 Conv2D + Depthwise `out_t=24`；开启 TRACE/VERIFY，仅用于正确性 |
 | ESP-NN 三 Conv2D + DW24 性能 | `tflm_benchmark_espnn_cycles_dw24` | 三 Conv2D + Depthwise `out_t=24`；关闭 TRACE/VERIFY，用于正式 CCOUNT |
+| ESP-NN 三 Conv2D + DW24/DW26 验证 | `tflm_benchmark_espnn_cycles_dw24_dw26_verify` | 三 Conv2D + 两个 Depthwise；开启 TRACE/VERIFY，仅用于正确性 |
+| ESP-NN 三 Conv2D + DW24/DW26 性能 | `tflm_benchmark_espnn_cycles_dw24_dw26` | 三 Conv2D + 两个 Depthwise；关闭 TRACE/VERIFY，用于正式 CCOUNT |
 
 两者均启用 `CONFIG_TFLITEMICRO_ESP32S3_CCOUNT_PROFILER=y` 和
 `CONFIG_XTENSA_CP_INITSET=0x0009`。reference 配置保留 ESP-NN wrapper 的编译和链接，避免仅因二进制
@@ -314,7 +316,39 @@ Invoke，最终 `output_hash=0x77a10bab`。Arena 使用 44,324 B，距 65,536 B 
 中的 DW26 仍为 reference（7,766,015 cycles）。因此 DW24 已满足独立节点的正确性、稳定性和性能
 准入条件，但还没有“三 Conv2D + 两个 Depthwise”同时启用的正式结果。
 
-## 10. 归档清单
+## 10. DW24 + DW26 组合验证与性能测试
+
+该组合通过 Depthwise output tensor mask `0x05000000` 同时选择 bit 24 与 bit 26；它与保留的单 ID
+配置是“或”关系，组合 profile 不设置单 ID，因此不会额外选择其他节点。先构建验证 profile：
+
+```sh
+./build.sh ccf_audioevent/board/esp32s3-devkit/configs/tflm_benchmark_espnn_cycles_dw24_dw26_verify -j8
+make -C nuttx flash ESPTOOL_PORT=/dev/ttyUSB0
+tflm_benchmark --mode invoke --input pattern --warmup 0 --repeat 1
+```
+
+必须同时看到以下两条逐字节校验，并确认最终 `output_hash=0x77a10bab`：
+
+```text
+[espnn-verify] DepthwiseConv2D out_t=24 match bytes=6000
+[espnn-verify] DepthwiseConv2D out_t=26 match bytes=8000
+```
+
+验证成功且 `AllocateTensors()` 的 Arena 使用未超过 65,536 B 后，再构建无 TRACE/VERIFY 的性能
+profile：
+
+```sh
+./build.sh ccf_audioevent/board/esp32s3-devkit/configs/tflm_benchmark_espnn_cycles_dw24_dw26 -j8
+make -C nuttx flash ESPTOOL_PORT=/dev/ttyUSB0
+tflm_benchmark --mode invoke --input pattern --warmup 20 --repeat 100
+tflm_benchmark --mode operator --warmup 10 --repeat 1 --csv
+```
+
+归档 mean/P95 cycles、mean/P95 时延、Arena 实际使用和 output hash，并确认 operator CSV 的 Event 5
+与 Event 7 均为 ESP-NN。该数据才是五个卷积节点同时加速的正式结论，不能由 DW24/DW26 两个独立
+profile 的结果相加或推算。
+
+## 11. 归档清单
 
 每次正式对比应一并保存：
 
