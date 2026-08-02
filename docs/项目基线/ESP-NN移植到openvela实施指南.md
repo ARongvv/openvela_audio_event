@@ -181,7 +181,8 @@ CONFIG_TFLITEMICRO_ESP_NN=y
    `FATAL_ERROR` 提示先创建 `ccf_audioevent` 的本地软链接；
 2. 显式列出 ESP-NN 的通用 C 源、ESP32-S3 C 源和 ESP32-S3 `.S` 源；
 3. 为 ESP-NN 加入 `include/`、`src/common/` 头文件路径；
-4. 对 ESP32-S3 汇编使用上游要求的 `-mlongcalls`；
+4. 不从应用 Makefile 向全局 `CFLAGS` 注入 Xtensa 专用 `-mlongcalls`；由 ESP32-S3
+   板级交叉工具链处理目标调用范围，避免污染生成 NuttX host 工具时使用的宿主 GCC；
 5. 加入 `-DESP_NN`，供 TFLM wrapper 选择加速路径；
 6. 从 `TFLITE_MICRO_SRCS` 排除通用 `conv.cc`、`depthwise_conv.cc`；
 7. 加入 openvela 自己维护的 ESP-NN wrapper 源文件。
