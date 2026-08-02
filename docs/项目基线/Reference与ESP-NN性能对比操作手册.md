@@ -234,7 +234,23 @@ tflm_benchmark --mode operator --warmup 10 --repeat 1 --csv
 ```
 
 性能 profile 的 `output_hash` 必须为 `0x77a10bab`，并与三 Conv2D 基线的 19,874,378 mean cycles
-比较。实测结果未写入本文前，不得假设 DW26 一定带来正收益。
+比较。
+
+### 当前已测 DW26 组合结果
+
+DW26 性能 profile 完成 100/100 次 pattern Invoke，`output_hash=0x77a10bab`。结果如下：
+
+| 指标 | 三 Conv2D | 三 Conv2D + DW26 | 对比 |
+| --- | ---: | ---: | --- |
+| mean cycles | 19,874,378 | 12,570,446 | 1.5810× 加速 |
+| P95 cycles | 19,878,193 | 12,579,667 | 1.5802× 加速 |
+| mean 时延 | 82.809 ms | 52.376 ms | 降低 36.750% |
+| P95 时延 | 82.825 ms | 52.415 ms | 降低约 36.7% |
+| Arena 实际使用 | 32,324 B | 32,324 B | 峰值未增加 |
+
+相对 reference 的 346.271 ms mean，三 Conv2D + DW26 达到 6.6112× 总加速，时延降低约 84.87%。
+单次 operator 快照中，DW26 从 7,739,194 cycles（32.247 ms）降至 386,486 cycles（1.610 ms），
+约 20.02× 加速。DW24 和 Mean 现在是主要热点。
 
 ## 9. DW24 组合验证与性能测试
 

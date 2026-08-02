@@ -474,12 +474,11 @@ ESP-NN 固件的单次每算子 CCOUNT 快照进一步确认这一判断：三�
 32.247 ms，合计 56.581 ms（约占事件 cycle 合计的 68.04%）。完整原始 cycle 表、输入口径和
 profiler 开销说明见 [Reference 与 ESP-NN 性能对比操作手册](Reference与ESP-NN性能对比操作手册.md)。
 
-下一阶段新增 `tflm_benchmark_espnn_cycles_dw26_verify` 与
-`tflm_benchmark_espnn_cycles_dw26`：前者在三 Conv2D 组合中对 16-channel Depthwise
-`out_t=26` 保持 TRACE/VERIFY，后者关闭二者并进行 CCOUNT 性能采集。它们只通过现有
-`CONFIG_TFLITEMICRO_ESP_NN_DEPTHWISE_CONV2D_OUTPUT_TENSOR=26` 选择节点，不修改 ESP-NN
-上游源码或 TFLM wrapper。DW26 准入后，才单独评估 12-channel 的 DW24；当前单 ID 白名单不允许
-同时启用两个 Depthwise 节点。
+`tflm_benchmark_espnn_cycles_dw26_verify` 已确认 16-channel Depthwise `out_t=26` 与 reference
+逐字节一致；`tflm_benchmark_espnn_cycles_dw26` 的正式 mean 为 52.376 ms，相对三 Conv2D 的
+82.809 ms 再降低 36.750%，相对 reference 的 346.271 ms 达到 6.6112× 总加速。该节点只通过现有
+`CONFIG_TFLITEMICRO_ESP_NN_DEPTHWISE_CONV2D_OUTPUT_TENSOR=26` 选择，不修改 ESP-NN 上游源码
+或 TFLM wrapper。
 
 DW24 使用同样的受控流程，新增 `tflm_benchmark_espnn_cycles_dw24_verify` 与
 `tflm_benchmark_espnn_cycles_dw24`，只将 Depthwise output tensor ID 改为 24。它走 12→16 通道
