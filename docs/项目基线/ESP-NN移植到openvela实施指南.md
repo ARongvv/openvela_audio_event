@@ -450,6 +450,30 @@ tflm_benchmark --mode operator --warmup 10 --repeat 1 --csv
 序号聚合；总 Invoke 仍以 `--mode invoke` 的独立 CCOUNT 结果为准，不能把多个算子 cycle 简单相加
 替代它。
 
+### 7.8 三 Conv2D CCOUNT 正式结果
+
+在相同 ESP32-S3、240 MHz、`pattern` 输入、warmup=20、repeat=100 条件下，reference 与仅启用
+`out_t=23/25/27` 的 ESP-NN 组合结果如下：
+
+| 指标 | Reference | ESP-NN 三 Conv2D | 结果 |
+| --- | ---: | ---: | --- |
+| mean cycles | 83,105,174 | 19,874,378 | 4.1815× 加速 |
+| P95 cycles | 83,111,918 | 19,878,193 | 4.1811× 加速 |
+| mean 时延 | 346.271 ms | 82.809 ms | 降低 76.085% |
+| P95 时延 | 346.299 ms | 82.825 ms | 降低约 76.1% |
+| output hash | `0x77a10bab` | `0x77a10bab` | 完全一致 |
+| Arena 实际使用 | 22,788 B | 32,324 B | 增加 9,536 B ESP-NN scratch |
+
+两套固件均完成 100/100 次记录；ESP-NN 的 min–max 波动约 62 us，未发生卡死、重启或协处理器
+异常。因此，三 Conv2D ESP-NN 组合已满足当前模型的数值一致性、稳定性和性能准入条件。两个
+DepthwiseConv2D 仍保持 reference，是下一阶段的主要优化候选；正式端到端性能仍须在音频采集与
+特征提取链路上单独验证。
+
+ESP-NN 固件的单次每算子 CCOUNT 快照进一步确认这一判断：三个 Conv2D 分别为 4.947 ms、
+5.449 ms 和 1.921 ms，合计 12.317 ms；两个 reference DepthwiseConv2D 为 24.334 ms 和
+32.247 ms，合计 56.581 ms（约占事件 cycle 合计的 68.04%）。完整原始 cycle 表、输入口径和
+profiler 开销说明见 [Reference 与 ESP-NN 性能对比操作手册](Reference与ESP-NN性能对比操作手册.md)。
+
 ## 8. 构建和可观测性检查
 
 先通过本地脚本建立链接，再构建 reference 与 ESP-NN 两套固件：

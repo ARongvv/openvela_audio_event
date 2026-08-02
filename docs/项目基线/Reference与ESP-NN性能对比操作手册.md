@@ -117,16 +117,34 @@ output_hash=0x77a10bab
 
 两项任何一项不符合，都不要计算加速比。通过后，将结果填写到下一节的表格。
 
+### 当前已测 ESP-NN 三 Conv2D 结果
+
+| 指标 | 结果 |
+| --- | ---: |
+| Arena 配置/实际使用 | 65,536 B / 32,324 B |
+| `invoke_cycles` min | 19,864,192 |
+| `invoke_cycles` P50 | 19,873,933 |
+| `invoke_cycles` mean | 19,874,378 |
+| `invoke_cycles` P95 | 19,878,193 |
+| `invoke_cycles` max | 19,879,045 |
+| `invoke_us` mean | 82,809 us（82.809 ms） |
+| `invoke_us` P95 | 82,825 us（82.825 ms） |
+| `output_hash` | `0x77a10bab` |
+
+100 次记录均完成，min–max 范围为 14,853 cycles，约 62 us。它与 reference 的
+`output_hash=0x77a10bab` 相同，满足本次三 Conv2D ESP-NN 组合的数值一致性要求。
+
 ## 6. 正式结果表与计算
 
 | 指标 | Reference | ESP-NN 三 Conv2D | 计算/判定 |
 | --- | ---: | ---: | --- |
-| mean cycles | 83,105,174 | 待测 | `speedup = reference / ESP-NN` |
-| P95 cycles | 83,111,918 | 待测 | 越小越好 |
-| mean us | 346,271 | 待测 | `cycles / 240` |
-| P95 us | 346,299 | 待测 | `cycles / 240` |
-| output hash | `0x77a10bab` | 待测 | 必须一致 |
-| 稳定性 | 100/100 成功 | 待测 | 必须 100/100 成功 |
+| mean cycles | 83,105,174 | 19,874,378 | **4.1815× 加速** |
+| P95 cycles | 83,111,918 | 19,878,193 | **4.1811× 加速** |
+| mean us | 346,271 | 82,809 | 时延降低 **76.085%** |
+| P95 us | 346,299 | 82,825 | 时延降低约 76.1% |
+| output hash | `0x77a10bab` | `0x77a10bab` | 一致 |
+| 稳定性 | 100/100 成功 | 100/100 成功 | 通过 |
+| Arena 实际使用 | 22,788 B | 32,324 B | ESP-NN scratch 增加 9,536 B |
 
 计算公式：
 
@@ -136,8 +154,9 @@ mean_latency_drop  = (1 - espnn_mean_cycles / 83,105,174) × 100%
 p95_speedup        = 83,111,918 / espnn_p95_cycles
 ```
 
-报告中应同时给出 mean 与 P95。不能只报单次最小值，也不能用旧的 10 ms `MicroProfiler` 刻度计算
-正式加速比。
+本轮计算结果为 mean **4.1815×**、P95 **4.1811×**；模型纯 Invoke mean 从 346.271 ms 降至
+82.809 ms。报告中应同时给出 mean 与 P95。不能只报单次最小值，也不能用旧的 10 ms
+`MicroProfiler` 刻度计算正式加速比。
 
 ## 7. 每算子 CCOUNT 采集
 
@@ -159,6 +178,32 @@ CSV 中的 `Ticks` 单位是 **CPU cycle**。保存原始 CSV；若要得到每�
 | Conv2D `out_t=27` | reference | ESP-NN | 明显降 cycle |
 
 每算子 cycle 只能说明热点变化；整模型正式时延以第 4、5 节的独立 `--mode invoke` 统计为准。
+
+### 当前 ESP-NN 每算子快照
+
+以下数据来自 ESP-NN 三 Conv2D 固件的 `--mode operator --warmup 10 --repeat 1 --csv`。operator
+模式当前使用 float-zero 输入；它用于观察算子工作量，而第 6 节的非零 `pattern` CCOUNT 结果才是
+正式总时延结论。
+
+| Event | 算子/节点 | cycle | 换算时延 | backend |
+| ---: | --- | ---: | ---: | --- |
+| 0 | Shape | 5,839 | 0.024 ms | reference |
+| 1 | StridedSlice | 33,660 | 0.140 ms | reference |
+| 2 | Pack | 8,560 | 0.036 ms | reference |
+| 3 | Reshape | 9,375 | 0.039 ms | reference |
+| 4 | Conv2D `out_t=23` | 1,187,309 | 4.947 ms | ESP-NN |
+| 5 | DepthwiseConv2D `out_t=24` | 5,840,209 | 24.334 ms | reference |
+| 6 | Conv2D `out_t=25` | 1,307,738 | 5.449 ms | ESP-NN |
+| 7 | DepthwiseConv2D `out_t=26` | 7,739,194 | 32.247 ms | reference |
+| 8 | Conv2D `out_t=27` | 461,141 | 1.921 ms | ESP-NN |
+| 9 | Mean | 3,301,122 | 13.755 ms | reference |
+| 10 | FullyConnected | 16,801 | 0.070 ms | reference |
+| 11 | Softmax | 48,089 | 0.200 ms | reference |
+
+该次所有事件的合计为 19,959,037 cycles（83.163 ms）。它比 pattern 输入下的独立 Invoke mean
+82.809 ms 高约 0.43%，这是 profiler 边界与输入形式不同带来的预期差异，不能代替第 6 节的总
+Invoke 统计。两个 DepthwiseConv2D 合计 13,579,403 cycles（56.581 ms），占该快照约 68.04%，
+是当前最主要的优化候选；三个 ESP-NN Conv2D 合计仅 2,956,188 cycles（12.317 ms）。
 
 ## 8. 归档清单
 
