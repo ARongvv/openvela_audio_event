@@ -333,6 +333,9 @@ ESP-NN 并逐字节比较输出。若不一致，会打印首个差异并恢复 
 ./build.sh ccf_audioevent/board/esp32s3-devkit/configs/tflm_benchmark_espnn_verify -j8
 ~~~
 
+该 make profile 显式选择 `CONFIG_XTENSA_TOOLCHAIN_ESP=y`，以确保 `-mlongcalls` 由
+`xtensa-esp32s3-elf-gcc` 而非宿主 `gcc` 接收。
+
 该 profile 使用旧 4-class 模型而非 BC-ResNet 预检模型。烧录后先执行：
 
 ```sh
