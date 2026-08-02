@@ -88,7 +88,7 @@ extern "C" int event_classifier_init(void)
 
   if (!resolver_initialized)
     {
-      if (resolver.AddRelu() != kTfLiteOk ||
+      if (resolver.AddShape() != kTfLiteOk ||
           resolver.AddStridedSlice() != kTfLiteOk ||
           resolver.AddPack() != kTfLiteOk ||
           resolver.AddReshape() != kTfLiteOk ||
