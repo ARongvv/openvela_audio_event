@@ -395,8 +395,57 @@ enter/return 地址，串口输出会进入算子计时范围；需要复核节�
 
 这组结果表明，在当前 10 ms 计时粒度下，三 Conv2D 已不再是主要瓶颈，组合时延相对 reference
 基线约下降 77%（约 4.3 倍吞吐提升）。表中的 0 ms 不能解释为零成本，只能解释为小于一个计时
-刻度；在输出更高精度性能数字前，应保留原始 CSV 或引入更高分辨率的计时源。下一阶段优先加入
-已验证的 `out_t=26` DepthwiseConv2D。
+刻度；不能将其作为正式的百分比结论。下一阶段优先用 CCOUNT 输出正式的 reference 对照数据，
+再决定是否加入已验证的 `out_t=26` DepthwiseConv2D。
+
+### 7.7 CCOUNT 正式比较：整次 Invoke 与每算子周期
+
+ESP32-S3 的 `CCOUNT` 是每 CPU 周期递增的 32 位计数器。配置
+`CONFIG_TFLITEMICRO_ESP32S3_CCOUNT_PROFILER=y` 后，基准程序有两层计时：
+
+1. `--mode invoke` 在量化输入已复制到 input tensor 后、`Invoke()` 前后读取 CCOUNT；它测量整次
+   模型执行，不包含输入量化、输入拷贝、串口打印或统计；
+2. TFLM `MicroProfiler` 的 `GetCurrentTimeTicks()` 改由 CCOUNT 提供。`--mode operator --csv`
+   输出的每个算子 `Ticks` 因而是 CPU 周期，不再是 10 ms 调度刻度。
+
+为避免输入、频率或编译选项影响结论，使用一对独立配置：
+
+| 配置 | backend | 目的 |
+| --- | --- | --- |
+| `tflm_benchmark_espnn_cycles_ref` | 所有节点 reference；仍链接 ESP-NN wrapper | 公平 reference 对照 |
+| `tflm_benchmark_espnn_cycles` | 仅 Conv2D `out_t=23/25/27` 使用 ESP-NN | 三 Conv2D 组合结果 |
+
+两者均固定 `CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240=y`、`CONFIG_XTENSA_CP_INITSET=0x0009`，并关闭
+TRACE/VERIFY。`_ref` 仍启用 `TFLITEMICRO_ESP_NN`，以保证除节点选择外，TFLM wrapper、链接代码
+和编译条件相同。
+
+分别构建、烧录后，在同一供电、同一串口波特率和相同温度条件下运行：
+
+```sh
+./ccf_audioevent/scripts/link_esp_nn.sh
+./build.sh ccf_audioevent/board/esp32s3-devkit/configs/tflm_benchmark_espnn_cycles_ref -j8
+# 烧录 reference 固件
+tflm_benchmark --mode invoke --input pattern --warmup 20 --repeat 100
+
+./build.sh ccf_audioevent/board/esp32s3-devkit/configs/tflm_benchmark_espnn_cycles -j8
+# 烧录 ESP-NN 固件
+tflm_benchmark --mode invoke --input pattern --warmup 20 --repeat 100
+```
+
+`pattern` 是程序内置、确定性的非零 int8 向量；它确保两个固件执行相同输入，也避免全零输入的
+特殊路径掩盖问题。输出中的 `output_hash` 必须在 reference 与 ESP-NN 之间相同，并在同一固件的
+所有记录轮次中保持不变。正式报告记录 `invoke_cycles` 的 mean 和 P95，并按
+`speedup = reference_mean_cycles / espnn_mean_cycles` 计算加速比；不要只比较单次最小值。
+
+对通过上述总时延检查的固件，再抓取每算子周期：
+
+```sh
+tflm_benchmark --mode operator --warmup 10 --repeat 1 --csv
+```
+
+该命令的 CSV `Ticks` 单位为 cycle。若要汇总均值/P95，在同一固件上重复采集原始 CSV，并按算子
+序号聚合；总 Invoke 仍以 `--mode invoke` 的独立 CCOUNT 结果为准，不能把多个算子 cycle 简单相加
+替代它。
 
 ## 8. 构建和可观测性检查
 
