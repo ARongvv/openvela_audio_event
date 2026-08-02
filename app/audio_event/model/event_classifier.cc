@@ -207,7 +207,9 @@ extern "C" int event_classifier_benchmark_invoke_quantized(
   (void)output_count;
   return -ENOTSUP;
 #else
+  TfLiteStatus invoke_status;
   uint32_t start_cycles;
+  uint32_t end_cycles;
 
   if (g_interpreter == nullptr || g_input == nullptr || g_output == nullptr ||
       features == nullptr || invoke_cycles == nullptr || output == nullptr ||
@@ -218,14 +220,22 @@ extern "C" int event_classifier_benchmark_invoke_quantized(
     }
 
   std::memcpy(g_input->data.int8, features, feature_count);
+#ifdef CONFIG_TFLITEMICRO_DEBUG
+  g_profiler.ClearEvents();
+#endif
   start_cycles = static_cast<uint32_t>(XTHAL_GET_CCOUNT());
-  if (g_interpreter->Invoke() != kTfLiteOk)
+  invoke_status = g_interpreter->Invoke();
+  end_cycles = static_cast<uint32_t>(XTHAL_GET_CCOUNT());
+#ifdef CONFIG_TFLITEMICRO_DEBUG
+  g_profiler.ClearEvents();
+#endif
+  if (invoke_status != kTfLiteOk)
     {
       std::fprintf(stderr, "[model] Invoke failed\n");
       return -EIO;
     }
 
-  *invoke_cycles = static_cast<uint32_t>(XTHAL_GET_CCOUNT()) - start_cycles;
+  *invoke_cycles = end_cycles - start_cycles;
   std::memcpy(output, g_output->data.int8, output_count);
   return 0;
 #endif
