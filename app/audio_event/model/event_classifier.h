@@ -25,6 +25,12 @@ int event_classifier_predict_quantized(const int8_t *features,
                                        float *probabilities,
                                        size_t class_count);
 
+int event_classifier_benchmark_invoke_quantized(
+    const int8_t *features, size_t feature_count, uint32_t *invoke_cycles,
+    int8_t *output, size_t output_count);
+
+uint32_t event_classifier_benchmark_ticks_per_second(void);
+
 int event_classifier_profile(const float *features, size_t feature_count,
                              unsigned int warmup_count,
                              unsigned int repeat_count, bool csv);

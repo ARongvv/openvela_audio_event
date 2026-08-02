@@ -13,6 +13,10 @@
 #include "model/event_classifier.h"
 #include "model/model.h"
 
+#ifdef CONFIG_TFLITEMICRO_ESP32S3_CCOUNT_PROFILER
+#include <xtensa/core_macros.h>
+#endif
+
 #include "tensorflow/lite/micro/micro_interpreter.h"
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
 #ifdef CONFIG_TFLITEMICRO_DEBUG
@@ -189,6 +193,52 @@ extern "C" int event_classifier_predict_quantized(
     }
 
   return read_output(probabilities, class_count);
+}
+
+extern "C" int event_classifier_benchmark_invoke_quantized(
+    const int8_t *features, size_t feature_count, uint32_t *invoke_cycles,
+    int8_t *output, size_t output_count)
+{
+#ifndef CONFIG_TFLITEMICRO_ESP32S3_CCOUNT_PROFILER
+  (void)features;
+  (void)feature_count;
+  (void)invoke_cycles;
+  (void)output;
+  (void)output_count;
+  return -ENOTSUP;
+#else
+  uint32_t start_cycles;
+
+  if (g_interpreter == nullptr || g_input == nullptr || g_output == nullptr ||
+      features == nullptr || invoke_cycles == nullptr || output == nullptr ||
+      feature_count != AUDIO_EVENT_FEATURE_SIZE ||
+      output_count != AUDIO_EVENT_CLASS_COUNT)
+    {
+      return -EINVAL;
+    }
+
+  std::memcpy(g_input->data.int8, features, feature_count);
+  start_cycles = static_cast<uint32_t>(XTHAL_GET_CCOUNT());
+  if (g_interpreter->Invoke() != kTfLiteOk)
+    {
+      std::fprintf(stderr, "[model] Invoke failed\n");
+      return -EIO;
+    }
+
+  *invoke_cycles = static_cast<uint32_t>(XTHAL_GET_CCOUNT()) - start_cycles;
+  std::memcpy(output, g_output->data.int8, output_count);
+  return 0;
+#endif
+}
+
+extern "C" uint32_t event_classifier_benchmark_ticks_per_second(void)
+{
+#ifdef CONFIG_TFLITEMICRO_ESP32S3_CCOUNT_PROFILER
+  return static_cast<uint32_t>(CONFIG_ESP32S3_DEFAULT_CPU_FREQ_MHZ) *
+         1000000u;
+#else
+  return 0;
+#endif
 }
 
 extern "C" int event_classifier_predict(const float *features,
