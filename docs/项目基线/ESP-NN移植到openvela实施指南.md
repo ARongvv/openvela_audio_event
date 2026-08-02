@@ -283,7 +283,16 @@ CONFIG_TFLITEMICRO_ESP_NN_CONV2D_VERIFY=y
 
 `-1` 是默认值，代表不启用任何 ESP-NN Conv2D。当前首轮白名单只接受：batch=1、int8、
 非 group convolution、dilation=1、1x1、stride=1、padding=0、输入通道为 8 的倍数，且
-filter/input/output/scratch 地址满足内核对齐要求。
+input/output/scratch 地址满足内核对齐要求。选中的节点会把常量 filter 复制到一块 8 字节
+对齐的 persistent buffer，再传给 ESP-NN；这避免 FlatBuffer 内的权重起始地址未对齐导致
+SIMD 访问异常。该副本只在白名单实际选中节点时分配，原始模型和 reference kernel 均不变。
+
+当前 `tflm_benchmark` 模型的首个验证目标是 `out_t=27`：它是 `1x1`、stride=1、
+padding=0、输入通道 16 的 Conv2D，但模型内 filter 地址为 `mod 8 = 4`。先配置
+`CONFIG_TFLITEMICRO_ESP_NN_CONV2D_OUTPUT_TENSOR=27` 和
+`CONFIG_TFLITEMICRO_ESP_NN_CONV2D_VERIFY=y`，单次执行 benchmark 并确认
+`[espnn-verify] Conv2D out_t=27 match`；不要在此阶段启用首个 `5x5` Conv2D 或
+DepthwiseConv2D。
 
 启用 `VERIFY` 时，wrapper 先把 reference 结果写入独立的 Tensor Arena scratch，再运行
 ESP-NN 并逐字节比较输出。若不一致，会打印首个差异并恢复 reference 输出，使后续算子
