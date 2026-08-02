@@ -14,7 +14,7 @@
 #include "model/model.h"
 
 #ifdef CONFIG_TFLITEMICRO_ESP32S3_CCOUNT_PROFILER
-#include <xtensa/core_macros.h>
+#include <arch/xtensa/core_macros.h>
 #endif
 
 #include "tensorflow/lite/micro/micro_interpreter.h"
