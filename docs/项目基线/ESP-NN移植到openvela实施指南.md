@@ -354,6 +354,25 @@ CONFIG_TFLITEMICRO_ESP_NN_DEPTHWISE_CONV2D_VERIFY=y
 卡死或协处理器异常。为保持单节点验证，`out_t=26` 在本阶段恢复 reference backend；只有
 `out_t=24` 通过后才讨论累计启用。
 
+### 7.5 组合性能 profile
+
+单节点验证完成后，不能用 `CONV2D_OUTPUT_TENSOR` 同时选择多个 Conv2D。为此新增
+`CONFIG_TFLITEMICRO_ESP_NN_CONV2D_OUTPUT_TENSOR_MASK`：bit N 表示 output tensor ID 为 N 的
+Conv2D。它与原有的单节点配置取并集，默认值 `0x0` 不增加任何节点。
+
+`tflm_benchmark_espnn_profile` 是独立的性能 profile，第一阶段仅启用已验证的三个 Conv2D：
+
+```text
+CONFIG_TFLITEMICRO_ESP_NN_CONV2D_OUTPUT_TENSOR=-1
+CONFIG_TFLITEMICRO_ESP_NN_CONV2D_OUTPUT_TENSOR_MASK=0x0a800000
+CONFIG_TFLITEMICRO_ESP_NN_DEPTHWISE_CONV2D_OUTPUT_TENSOR=-1
+```
+
+其中 `0x0a800000 = (1 << 23) | (1 << 25) | (1 << 27)`。该 profile 不启用任何 `VERIFY`，因此
+测得的是 ESP-NN 的实际执行时间，而不是“reference + ESP-NN + 比较”的 bring-up 时间。通过
+重复 Invoke 稳定性测试后，再依次将 `out_t=26` 与 `out_t=24` 加入组合 profile；每加一个阶段
+都应记录 Arena 占用、完整原始日志和各算子平均耗时。
+
 ## 8. 构建和可观测性检查
 
 先通过本地脚本建立链接，再构建 reference 与 ESP-NN 两套固件：
