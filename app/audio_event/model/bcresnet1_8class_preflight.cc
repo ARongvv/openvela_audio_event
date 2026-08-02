@@ -13,7 +13,7 @@
 #include "tensorflow/lite/c/common.h"
 #include "tensorflow/lite/micro/micro_interpreter.h"
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
-#include "tensorflow/lite/micro/micro_profiler.h"
+#include "tensorflow/lite/micro/micro_time.h"
 #include "tensorflow/lite/schema/schema_generated.h"
 
 namespace
@@ -31,10 +31,6 @@ tflite::MicroInterpreter *g_interpreter;
 TfLiteTensor *g_input;
 TfLiteTensor *g_output;
 size_t g_arena_used;
-
-#ifdef CONFIG_TFLITEMICRO_DEBUG
-tflite::MicroProfiler g_profiler;
-#endif
 
 int tensor_element_count(const TfLiteTensor *tensor)
 {
@@ -67,6 +63,47 @@ int read_output(float *values, size_t class_count)
     }
 
   return 0;
+}
+
+int predict_float(const float *features, size_t feature_count, float *values,
+                  size_t class_count, uint32_t *invoke_ticks)
+{
+  if (g_interpreter == nullptr || g_input == nullptr || features == nullptr ||
+      feature_count != kFeatureCount || class_count != kClassCount ||
+      g_input->params.scale <= 0.0f)
+    {
+      return -EINVAL;
+    }
+
+  for (size_t i = 0; i < feature_count; i++)
+    {
+      long value = std::lround(features[i] / g_input->params.scale) +
+                   g_input->params.zero_point;
+      if (value < -128)
+        {
+          value = -128;
+        }
+      else if (value > 127)
+        {
+          value = 127;
+        }
+
+      g_input->data.int8[i] = static_cast<int8_t>(value);
+    }
+
+  uint32_t start_ticks = tflite::GetCurrentTimeTicks();
+  if (g_interpreter->Invoke() != kTfLiteOk)
+    {
+      std::fprintf(stderr, "[bcresnet-preflight] Invoke failed\n");
+      return -EIO;
+    }
+
+  if (invoke_ticks != nullptr)
+    {
+      *invoke_ticks = tflite::GetCurrentTimeTicks() - start_ticks;
+    }
+
+  return read_output(values, class_count);
 }
 
 }  // namespace
@@ -110,14 +147,8 @@ extern "C" int event_classifier_init(void)
       resolver_initialized = true;
     }
 
-#ifdef CONFIG_TFLITEMICRO_DEBUG
-  static tflite::MicroInterpreter interpreter(
-      model, resolver, g_tensor_arena, sizeof(g_tensor_arena), nullptr,
-      &g_profiler);
-#else
   static tflite::MicroInterpreter interpreter(
       model, resolver, g_tensor_arena, sizeof(g_tensor_arena));
-#endif
 
   if (interpreter.AllocateTensors() != kTfLiteOk)
     {
@@ -194,36 +225,7 @@ extern "C" int event_classifier_predict(const float *features,
                                           float *values,
                                           size_t class_count)
 {
-  if (g_interpreter == nullptr || g_input == nullptr || features == nullptr ||
-      feature_count != kFeatureCount || class_count != kClassCount ||
-      g_input->params.scale <= 0.0f)
-    {
-      return -EINVAL;
-    }
-
-  for (size_t i = 0; i < feature_count; i++)
-    {
-      long value = std::lround(features[i] / g_input->params.scale) +
-                   g_input->params.zero_point;
-      if (value < -128)
-        {
-          value = -128;
-        }
-      else if (value > 127)
-        {
-          value = 127;
-        }
-
-      g_input->data.int8[i] = static_cast<int8_t>(value);
-    }
-
-  if (g_interpreter->Invoke() != kTfLiteOk)
-    {
-      std::fprintf(stderr, "[bcresnet-preflight] Invoke failed\n");
-      return -EIO;
-    }
-
-  return read_output(values, class_count);
+  return predict_float(features, feature_count, values, class_count, nullptr);
 }
 
 extern "C" int event_classifier_profile(const float *features,
@@ -252,7 +254,6 @@ extern "C" int event_classifier_profile(const float *features,
       return -EINVAL;
     }
 
-  g_profiler.ClearEvents();
   for (run = 0; run < warmup_count; run++)
     {
       ret = event_classifier_predict(features, feature_count, values,
@@ -261,22 +262,25 @@ extern "C" int event_classifier_profile(const float *features,
         {
           return ret;
         }
-
-      g_profiler.ClearEvents();
     }
 
   std::printf("[bcresnet-preflight] warmup=%u repeat=%u csv=%u\n",
               warmup_count, repeat_count, csv ? 1 : 0);
   for (run = 0; run < repeat_count; run++)
     {
-      ret = event_classifier_predict(features, feature_count, values,
-                                     kClassCount);
+      uint32_t invoke_ticks;
+
+      ret = predict_float(features, feature_count, values, kClassCount,
+                          &invoke_ticks);
       if (ret < 0)
         {
           return ret;
         }
 
-      std::printf("[bcresnet-preflight] iteration=%u output=", run + 1);
+      std::printf("[bcresnet-preflight] iteration=%u invoke_ticks=%lu "
+                  "invoke_ms=%lu output=", run + 1,
+                  static_cast<unsigned long>(invoke_ticks),
+                  static_cast<unsigned long>(tflite::TicksToMs(invoke_ticks)));
       for (size_t i = 0; i < kClassCount; i++)
         {
           std::printf("%s%.5f", i == 0 ? "" : ",", values[i]);
@@ -285,14 +289,10 @@ extern "C" int event_classifier_profile(const float *features,
       std::printf("\n");
       if (csv)
         {
-          g_profiler.LogCsv();
+          std::printf("\"Event\",\"Tag\",\"Ticks\"\n"
+                      "0,INVOKE,%lu\n",
+                      static_cast<unsigned long>(invoke_ticks));
         }
-      else
-        {
-          g_profiler.Log();
-        }
-
-      g_profiler.ClearEvents();
     }
 
   return 0;

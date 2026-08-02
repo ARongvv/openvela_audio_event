@@ -26,3 +26,10 @@ tflm_benchmark --warmup 0 --repeat 1 --csv
 
 成功标准是出现 `[bcresnet-preflight] arena=... used=...`，并完成一次 Invoke。输出值是
 Softmax 之前的量化输出，仅用于模型运行与量化参数预检，不能当作概率或检测阈值依据。
+
+## 性能输出说明
+
+该模型有 301 个节点，而当前 TFLM `MicroProfiler` 最多记录 64 个逐算子事件。因此预检
+不使用逐算子 CSV，以免 profiler 断言导致任务退出。`--csv` 会输出一行 `INVOKE` 总 ticks；
+同一行前的 `invoke_ms` 是该 ticks 按当前板级时钟换算的时间。计时边界仅覆盖
+`MicroInterpreter::Invoke()`，不包含输入特征的浮点转 int8 量化与串口日志。
