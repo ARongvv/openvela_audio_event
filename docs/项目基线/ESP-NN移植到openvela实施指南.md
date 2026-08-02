@@ -373,6 +373,10 @@ CONFIG_TFLITEMICRO_ESP_NN_DEPTHWISE_CONV2D_OUTPUT_TENSOR=-1
 重复 Invoke 稳定性测试后，再依次将 `out_t=26` 与 `out_t=24` 加入组合 profile；每加一个阶段
 都应记录 Arena 占用、完整原始日志和各算子平均耗时。
 
+性能 profile 也不启用 `CONFIG_TFLITEMICRO_ESP_NN_TRACE`。TRACE 会在每次 ESP-NN 调用时打印
+enter/return 地址，串口输出会进入算子计时范围；需要复核节点选择时使用 verify profile，而不应
+用 TRACE 版本的 tick 作为性能结论。
+
 ## 8. 构建和可观测性检查
 
 先通过本地脚本建立链接，再构建 reference 与 ESP-NN 两套固件：
