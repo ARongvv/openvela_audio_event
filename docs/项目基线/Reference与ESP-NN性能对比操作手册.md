@@ -35,6 +35,8 @@
 | ESP-NN 三 Conv2D | `tflm_benchmark_espnn_cycles` | Conv2D output tensor mask=`0x0a800000`，即 23、25、27 |
 | ESP-NN 三 Conv2D + DW26 验证 | `tflm_benchmark_espnn_cycles_dw26_verify` | 三 Conv2D + Depthwise `out_t=26`；开启 TRACE/VERIFY，仅用于正确性 |
 | ESP-NN 三 Conv2D + DW26 性能 | `tflm_benchmark_espnn_cycles_dw26` | 三 Conv2D + Depthwise `out_t=26`；关闭 TRACE/VERIFY，用于正式 CCOUNT |
+| ESP-NN 三 Conv2D + DW24 验证 | `tflm_benchmark_espnn_cycles_dw24_verify` | 三 Conv2D + Depthwise `out_t=24`；开启 TRACE/VERIFY，仅用于正确性 |
+| ESP-NN 三 Conv2D + DW24 性能 | `tflm_benchmark_espnn_cycles_dw24` | 三 Conv2D + Depthwise `out_t=24`；关闭 TRACE/VERIFY，用于正式 CCOUNT |
 
 两者均启用 `CONFIG_TFLITEMICRO_ESP32S3_CCOUNT_PROFILER=y` 和
 `CONFIG_XTENSA_CP_INITSET=0x0009`。reference 配置保留 ESP-NN wrapper 的编译和链接，避免仅因二进制
@@ -234,7 +236,38 @@ tflm_benchmark --mode operator --warmup 10 --repeat 1 --csv
 性能 profile 的 `output_hash` 必须为 `0x77a10bab`，并与三 Conv2D 基线的 19,874,378 mean cycles
 比较。实测结果未写入本文前，不得假设 DW26 一定带来正收益。
 
-## 9. 归档清单
+## 9. DW24 组合验证与性能测试
+
+`out_t=24` 是 `[1,25,20,12]` 的 3×3、stride=1、SAME DepthwiseConv2D。现有 wrapper 对它使用
+12→16 通道补齐的 s16 兼容路径；它已通过单节点验证，但组合性能和 Arena 峰值仍必须重新实测。
+DW24 profile 不选择 DW26，因此能够将 DW24 的收益和风险与三 Conv2D 基线独立比较。
+
+先在不改变 65,536 B Arena 配置的条件下构建验证 profile：
+
+```sh
+./build.sh ccf_audioevent/board/esp32s3-devkit/configs/tflm_benchmark_espnn_cycles_dw24_verify -j8
+make -C nuttx flash ESPTOOL_PORT=/dev/ttyUSB0
+tflm_benchmark --mode invoke --input pattern --warmup 0 --repeat 1
+```
+
+通过条件为 `DepthwiseConv2D out_t=24` 的 backend 为 `esp-nn`，并出现
+`[espnn-verify] DepthwiseConv2D out_t=24 match bytes=6000`，最终 `output_hash` 仍为
+`0x77a10bab`。若 `AllocateTensors()` 失败，应记录实际 Arena 需求；不要在验证前预先提高 Arena，
+以免掩盖该路径的真实内存成本。
+
+验证通过后，再使用性能 profile：
+
+```sh
+./build.sh ccf_audioevent/board/esp32s3-devkit/configs/tflm_benchmark_espnn_cycles_dw24 -j8
+make -C nuttx flash ESPTOOL_PORT=/dev/ttyUSB0
+tflm_benchmark --mode invoke --input pattern --warmup 20 --repeat 100
+tflm_benchmark --mode operator --warmup 10 --repeat 1 --csv
+```
+
+将结果与三 Conv2D 基线的 19,874,378 mean cycles / 82.809 ms 比较。只有输出 hash 一致、100/100
+稳定、Arena 有余量且 Event 5 低于约 24.322 ms，DW24 才具备加入后续双 Depthwise 组合的资格。
+
+## 10. 归档清单
 
 每次正式对比应一并保存：
 

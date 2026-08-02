@@ -481,6 +481,15 @@ profiler 开销说明见 [Reference 与 ESP-NN 性能对比操作手册](Referen
 上游源码或 TFLM wrapper。DW26 准入后，才单独评估 12-channel 的 DW24；当前单 ID 白名单不允许
 同时启用两个 Depthwise 节点。
 
+DW24 使用同样的受控流程，新增 `tflm_benchmark_espnn_cycles_dw24_verify` 与
+`tflm_benchmark_espnn_cycles_dw24`，只将 Depthwise output tensor ID 改为 24。它走 12→16 通道
+补齐的 s16 兼容路径，历史单节点验证曾申请约 24 KB scratch；因此先保持 65,536 B Arena 进行验证，
+再以实际 `AllocateTensors()` 结果决定是否有足够余量。此阶段同样不改 ESP-NN 上游源码或 wrapper。
+
+为保证多次 benchmark 命令的 Arena 观测可重复，`event_classifier_init()` 现在只对静态
+`MicroInterpreter` 执行一次 `AllocateTensors()`；后续命令复用已分配的 tensor arena，而不会累积
+持久分配。该修复不改变单次 Invoke 的模型计算。
+
 ## 8. 构建和可观测性检查
 
 先通过本地脚本建立链接，再构建 reference 与 ESP-NN 两套固件：
