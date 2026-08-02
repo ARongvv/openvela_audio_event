@@ -24,7 +24,8 @@ BATCH_TO_SPACE_ND、FULLY_CONNECTED。
 tflm_benchmark --warmup 0 --repeat 1 --csv
 ```
 
-成功标准是出现 `[bcresnet-preflight] arena=... used=...`，并完成一次 Invoke。输出值是
+预检配置的 tensor arena 为 128 KB，以覆盖模型分配阶段的临时内存峰值；运行期的实际占用会
+明显低于该值。成功标准是出现 `[bcresnet-preflight] arena=... used=...`，并完成一次 Invoke。输出值是
 Softmax 之前的量化输出，仅用于模型运行与量化参数预检，不能当作概率或检测阈值依据。
 
 ## 性能输出说明
