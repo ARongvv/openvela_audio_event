@@ -496,6 +496,12 @@ ESP-NN 上游源码或 TFLM wrapper。为测量五个节点同时加速，wrappe
 `out_t=26 match bytes=8000`，再用无 TRACE/VERIFY 的 profile 采集 100 次 CCOUNT。两个单节点结果
 不能相加代替组合结果：它们的 scratch Arena 分配与算子执行边界需要在同一固件中重新测量。
 
+组合性能 profile 已完成 100 次 `pattern` Invoke：mean 为 30.948 ms、P95 为 30.973 ms、
+`output_hash=0x77a10bab`，Arena 使用 44,324 B。它相对 346.271 ms 的全 reference 基线达到
+11.1887× 总加速（时延降低 91.062%），相对三 Conv2D 组合再降低 62.627%。operator 快照中 DW24
+与 DW26 分别为 2.780 ms 和 1.561 ms，说明两条 Depthwise 路径已在同一性能固件中生效。该性能结论
+不替代组合逐字节验证；在归档两条 `match` 串口日志前，数值验证状态仍应标记为待确认。
+
 为保证多次 benchmark 命令的 Arena 观测可重复，`event_classifier_init()` 现在只对静态
 `MicroInterpreter` 执行一次 `AllocateTensors()`；后续命令复用已分配的 tensor arena，而不会累积
 持久分配。该修复不改变单次 Invoke 的模型计算。

@@ -348,6 +348,28 @@ tflm_benchmark --mode operator --warmup 10 --repeat 1 --csv
 与 Event 7 均为 ESP-NN。该数据才是五个卷积节点同时加速的正式结论，不能由 DW24/DW26 两个独立
 profile 的结果相加或推算。
 
+### 当前已测组合性能结果
+
+组合性能 profile 已在 `pattern` 输入、warmup=20、repeat=100 下完成 100/100 次 Invoke：
+
+| 指标 | 三 Conv2D + DW24 + DW26 | 对全 reference | 对三 Conv2D |
+| --- | ---: | ---: | ---: |
+| mean cycles | 7,427,604 | 11.1887× 加速 | 2.6757× 加速 |
+| P95 cycles | 7,433,689 | - | - |
+| mean 时延 | 30.948 ms | 降低 91.062% | 降低 62.627% |
+| P95 时延 | 30.973 ms | - | - |
+| Arena 实际使用 | 44,324 B | 距 65,536 B 上限余 21,212 B | 与 DW24 单节点组合相同 |
+| output hash | `0x77a10bab` | 与 reference 一致 | 与三 Conv2D 基线一致 |
+
+单次 operator 快照中，Event 5（DW24）为 667,209 cycles（2.780 ms），Event 7（DW26）为
+374,649 cycles（1.561 ms）；相对各自的 reference 快照约为 8.75× 与 20.66× 加速。所有事件合计
+7,511,898 cycles（31.300 ms），与独立 Invoke mean 相差约 1.1%，属于 profiler 边界和输入形式
+带来的预期差异。
+
+以上已经是五个卷积节点同固件、同次 Invoke 的正式性能数据；但当前归档中尚未包含组合 verify 的
+串口原始日志。因此“逐字节组合验证通过”仍须以本节前述的 DW24、DW26 两条 `match` 日志为准，取得
+日志后再将本组合标记为完整的数值验证通过。
+
 ## 11. 归档清单
 
 每次正式对比应一并保存：
