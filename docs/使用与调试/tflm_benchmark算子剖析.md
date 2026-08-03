@@ -69,6 +69,33 @@ CONFIG_TFLITEMICRO_DEBUG=y
 `RecordingMicroInterpreter` 的调试分配记录也会使其 24,836 B 与生产分类器日志中的
 22,708 B 不完全相同，生产 Arena 基准仍以后者为准。
 
+## 当前五卷积 + Mean ESP-NN 快照
+
+当前正式性能 profile `tflm_benchmark_espnn_cycles_dw24_dw26_mean` 在 ESP32-S3 240 MHz、
+`pattern` 输入下的单次 operator CSV 如下。它用于定位热点；正式端到端结论仍以 100 次
+`--mode invoke` 的 mean/P95 为准。
+
+| Event | 算子/节点 | cycles | 时延 | backend |
+| ---: | --- | ---: | ---: | --- |
+| 0 | Shape | 12,801 | 0.053 ms | reference |
+| 1 | StridedSlice | 44,483 | 0.185 ms | reference |
+| 2 | Pack | 11,668 | 0.049 ms | reference |
+| 3 | Reshape | 10,708 | 0.045 ms | reference |
+| 4 | Conv2D `out_t=23` | 1,210,207 | 5.043 ms | ESP-NN |
+| 5 | DepthwiseConv2D `out_t=24` | 679,090 | 2.830 ms | ESP-NN |
+| 6 | Conv2D `out_t=25` | 1,324,543 | 5.519 ms | ESP-NN |
+| 7 | DepthwiseConv2D `out_t=26` | 370,320 | 1.543 ms | ESP-NN |
+| 8 | Conv2D `out_t=27` | 465,752 | 1.941 ms | ESP-NN |
+| 9 | Mean | 111,336 | 0.464 ms | ESP-NN |
+| 10 | FullyConnected | 32,824 | 0.137 ms | reference |
+| 11 | Softmax | 63,121 | 0.263 ms | reference |
+
+该快照合计 4,336,853 cycles（18.070 ms）。100 次 Invoke CCOUNT 的 mean/P95 为
+17.591 / 17.652 ms，`output_hash=0x77a10bab`，Arena 为 44,356 B。Mean 从此前五卷积 profile
+的 3,308,138 cycles（13.784 ms）降至 111,336 cycles，约 29.71×；当前主要热点已变为
+`out_t=25` 与 `out_t=23` 两个 Pointwise Conv2D。Mean verify profile 已确认
+`out_t=28 match bytes=24`，且最终 output hash 一致；verify 模式带 TRACE，不用于性能统计。
+
 ## 构建与板端命令
 
 在 openvela 根目录构建：

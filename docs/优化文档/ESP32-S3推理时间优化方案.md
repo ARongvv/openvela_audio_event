@@ -9,9 +9,12 @@
 检测无法实时完成的首要原因。该基线用于说明问题，不代表当前 ESP-NN 性能。
 
 当前已用 ESP32-S3 `CCOUNT`（240 MHz、固定 pattern、warmup=20、repeat=100）完成复测：五个卷积节点
-使用 ESP-NN 后，纯 `Invoke()` mean 从 346.271 ms 降至 30.948 ms（11.1887×），`output_hash` 与 reference
-一致。真实文件播放的应用 profile 中，特征提取约 60--70 ms、模型阶段约 30--40 ms、总窗口处理约 100--110 ms，
-低于 250 ms hop。不得以启用 CMSIS-NN、HiFi 或 ARM CMSIS-DSP 替代该路径；它们不适用于 ESP32-S3。
+使用 ESP-NN 后，纯 `Invoke()` mean 从 346.271 ms 降至 30.948 ms（11.1887×）；在此基础上特化 ESP-NN
+Mean 后进一步降至 17.591 ms（19.6840×），`output_hash` 与 reference 一致，并已取得
+`[espnn-verify] Mean out_t=28 match bytes=24`。
+真实文件播放的应用 profile 中，特征提取约 60--70 ms、模型阶段约 30--40 ms、总窗口处理约 100--110 ms，
+低于 250 ms hop；应用端尚未用 Mean 新 profile 重测，因此不将 17.591 ms 直接外推为真实文件 infer。不得以启用
+CMSIS-NN、HiFi 或 ARM CMSIS-DSP 替代该路径；它们不适用于 ESP32-S3。
 
 ## 2. 当前实现的事实核对
 
@@ -57,8 +60,9 @@ HiFi kernel，并按 `HIFI4` 构建 Cadence `xa_nnlib`。这些 kernel 只有在
 ESP-NN 是 ESP32-S3 的正确专用 backend，现已通过 `CONFIG_TFLITEMICRO_ESP_NN` 工程化接入。
 它由 ESP-NN 源码、TFLM Conv2D/DepthwiseConv2D wrapper、Kconfig 和受控 tensor 白名单共同构成，
 不是打开 HiFi 或 CMSIS 开关即可获得的功能。选择它的理由是 LX7 平台匹配、当前模型卷积热点集中，且已在
-reference 对照中获得逐字节一致的 11.1887× 整体 Invoke 加速；代价是 scratch Arena 增加到 44,324 B，
-并需要对每个新模型重新验证节点准入。
+reference 对照中获得五卷积逐字节一致的 11.1887× 整体 Invoke 加速；新增 Mean 性能 profile 已达到
+19.6840×、端到端 hash 一致且 Mean 已通过逐字节验证。代价是 scratch Arena 增加到 44,356 B，并需要对每个
+新模型重新验证节点准入。
 
 ## 4. 当前模型的优化画像
 
@@ -130,8 +134,9 @@ integer 路径。历史逐算子测试已确认普通 `Conv2D`（约 79.5%）和
    reference kernel。
 5. 分别做 kernel 单测、随机输入数值回归、完整 M001 WAV 回归、P1/P2 真机性能回归。
 
-当前验收：五个节点均已通过受控的逐字节 reference 对照，组合 profile `output_hash` 一致；
-mean `Invoke()` 为 30.948 ms，应用文件播放中的 `feature + infer` 约 90--110 ms，满足 250 ms hop。
+当前验收：五个卷积节点和 Mean 均已通过受控的逐字节 reference 对照；纯模型 mean `Invoke()` 为 17.591 ms，
+应用文件播放中的既有 `feature + infer`
+约 90--110 ms，满足 250 ms hop；需重新播放 WAV 才能给出 Mean 后的端到端数据。
 后续替换模型或修改 wrapper 后，仍须重新执行逐节点 verify、组合 verify、100 次 CCOUNT 和真实 WAV 回归，
 不能直接沿用本模型的 tensor ID 或性能结论。
 

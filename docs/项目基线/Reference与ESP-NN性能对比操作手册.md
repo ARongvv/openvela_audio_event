@@ -17,9 +17,10 @@
 ESP32-S3。
 
 这个选择以实测而非名称判断：全 reference 的 mean `Invoke()` 为 346.271 ms，三个 Conv2D 启用 ESP-NN 后为
-82.809 ms，五个卷积节点全部启用后为 30.948 ms，且三组测试的 `output_hash` 均为 `0x77a10bab`。因此本文继续采用
-ESP-NN；同时保留 reference profile、固定输入和逐字节 verify profile，确保收益不是由模型、输入、计时边界或数值
-变化造成的。
+82.809 ms，五个卷积节点全部启用后为 30.948 ms；在此基础上，专用 ESP-NN Mean 将正式性能 profile
+降至 17.591 ms，四组测试的 `output_hash` 均为 `0x77a10bab`。Mean verify profile 已输出
+`[espnn-verify] Mean out_t=28 match bytes=24`，因此该节点已完成字节级验证。本文继续采用 ESP-NN；
+同时保留 reference profile、固定输入和逐字节 verify profile，确保收益不是由模型、输入、计时边界或数值变化造成的。
 
 ESP-NN 不是无条件替换：节点必须满足 wrapper 的 int8、batch、形状、对齐和参数约束，并显式列入当前模型的 tensor
 白名单。它会增加 scratch（五节点组合 Arena 为 44,324 B，而 reference 为 22,788 B）；更换模型后必须重新做准入和
@@ -55,6 +56,8 @@ ESP-NN 不是无条件替换：节点必须满足 wrapper 的 int8、batch、形
 | ESP-NN 三 Conv2D + DW24 性能 | `tflm_benchmark_espnn_cycles_dw24` | 三 Conv2D + Depthwise `out_t=24`；关闭 TRACE/VERIFY，用于正式 CCOUNT |
 | ESP-NN 三 Conv2D + DW24/DW26 验证 | `tflm_benchmark_espnn_cycles_dw24_dw26_verify` | 三 Conv2D + 两个 Depthwise；开启 TRACE/VERIFY，仅用于正确性 |
 | ESP-NN 三 Conv2D + DW24/DW26 性能 | `tflm_benchmark_espnn_cycles_dw24_dw26` | 三 Conv2D + 两个 Depthwise；关闭 TRACE/VERIFY，用于正式 CCOUNT |
+| ESP-NN 五卷积 + Mean 验证 | `tflm_benchmark_espnn_cycles_dw24_dw26_mean_verify` | 五个卷积节点 + 特化 Mean；开启 Mean TRACE/VERIFY，仅用于逐字节正确性 |
+| ESP-NN 五卷积 + Mean 性能 | `tflm_benchmark_espnn_cycles_dw24_dw26_mean` | 五个卷积节点 + 特化 Mean；关闭 TRACE/VERIFY，用于正式 CCOUNT |
 
 两者均启用 `CONFIG_TFLITEMICRO_ESP32S3_CCOUNT_PROFILER=y` 和
 `CONFIG_XTENSA_CP_INITSET=0x0009`。reference 配置保留 ESP-NN wrapper 的编译和链接，避免仅因二进制
@@ -192,11 +195,13 @@ p95_speedup        = 83,111,918 / espnn_p95_cycles
 | 三 Conv2D | 23、25、27 | 19,874,378 | 82.809 ms | 82.825 ms | 32,324 B | `0x77a10bab` | 4.1815× |
 | 三 Conv2D + DW26 | 23、25、26、27 | 12,570,446 | 52.376 ms | 52.415 ms | 32,324 B | `0x77a10bab` | 6.6112× |
 | 三 Conv2D + DW24 | 23、24、25、27 | 14,759,659 | 61.498 ms | 61.512 ms | 44,324 B | `0x77a10bab` | 5.6306× |
-| 三 Conv2D + DW24 + DW26 | 23、24、25、26、27 | 7,427,604 | 30.948 ms | 30.973 ms | 44,324 B | `0x77a10bab` | **11.1887×** |
+| 三 Conv2D + DW24 + DW26 | 23、24、25、26、27 | 7,427,604 | 30.948 ms | 30.973 ms | 44,324 B | `0x77a10bab` | 11.1887× |
+| 三 Conv2D + DW24 + DW26 + Mean | 23、24、25、26、27；Mean axes=1,2 | 4,221,967 | **17.591 ms** | **17.652 ms** | 44,356 B | `0x77a10bab` | **19.6840×** |
 
-五节点组合将纯模型 Invoke 相对 reference 降低 **91.062%**，相对三 Conv2D 基线再降低
-**62.627%**。其 44,324 B Arena 仍距 65,536 B 上限余 21,212 B。数值正确性的最终归档条件仍是
-组合 verify profile 在同一次执行中同时输出 DW24、DW26 的 `match` 日志。
+五卷积 + Mean 性能 profile 将纯模型 Invoke 相对 reference 降低 **94.920%**，相对五卷积
+reference-Mean 基线再降低 **43.158%**。Arena 仅由 44,324 B 增至 44,356 B，仍距 65,536 B 上限
+余 21,180 B。卷积组合的逐字节验证条件仍是 DW24、DW26 的 `match` 日志；Mean 的最终归档条件是
+新增 verify profile 输出 `Mean match bytes=24`。
 
 ## 7. 每算子 CCOUNT 采集
 
@@ -391,7 +396,43 @@ profile 的结果相加或推算。
 串口原始日志。因此“逐字节组合验证通过”仍须以本节前述的 DW24、DW26 两条 `match` 日志为准，取得
 日志后再将本组合标记为完整的数值验证通过。
 
-## 11. 归档清单
+## 11. Mean 专项验证与性能测试
+
+当前模型的 Event 9 是 `[1,25,20,24]` 在 axes `{1,2}` 上的全局平均池化，平均因子为
+`25 × 20 = 500`。Mean wrapper 只接受这一 int8 NHWC 形式；其他 axis、类型和形状均回退
+TFLM reference。构建逐字节验证 profile：
+
+```sh
+./build.sh ccf_audioevent/board/esp32s3-devkit/configs/tflm_benchmark_espnn_cycles_dw24_dw26_mean_verify -j8
+make -C nuttx flash ESPTOOL_PORT=/dev/ttyUSB0
+tflm_benchmark --mode invoke --input pattern --warmup 0 --repeat 1
+```
+
+验收日志必须同时包含 DW24、DW26 的既有 `match` 行，以及：
+
+```text
+[espnn-verify] Mean out_t=<id> match bytes=24
+```
+
+验证 profile 会额外运行 reference Mean 并申请校验 buffer，不能用于性能结论。正式性能 profile：
+
+```sh
+./build.sh ccf_audioevent/board/esp32s3-devkit/configs/tflm_benchmark_espnn_cycles_dw24_dw26_mean -j8
+make -C nuttx flash ESPTOOL_PORT=/dev/ttyUSB0
+tflm_benchmark --mode invoke --input pattern --warmup 20 --repeat 100
+tflm_benchmark --mode operator --warmup 10 --repeat 1 --csv
+```
+
+已测 100 次 Invoke 为 mean **4,221,967 cycles / 17.591 ms**、P95 **17.652 ms**、
+`output_hash=0x77a10bab`。单次 operator 快照中 Mean 为 **111,336 cycles / 0.464 ms**，相对
+五卷积 profile 中 reference Mean 的 3,308,138 cycles / 13.784 ms 约 **29.71×**；所有事件合计
+4,336,853 cycles / 18.070 ms，与 Invoke mean 的差异约 2.7%，属于两种 profiler 边界的正常差异。
+
+Mean verify profile 已输出 `[espnn-verify] Mean out_t=28 match bytes=24`，并保持最终
+`output_hash=0x77a10bab`。因此当前三 Conv2D、DW24、DW26 与 Mean 均已分别完成逐字节 reference
+对照；verify 固件的 190.264 ms 单次 Invoke 含 TRACE 串口输出与 reference Mean 双执行，不纳入性能统计。
+
+## 12. 归档清单
 
 每次正式对比应一并保存：
 

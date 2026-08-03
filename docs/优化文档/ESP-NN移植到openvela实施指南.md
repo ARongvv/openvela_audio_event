@@ -32,11 +32,11 @@ ESP-NN 与逐字节校验；audio_event 的生产 defconfig 在数值回归与�
 选择 ESP-NN 不是因为它是通用的“神经网络加速开关”，而是因为它与本项目的目标芯片和热点算子同时匹配：
 
 - **芯片匹配**：ESP32-S3 使用 Xtensa LX7；ESP-NN 提供面向 ESP32-S3 的 C 和 Xtensa 汇编实现，能够使用该目标可用的向量计算路径。CMSIS-NN/CMSIS-DSP 面向 Arm Cortex-M，Xtensa HiFi kernel 又要求 S3 不具备的 HiFi DSP ISA，二者都不能替代 ESP-NN。
-- **模型匹配**：当前 `ds_cnn_small` 是全 int8、per-channel quantization 的卷积网络，三个 `Conv2D` 和两个 `DepthwiseConv2D` 正是 ESP-NN wrapper 已覆盖的路径；`Mean`、`FullyConnected`、`Softmax` 不是主要热点，不值得先为它们扩大移植面。
-- **收益已实测**：在同一 ESP32-S3、240 MHz、相同确定性 `pattern` 输入下，五个卷积节点由 reference 的 346.271 ms 降至 30.948 ms（11.1887×）；`output_hash=0x77a10bab` 保持相同。真实 WAV 端到端测试中，模型阶段约为 30--40 ms，`feature + infer` 约 90--110 ms，低于 250 ms hop。
+- **模型匹配**：当前 `ds_cnn_small` 是全 int8、per-channel quantization 的卷积网络，三个 `Conv2D`、两个 `DepthwiseConv2D` 及末端 `[1,25,20,24]`、axes `{1,2}` 的 Mean 都有受控 wrapper 路径；`FullyConnected`、`Softmax` 仍不是主要热点。
+- **收益已实测**：在同一 ESP32-S3、240 MHz、相同确定性 `pattern` 输入下，五个卷积节点由 reference 的 346.271 ms 降至 30.948 ms（11.1887×）；加入特化 Mean 的性能 profile 进一步达到 17.591 ms（19.6840×），`output_hash=0x77a10bab` 保持相同，Mean verify 已输出 `out_t=28 match bytes=24`。真实 WAV 端到端测试仍为五卷积版本：模型阶段约为 30--40 ms，`feature + infer` 约 90--110 ms，低于 250 ms hop。
 - **风险可控**：backend 只在白名单节点、输入形状和参数满足条件时启用；每个新节点先通过 TRACE/VERIFY 与 TFLM reference 逐字节比较，不支持的组合自动回退 reference。因此不需要修改训练模型语义或应用层 API。
 
-代价也必须一并接受：五节点组合的 Arena 实际使用从 22,788 B 增至 44,324 B（仍低于 65,536 B 上限），并且 tensor ID 白名单仅对当前模型有效。替换模型后必须重新进行 trace、单节点验证和组合性能测试，不能复用当前的节点编号或性能结论。
+代价也必须一并接受：五卷积 + Mean 性能组合的 Arena 实际使用从 22,788 B 增至 44,356 B（仍低于 65,536 B 上限），并且 tensor ID 白名单和 Mean 形状白名单仅对当前模型有效。替换模型后必须重新进行 trace、单节点验证和组合性能测试，不能复用当前的节点编号或性能结论。
 
 ## 2. 适用性与边界
 
@@ -512,6 +512,18 @@ ESP-NN 上游源码或 TFLM wrapper。为测量五个节点同时加速，wrappe
 11.1887× 总加速（时延降低 91.062%），相对三 Conv2D 组合再降低 62.627%。operator 快照中 DW24
 与 DW26 分别为 2.780 ms 和 1.561 ms，说明两条 Depthwise 路径已在同一性能固件中生效。该性能结论
 不替代组合逐字节验证；在归档两条 `match` 串口日志前，数值验证状态仍应标记为待确认。
+
+在五卷积组合之上，新增 `kernels/esp_nn/mean.cc` 以应用级注册替换当前 audio-event resolver 的
+`Register_MEAN()`：它保留 `OpDataReduce` 和 reference fallback，只接受 int8 `[1,H,W,24]`、batch=1、
+axes `{1,2}` 的空间 Mean。固定点比例必须包含 `input_scale / output_scale / (H×W)`；当前 `H×W=500`。
+实现按 TFLM reference 的整数除法路径合入 `/500`，而非仅以浮点公式重新量化，以保持舍入行为一致。
+
+`tflm_benchmark_espnn_cycles_dw24_dw26_mean` 的 100 次 `pattern` Invoke mean/P95 为 **17.591 / 17.652 ms**，
+mean cycles 为 **4,221,967**、Arena 为 **44,356 B**、`output_hash=0x77a10bab`。单次 operator 快照中 Mean
+为 **111,336 cycles / 0.464 ms**，相对五卷积 profile 中 reference Mean 的 3,308,138 cycles / 13.784 ms
+约 **29.71×**，使整模型相对 reference 达到 **19.6840×**。`tflm_benchmark_espnn_cycles_dw24_dw26_mean_verify`
+已输出 `[espnn-verify] Mean out_t=28 match bytes=24`，并保持最终 hash 一致；该日志完成 Mean 的逐字节验证。
+verify 单次 Invoke 为 190.264 ms，含 TRACE 串口输出及 reference Mean 双执行，不能替代性能 profile 数据。
 
 为保证多次 benchmark 命令的 Arena 观测可重复，`event_classifier_init()` 现在只对静态
 `MicroInterpreter` 执行一次 `AllocateTensors()`；后续命令复用已分配的 tensor arena，而不会累积

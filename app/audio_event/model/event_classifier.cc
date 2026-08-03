@@ -24,6 +24,13 @@
 #endif
 #include "tensorflow/lite/schema/schema_generated.h"
 
+#ifdef CONFIG_TFLITEMICRO_ESP_NN_MEAN
+namespace tflite::esp_nn
+{
+TFLMRegistration Register_MEAN();
+}
+#endif
+
 namespace
 {
 
@@ -102,7 +109,11 @@ extern "C" int event_classifier_init(void)
           resolver.AddReshape() != kTfLiteOk ||
           resolver.AddConv2D() != kTfLiteOk ||
           resolver.AddDepthwiseConv2D() != kTfLiteOk ||
+#ifdef CONFIG_TFLITEMICRO_ESP_NN_MEAN
+          resolver.AddMean(tflite::esp_nn::Register_MEAN()) != kTfLiteOk ||
+#else
           resolver.AddMean() != kTfLiteOk ||
+#endif
           resolver.AddFullyConnected() != kTfLiteOk ||
           resolver.AddSoftmax() != kTfLiteOk)
         {
