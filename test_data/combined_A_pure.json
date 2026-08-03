@@ -1,0 +1,437 @@
+{
+  "description": "Version A_pure (test-split samples only)",
+  "sample_rate": 16000,
+  "total_duration_sec": 163.2,
+  "num_events": 70,
+  "classes": [
+    "cough",
+    "dog_bark",
+    "glass_breaking",
+    "knock",
+    "no",
+    "stop",
+    "yes"
+  ],
+  "timeline": [
+    {
+      "start_ms": 2000,
+      "end_ms": 3000,
+      "class": "dog_bark",
+      "file": "event/dog_bark/366694_start001215ms_peak001865ms.wav"
+    },
+    {
+      "start_ms": 3706,
+      "end_ms": 4706,
+      "class": "yes",
+      "file": "keyword/yes/834f03fe_nohash_2.wav"
+    },
+    {
+      "start_ms": 5984,
+      "end_ms": 6984,
+      "class": "cough",
+      "file": "event/cough/432193_start002325ms_peak002825ms.wav"
+    },
+    {
+      "start_ms": 8053,
+      "end_ms": 9053,
+      "class": "no",
+      "file": "keyword/no/106a6183_nohash_1.wav"
+    },
+    {
+      "start_ms": 10481,
+      "end_ms": 11481,
+      "class": "cough",
+      "file": "event/cough/125403_start004035ms_peak004535ms.wav"
+    },
+    {
+      "start_ms": 13282,
+      "end_ms": 14282,
+      "class": "glass_breaking",
+      "file": "event/glass_breaking/216287_start000000ms_peak000265ms.wav"
+    },
+    {
+      "start_ms": 15529,
+      "end_ms": 16529,
+      "class": "knock",
+      "file": "event/knock/181923_start009665ms_peak010165ms.wav"
+    },
+    {
+      "start_ms": 17362,
+      "end_ms": 18362,
+      "class": "dog_bark",
+      "file": "event/dog_bark/32318_start005585ms_peak006085ms.wav"
+    },
+    {
+      "start_ms": 19620,
+      "end_ms": 20620,
+      "class": "dog_bark",
+      "file": "event/dog_bark/102547-3-0-7_start003000ms_peak003895ms.wav"
+    },
+    {
+      "start_ms": 21847,
+      "end_ms": 22847,
+      "class": "stop",
+      "file": "keyword/stop/6d818f6c_nohash_0.wav"
+    },
+    {
+      "start_ms": 23776,
+      "end_ms": 24776,
+      "class": "stop",
+      "file": "keyword/stop/10c6d873_nohash_0.wav"
+    },
+    {
+      "start_ms": 26648,
+      "end_ms": 27438,
+      "class": "no",
+      "file": "keyword/no/18a1aab9_nohash_1.wav"
+    },
+    {
+      "start_ms": 28483,
+      "end_ms": 29483,
+      "class": "cough",
+      "file": "event/cough/189786_start000000ms_peak000335ms.wav"
+    },
+    {
+      "start_ms": 31420,
+      "end_ms": 32420,
+      "class": "glass_breaking",
+      "file": "event/glass_breaking/379015_start002295ms_peak002945ms.wav"
+    },
+    {
+      "start_ms": 34319,
+      "end_ms": 35319,
+      "class": "yes",
+      "file": "keyword/yes/62605293_nohash_0.wav"
+    },
+    {
+      "start_ms": 37146,
+      "end_ms": 38146,
+      "class": "glass_breaking",
+      "file": "event/glass_breaking/47013_start002445ms_peak003095ms.wav"
+    },
+    {
+      "start_ms": 38792,
+      "end_ms": 39792,
+      "class": "glass_breaking",
+      "file": "event/glass_breaking/204685_start000000ms_peak000065ms.wav"
+    },
+    {
+      "start_ms": 41539,
+      "end_ms": 42539,
+      "class": "knock",
+      "file": "event/knock/144951_start000000ms_peak000605ms.wav"
+    },
+    {
+      "start_ms": 44339,
+      "end_ms": 45339,
+      "class": "no",
+      "file": "keyword/no/e5e54cee_nohash_1.wav"
+    },
+    {
+      "start_ms": 46189,
+      "end_ms": 47189,
+      "class": "no",
+      "file": "keyword/no/9587481f_nohash_0.wav"
+    },
+    {
+      "start_ms": 48782,
+      "end_ms": 49782,
+      "class": "cough",
+      "file": "event/cough/171121_start013175ms_peak013825ms.wav"
+    },
+    {
+      "start_ms": 51775,
+      "end_ms": 52775,
+      "class": "dog_bark",
+      "file": "event/dog_bark/137803-3-0-0_start001495ms_peak001995ms.wav"
+    },
+    {
+      "start_ms": 53776,
+      "end_ms": 54776,
+      "class": "glass_breaking",
+      "file": "event/glass_breaking/124030_start004905ms_peak005405ms.wav"
+    },
+    {
+      "start_ms": 55610,
+      "end_ms": 56610,
+      "class": "dog_bark",
+      "file": "event/dog_bark/194753_start007925ms_peak008425ms.wav"
+    },
+    {
+      "start_ms": 58056,
+      "end_ms": 59056,
+      "class": "yes",
+      "file": "keyword/yes/6c0f6493_nohash_1.wav"
+    },
+    {
+      "start_ms": 60333,
+      "end_ms": 61333,
+      "class": "no",
+      "file": "keyword/no/7d5f87c8_nohash_0.wav"
+    },
+    {
+      "start_ms": 62385,
+      "end_ms": 63385,
+      "class": "stop",
+      "file": "keyword/stop/c948d727_nohash_4.wav"
+    },
+    {
+      "start_ms": 65195,
+      "end_ms": 66195,
+      "class": "yes",
+      "file": "keyword/yes/211ccd2e_nohash_0.wav"
+    },
+    {
+      "start_ms": 68104,
+      "end_ms": 69104,
+      "class": "knock",
+      "file": "event/knock/193872_start000695ms_peak001195ms.wav"
+    },
+    {
+      "start_ms": 70744,
+      "end_ms": 71744,
+      "class": "glass_breaking",
+      "file": "event/glass_breaking/387349_start000000ms_peak000405ms.wav"
+    },
+    {
+      "start_ms": 72693,
+      "end_ms": 73693,
+      "class": "knock",
+      "file": "event/knock/31371_start012465ms_peak012965ms.wav"
+    },
+    {
+      "start_ms": 75595,
+      "end_ms": 76595,
+      "class": "stop",
+      "file": "keyword/stop/48bfde8e_nohash_0.wav"
+    },
+    {
+      "start_ms": 77759,
+      "end_ms": 78759,
+      "class": "cough",
+      "file": "event/cough/19117_start000000ms_peak000475ms.wav"
+    },
+    {
+      "start_ms": 79373,
+      "end_ms": 80354,
+      "class": "no",
+      "file": "keyword/no/b26343e9_nohash_1.wav"
+    },
+    {
+      "start_ms": 81323,
+      "end_ms": 82323,
+      "class": "glass_breaking",
+      "file": "event/glass_breaking/434449_start000445ms_peak000945ms.wav"
+    },
+    {
+      "start_ms": 82888,
+      "end_ms": 83888,
+      "class": "stop",
+      "file": "keyword/stop/cd7f8c1b_nohash_1.wav"
+    },
+    {
+      "start_ms": 85034,
+      "end_ms": 86034,
+      "class": "dog_bark",
+      "file": "event/dog_bark/18581-3-0-5_start002205ms_peak002705ms.wav"
+    },
+    {
+      "start_ms": 87355,
+      "end_ms": 88355,
+      "class": "cough",
+      "file": "event/cough/2-87795-A-24_start000000ms_peak000285ms.wav"
+    },
+    {
+      "start_ms": 89403,
+      "end_ms": 90403,
+      "class": "yes",
+      "file": "keyword/yes/7f74626f_nohash_4.wav"
+    },
+    {
+      "start_ms": 91038,
+      "end_ms": 92038,
+      "class": "yes",
+      "file": "keyword/yes/c8db14a8_nohash_2.wav"
+    },
+    {
+      "start_ms": 92970,
+      "end_ms": 93970,
+      "class": "yes",
+      "file": "keyword/yes/5828dfa2_nohash_0.wav"
+    },
+    {
+      "start_ms": 95631,
+      "end_ms": 96631,
+      "class": "stop",
+      "file": "keyword/stop/be7a5b2d_nohash_4.wav"
+    },
+    {
+      "start_ms": 98601,
+      "end_ms": 99601,
+      "class": "glass_breaking",
+      "file": "event/glass_breaking/179263_start000765ms_peak001265ms.wav"
+    },
+    {
+      "start_ms": 100745,
+      "end_ms": 101745,
+      "class": "stop",
+      "file": "keyword/stop/c9b653a0_nohash_2.wav"
+    },
+    {
+      "start_ms": 102680,
+      "end_ms": 103680,
+      "class": "no",
+      "file": "keyword/no/611d2b50_nohash_3.wav"
+    },
+    {
+      "start_ms": 105522,
+      "end_ms": 106522,
+      "class": "no",
+      "file": "keyword/no/ac652c60_nohash_1.wav"
+    },
+    {
+      "start_ms": 108044,
+      "end_ms": 109044,
+      "class": "dog_bark",
+      "file": "event/dog_bark/253754_start000805ms_peak001455ms.wav"
+    },
+    {
+      "start_ms": 110354,
+      "end_ms": 111354,
+      "class": "yes",
+      "file": "keyword/yes/9886d8bf_nohash_1.wav"
+    },
+    {
+      "start_ms": 113170,
+      "end_ms": 114170,
+      "class": "stop",
+      "file": "keyword/stop/7ff4fc72_nohash_0.wav"
+    },
+    {
+      "start_ms": 115609,
+      "end_ms": 116609,
+      "class": "knock",
+      "file": "event/knock/151088_start000000ms_peak000255ms.wav"
+    },
+    {
+      "start_ms": 117401,
+      "end_ms": 118401,
+      "class": "knock",
+      "file": "event/knock/274814_start004245ms_peak004895ms.wav"
+    },
+    {
+      "start_ms": 119443,
+      "end_ms": 120443,
+      "class": "yes",
+      "file": "keyword/yes/172dc2b0_nohash_0.wav"
+    },
+    {
+      "start_ms": 121228,
+      "end_ms": 122228,
+      "class": "yes",
+      "file": "keyword/yes/f19c1390_nohash_2.wav"
+    },
+    {
+      "start_ms": 123233,
+      "end_ms": 124233,
+      "class": "stop",
+      "file": "keyword/stop/0b56bcfe_nohash_0.wav"
+    },
+    {
+      "start_ms": 125882,
+      "end_ms": 126882,
+      "class": "cough",
+      "file": "event/cough/31748_start000000ms_peak000265ms.wav"
+    },
+    {
+      "start_ms": 128485,
+      "end_ms": 129485,
+      "class": "cough",
+      "file": "event/cough/30091_start003125ms_peak003625ms.wav"
+    },
+    {
+      "start_ms": 130523,
+      "end_ms": 131523,
+      "class": "glass_breaking",
+      "file": "event/glass_breaking/379015_start003165ms_peak003665ms.wav"
+    },
+    {
+      "start_ms": 133220,
+      "end_ms": 134220,
+      "class": "knock",
+      "file": "event/knock/325228_start001495ms_peak001995ms.wav"
+    },
+    {
+      "start_ms": 135597,
+      "end_ms": 136597,
+      "class": "cough",
+      "file": "event/cough/90727_start000000ms_peak000585ms.wav"
+    },
+    {
+      "start_ms": 138292,
+      "end_ms": 139292,
+      "class": "knock",
+      "file": "event/knock/3-144510-A-30_start000000ms_peak000395ms.wav"
+    },
+    {
+      "start_ms": 140609,
+      "end_ms": 141609,
+      "class": "stop",
+      "file": "keyword/stop/e6515415_nohash_1.wav"
+    },
+    {
+      "start_ms": 142850,
+      "end_ms": 143850,
+      "class": "no",
+      "file": "keyword/no/2fa39636_nohash_1.wav"
+    },
+    {
+      "start_ms": 144799,
+      "end_ms": 145799,
+      "class": "no",
+      "file": "keyword/no/c1b7c224_nohash_0.wav"
+    },
+    {
+      "start_ms": 146582,
+      "end_ms": 147582,
+      "class": "dog_bark",
+      "file": "event/dog_bark/102547-3-0-8_start001245ms_peak001895ms.wav"
+    },
+    {
+      "start_ms": 149125,
+      "end_ms": 150125,
+      "class": "dog_bark",
+      "file": "event/dog_bark/103076_start009885ms_peak010385ms.wav"
+    },
+    {
+      "start_ms": 151635,
+      "end_ms": 152635,
+      "class": "glass_breaking",
+      "file": "event/glass_breaking/203375_start000000ms_peak000045ms.wav"
+    },
+    {
+      "start_ms": 153321,
+      "end_ms": 154321,
+      "class": "knock",
+      "file": "event/knock/152593_start007675ms_peak008325ms.wav"
+    },
+    {
+      "start_ms": 154917,
+      "end_ms": 155917,
+      "class": "knock",
+      "file": "event/knock/218988_start000735ms_peak001235ms.wav"
+    },
+    {
+      "start_ms": 156641,
+      "end_ms": 157641,
+      "class": "cough",
+      "file": "event/cough/326891_start017645ms_peak018145ms.wav"
+    },
+    {
+      "start_ms": 158454,
+      "end_ms": 159454,
+      "class": "dog_bark",
+      "file": "event/dog_bark/380440_start010355ms_peak010855ms.wav"
+    }
+  ]
+}
