@@ -3,3 +3,6 @@
 Make.dep
 
 *.o
+
+# Generated resource images and staging output.
+out/
