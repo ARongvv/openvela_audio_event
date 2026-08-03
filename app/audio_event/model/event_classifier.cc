@@ -11,7 +11,11 @@
 
 #include "audio_event_config.h"
 #include "model/event_classifier.h"
+#ifdef CONFIG_EXAMPLES_TFLM_BENCHMARK_S3_LARGE_8CLASS
+#include "model/s3_large_8class_model.h"
+#else
 #include "model/model.h"
+#endif
 
 #ifdef CONFIG_TFLITEMICRO_ESP32S3_CCOUNT_PROFILER
 #include <arch/xtensa/core_macros.h>
@@ -33,6 +37,18 @@ TFLMRegistration Register_MEAN();
 
 namespace
 {
+
+#ifdef CONFIG_EXAMPLES_TFLM_BENCHMARK_S3_LARGE_8CLASS
+constexpr size_t kClassCount = 8;
+constexpr const char *kModelTag = "s3-large-8class";
+#define AUDIO_EVENT_ACTIVE_MODEL g_s3_model
+#define AUDIO_EVENT_ACTIVE_MODEL_LEN g_s3_model_len
+#else
+constexpr size_t kClassCount = AUDIO_EVENT_CLASS_COUNT;
+constexpr const char *kModelTag = "model";
+#define AUDIO_EVENT_ACTIVE_MODEL g_audio_event_model
+#define AUDIO_EVENT_ACTIVE_MODEL_LEN g_audio_event_model_len
+#endif
 
 #ifndef EVENT_CLASSIFIER_ARENA_SIZE
 #define EVENT_CLASSIFIER_ARENA_SIZE CONFIG_EXAMPLES_AUDIO_EVENT_ARENA_SIZE
@@ -69,7 +85,7 @@ int tensor_element_count(const TfLiteTensor *tensor)
 int read_output(float *probabilities, size_t class_count)
 {
   if (g_output == nullptr || probabilities == nullptr ||
-      class_count != AUDIO_EVENT_CLASS_COUNT)
+      class_count != kClassCount)
     {
       return -EINVAL;
     }
@@ -92,7 +108,7 @@ extern "C" int event_classifier_init(void)
   static tflite::MicroMutableOpResolver<9> resolver;
   static bool resolver_initialized;
 
-  const tflite::Model *model = tflite::GetModel(g_audio_event_model);
+  const tflite::Model *model = tflite::GetModel(AUDIO_EVENT_ACTIVE_MODEL);
   if (model == nullptr || model->version() != TFLITE_SCHEMA_VERSION)
     {
       std::fprintf(stderr, "[model] schema mismatch: model=%d runtime=%d\n",
@@ -161,22 +177,22 @@ extern "C" int event_classifier_init(void)
     }
 
   if (g_output == nullptr || g_output->type != kTfLiteInt8 ||
-      tensor_element_count(g_output) != AUDIO_EVENT_CLASS_COUNT)
+      tensor_element_count(g_output) != kClassCount)
     {
       std::fprintf(stderr,
                    "[model] expected int8 output with %d elements, "
                    "got type=%d\n",
-                   AUDIO_EVENT_CLASS_COUNT,
+                   static_cast<int>(kClassCount),
                    g_output == nullptr ? -1 :
                                          static_cast<int>(g_output->type));
       event_classifier_deinit();
       return -EINVAL;
     }
 
-  std::printf("[model] arena=%lu used=%lu model=%u bytes\n",
+  std::printf("[%s] arena=%lu used=%lu model=%u bytes\n", kModelTag,
               static_cast<unsigned long>(sizeof(g_tensor_arena)),
               static_cast<unsigned long>(g_arena_used),
-              g_audio_event_model_len);
+              AUDIO_EVENT_ACTIVE_MODEL_LEN);
   return 0;
 }
 
@@ -194,7 +210,7 @@ extern "C" int event_classifier_predict_quantized(
 {
   if (g_interpreter == nullptr || g_input == nullptr || features == nullptr ||
       feature_count != AUDIO_EVENT_FEATURE_SIZE ||
-      class_count != AUDIO_EVENT_CLASS_COUNT)
+      class_count != kClassCount)
     {
       return -EINVAL;
     }
@@ -228,7 +244,7 @@ extern "C" int event_classifier_benchmark_invoke_quantized(
   if (g_interpreter == nullptr || g_input == nullptr || g_output == nullptr ||
       features == nullptr || invoke_cycles == nullptr || output == nullptr ||
       feature_count != AUDIO_EVENT_FEATURE_SIZE ||
-      output_count != AUDIO_EVENT_CLASS_COUNT)
+      output_count != kClassCount)
     {
       return -EINVAL;
     }
@@ -272,7 +288,7 @@ extern "C" int event_classifier_predict(const float *features,
 {
   if (g_interpreter == nullptr || g_input == nullptr || features == nullptr ||
       feature_count != AUDIO_EVENT_FEATURE_SIZE ||
-      class_count != AUDIO_EVENT_CLASS_COUNT ||
+      class_count != kClassCount ||
       g_input->params.scale <= 0.0f)
     {
       return -EINVAL;
@@ -319,7 +335,7 @@ extern "C" int event_classifier_profile(const float *features,
                "CONFIG_TFLITEMICRO_DEBUG\n");
   return -ENOTSUP;
 #else
-  float probabilities[AUDIO_EVENT_CLASS_COUNT];
+  float probabilities[kClassCount];
   unsigned int run;
   int ret;
 
@@ -333,7 +349,7 @@ extern "C" int event_classifier_profile(const float *features,
   for (run = 0; run < warmup_count; run++)
     {
       ret = event_classifier_predict(features, feature_count, probabilities,
-                                     AUDIO_EVENT_CLASS_COUNT);
+                                     kClassCount);
       if (ret < 0)
         {
           return ret;
@@ -347,7 +363,7 @@ extern "C" int event_classifier_profile(const float *features,
   for (run = 0; run < repeat_count; run++)
     {
       ret = event_classifier_predict(features, feature_count, probabilities,
-                                     AUDIO_EVENT_CLASS_COUNT);
+                                     kClassCount);
       if (ret < 0)
         {
           return ret;

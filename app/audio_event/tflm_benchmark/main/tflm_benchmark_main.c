@@ -16,6 +16,13 @@
 
 #define INVOKE_BENCHMARK_MAX_SAMPLES 1024
 
+#if defined(CONFIG_EXAMPLES_TFLM_BENCHMARK_BCRESNET1_8CLASS_PREFLIGHT) || \
+    defined(CONFIG_EXAMPLES_TFLM_BENCHMARK_S3_LARGE_8CLASS)
+#define TFLM_BENCHMARK_CLASS_COUNT 8
+#else
+#define TFLM_BENCHMARK_CLASS_COUNT AUDIO_EVENT_CLASS_COUNT
+#endif
+
 struct benchmark_options_s
 {
   unsigned int warmup_count;
@@ -181,7 +188,7 @@ static void fill_benchmark_features(bool pattern)
 
 static int run_invoke_benchmark(const struct benchmark_options_s *options)
 {
-  int8_t output[AUDIO_EVENT_CLASS_COUNT];
+  int8_t output[TFLM_BENCHMARK_CLASS_COUNT];
   uint32_t first_hash = 0;
   uint32_t tick_hz;
   uint64_t total_cycles = 0;
@@ -212,7 +219,7 @@ static int run_invoke_benchmark(const struct benchmark_options_s *options)
 
       ret = event_classifier_benchmark_invoke_quantized(
           g_benchmark_features, AUDIO_EVENT_FEATURE_SIZE, &cycles, output,
-          AUDIO_EVENT_CLASS_COUNT);
+          TFLM_BENCHMARK_CLASS_COUNT);
       if (ret < 0)
         {
           return ret;
@@ -226,13 +233,13 @@ static int run_invoke_benchmark(const struct benchmark_options_s *options)
 
       ret = event_classifier_benchmark_invoke_quantized(
           g_benchmark_features, AUDIO_EVENT_FEATURE_SIZE, &cycles, output,
-          AUDIO_EVENT_CLASS_COUNT);
+          TFLM_BENCHMARK_CLASS_COUNT);
       if (ret < 0)
         {
           return ret;
         }
 
-      hash = output_hash(output, AUDIO_EVENT_CLASS_COUNT);
+      hash = output_hash(output, TFLM_BENCHMARK_CLASS_COUNT);
       if (run == 0)
         {
           first_hash = hash;

@@ -314,8 +314,19 @@ config EXAMPLES_TFLM_BENCHMARK_BCRESNET1_8CLASS_PREFLIGHT
 		and its dedicated operator resolver. This does not change the
 		production 4-class audio_event application.
 
+config EXAMPLES_TFLM_BENCHMARK_S3_LARGE_8CLASS
+	bool "Use S3-large 8-class model"
+	default n
+	depends on !EXAMPLES_TFLM_BENCHMARK_BCRESNET1_8CLASS_PREFLIGHT
+	---help---
+		Build tflm_benchmark with the INT8 S3-large 8-class DS-CNN model.
+		The model uses the same 5880-element feature contract as the
+		production model, but has four Conv2D nodes, three DepthwiseConv2D
+		nodes, a 96-channel spatial Mean and eight output classes.
+
 config EXAMPLES_TFLM_BENCHMARK_ARENA_SIZE
 	int "TFLite Micro tensor arena size"
+	default 196608 if EXAMPLES_TFLM_BENCHMARK_S3_LARGE_8CLASS
 	default 131072 if EXAMPLES_TFLM_BENCHMARK_BCRESNET1_8CLASS_PREFLIGHT
 	default 65536
 	range 32768 262144

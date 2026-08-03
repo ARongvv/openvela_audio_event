@@ -56,13 +56,26 @@ if(CONFIG_EXAMPLES_AUDIO_EVENT)
 endif()
 
 if(CONFIG_EXAMPLES_TFLM_BENCHMARK)
+  if(CONFIG_EXAMPLES_TFLM_BENCHMARK_BCRESNET1_8CLASS_PREFLIGHT)
+    set(TFLM_BENCHMARK_MODEL_SRCS
+        model/bcresnet1_8class_preflight.cc
+        model/bcresnet1_8class_model.cc)
+  elseif(CONFIG_EXAMPLES_TFLM_BENCHMARK_S3_LARGE_8CLASS)
+    set(TFLM_BENCHMARK_MODEL_SRCS
+        model/event_classifier.cc
+        model/s3_large_8class_model.cc)
+  else()
+    set(TFLM_BENCHMARK_MODEL_SRCS
+        model/event_classifier.cc
+        model/model.cc)
+  endif()
+
   nuttx_add_application(
     NAME
     tflm_benchmark
     SRCS
     tflm_benchmark/main/tflm_benchmark_main.c
-    model/event_classifier.cc
-    model/model.cc
+    ${TFLM_BENCHMARK_MODEL_SRCS}
     STACKSIZE
     ${CONFIG_EXAMPLES_TFLM_BENCHMARK_STACKSIZE}
     PRIORITY

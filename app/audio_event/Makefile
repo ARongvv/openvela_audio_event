@@ -89,6 +89,9 @@ CSRCS  = tflm_benchmark/main/tflm_benchmark_main.c
 ifeq ($(CONFIG_EXAMPLES_TFLM_BENCHMARK_BCRESNET1_8CLASS_PREFLIGHT),y)
 CXXSRCS  = model/bcresnet1_8class_preflight.cc
 CXXSRCS += model/bcresnet1_8class_model.cc
+else ifeq ($(CONFIG_EXAMPLES_TFLM_BENCHMARK_S3_LARGE_8CLASS),y)
+CXXSRCS  = model/event_classifier.cc
+CXXSRCS += model/s3_large_8class_model.cc
 else
 CXXSRCS  = model/event_classifier.cc
 CXXSRCS += model/model.cc
