@@ -112,4 +112,4 @@ python3 ccf_audioevent/scripts/summarize_tflm_benchmark.py \
 接入更高分辨率的 ESP32-S3 单调计时源。
 
 将原始日志、脚本输出、模型 SHA-256、固件 SHA-256 与无 debug 的端到端结果一同登记到
-[ESP32-S3 推理时间优化方案](../项目基线/ESP32-S3推理时间优化方案.md)。
+[ESP32-S3 推理时间优化方案](../优化文档/ESP32-S3推理时间优化方案.md)。

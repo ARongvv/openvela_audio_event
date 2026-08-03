@@ -5,20 +5,19 @@
 本文档针对当前 `ccf_audioevent` 的 ESP32-S3/NuttX 固件，记录推理链路的真实状态、
 不适用的配置项，以及以实测数据为准的优化顺序。它不是 ESP-IDF 工程的配置说明。
 
-当前 `M001-small-int8` 模型在 ESP32-S3 上的端到端基线为：特征提取平均 66.4 ms、
-模型阶段平均 349.6 ms、启用 OLED 的总处理平均 544.3 ms。模型阶段已经超过 250 ms
-hop，是持续 4 Hz 检测无法实时完成的首要原因。
+历史 `M001-small-int8` reference 基线的模型阶段约 349.6 ms，超过 250 ms hop，曾是持续 4 Hz
+检测无法实时完成的首要原因。该基线用于说明问题，不代表当前 ESP-NN 性能。
 
-历史算子测试已显示 `Conv2D` 占 Invoke 时间约 79.5%，`DepthwiseConv2D` 约 16.1%；
-因此后续优化应优先面向这两类 kernel。该测试受 10 ms 计时粒度限制，仍需用当前专用
-`tflm_benchmark` 复测并改善计时分辨率，再量化 ESP-NN 的实际收益。不得以启用 CMSIS-NN、
-HiFi 或 ARM CMSIS-DSP 替代该步骤；它们不适用于 ESP32-S3。
+当前已用 ESP32-S3 `CCOUNT`（240 MHz、固定 pattern、warmup=20、repeat=100）完成复测：五个卷积节点
+使用 ESP-NN 后，纯 `Invoke()` mean 从 346.271 ms 降至 30.948 ms（11.1887×），`output_hash` 与 reference
+一致。真实文件播放的应用 profile 中，特征提取约 60--70 ms、模型阶段约 30--40 ms、总窗口处理约 100--110 ms，
+低于 250 ms hop。不得以启用 CMSIS-NN、HiFi 或 ARM CMSIS-DSP 替代该路径；它们不适用于 ESP32-S3。
 
 ## 2. 当前实现的事实核对
 
 | 项目 | 当前实际状态 | 判断与处理 |
 | --- | --- | --- |
-| ESP-NN | 未接入 openvela TFLite Micro | 可作为后续 ESP32-S3 专用 backend 接入；不是现有开关 |
+| ESP-NN | 已作为受控的 ESP32-S3 TFLM backend 接入 | 选择已验证的 Conv2D/DW 节点；不支持或未选择的节点回退 reference |
 | CMSIS-NN | 未启用 | ARM 库，不适用于 Xtensa LX7；`TFLITE_ENABLE_CMSIS_NN=ON` 不是本工程配置 |
 | 推理精度 | **全 int8** 输入/输出与 int8 权重 | 已正确量化；特征前端仍以 float 计算，推理前量化 5,880 个元素 |
 | FFT | KissFFT RFFT | 当前可用；CMSIS-DSP RFFT 是 ARM 实现，不能直接替换 |
@@ -55,9 +54,11 @@ HiFi kernel，并按 `HIFI4` 构建 Cadence `xa_nnlib`。这些 kernel 只有在
 
 ### 3.3 ESP-NN 的位置
 
-ESP-NN 是正确的 Espressif 专用候选，但当前 openvela 源树没有其源码、Kconfig 或 TFLM
-wrapper。它需要作为新的 `CONFIG_TFLITEMICRO_ESP_NN` backend 工程化接入，不能通过已有
-HiFi 或 CMSIS 开关获得。
+ESP-NN 是 ESP32-S3 的正确专用 backend，现已通过 `CONFIG_TFLITEMICRO_ESP_NN` 工程化接入。
+它由 ESP-NN 源码、TFLM Conv2D/DepthwiseConv2D wrapper、Kconfig 和受控 tensor 白名单共同构成，
+不是打开 HiFi 或 CMSIS 开关即可获得的功能。选择它的理由是 LX7 平台匹配、当前模型卷积热点集中，且已在
+reference 对照中获得逐字节一致的 11.1887× 整体 Invoke 加速；代价是 scratch Arena 增加到 44,324 B，
+并需要对每个新模型重新验证节点准入。
 
 ## 4. 当前模型的优化画像
 
@@ -76,14 +77,15 @@ integer 路径。历史逐算子测试已确认普通 `Conv2D`（约 79.5%）和
 3. 计算一阶和二阶 delta；
 4. 在 `event_classifier_predict()` 中把 5,880 个 float 量化并写入 int8 输入 tensor。
 
-前端现为 60--70 ms，远小于模型阶段，但仍是后续实时性优化的第二优先级。
+在全 reference 历史基线中，前端小于模型阶段；五卷积 ESP-NN 生效后，前端现为 60--70 ms，已经是
+端到端链路最大的单项开销。
 
 ## 5. 优化路线与验收标准
 
 ### 阶段 A：建立可解释基线
 
 1. 使用无 OLED 的 `P1-file-gate-nooled` profile 重测当前 M001；将结果写入
-   [audio_event模型真机基准测试汇总.md](audio_event模型真机基准测试汇总.md)。
+   [audio_event模型真机基准测试汇总](../项目基线/audio_event模型真机基准测试汇总.md)。
 2. 使用独立的 `tflm_benchmark` 固件重测同一模型数组和生产 resolver，并先确认计时源
    不再以 10 ms 为粒度量化。它可输出各算子耗时和 Arena 分配。不可只依据
    `audio_event --profile` 的整体 `infer` 字段推断算子占比。
@@ -112,10 +114,11 @@ integer 路径。历史逐算子测试已确认普通 `Conv2D`（约 79.5%）和
 验收：模型输出类别及概率误差在预先定义的容差内；P1 的 feature、infer、total P95 均
 优于 M001 基线或明确记录无收益。
 
-### 阶段 C：ESP-NN backend
+### 阶段 C：ESP-NN backend（已完成当前模型验证）
 
-历史结果已表明 Conv/DepthwiseConv 占模型阶段的大部分；仅当阶段 A 的高分辨率复测仍支持
-这一结论时实施。
+高分辨率 CCOUNT 已确认 Conv/DepthwiseConv 是当前模型的主要热点，因此在 ESP32-S3 上采用 ESP-NN，
+而非与架构不匹配的 CMSIS-NN/CMSIS-DSP 或 HiFi。当前实现和正式结果见
+[Reference 与 ESP-NN 性能对比操作手册](../项目基线/Reference与ESP-NN性能对比操作手册.md)。
 
 1. 引入与本项目工具链、许可证兼容的 ESP-NN 源码；不复用 ESP-IDF 的整个运行时。
 2. 新增 `CONFIG_TFLITEMICRO_ESP_NN`，限制为 ESP32 系列目标，且与 HiFi/CMSIS-NN backend
@@ -127,9 +130,15 @@ integer 路径。历史逐算子测试已确认普通 `Conv2D`（约 79.5%）和
    reference kernel。
 5. 分别做 kernel 单测、随机输入数值回归、完整 M001 WAV 回归、P1/P2 真机性能回归。
 
-验收：加速和 reference 输出在量化容差内一致；记录每个算子的加速比，而非只报告整体
-平均值。若未能让 `feature + infer` 的 P95 小于目标 hop，应调整 hop 或继续优化模型，
-不能宣称连续实时已实现。
+当前验收：五个节点均已通过受控的逐字节 reference 对照，组合 profile `output_hash` 一致；
+mean `Invoke()` 为 30.948 ms，应用文件播放中的 `feature + infer` 约 90--110 ms，满足 250 ms hop。
+后续替换模型或修改 wrapper 后，仍须重新执行逐节点 verify、组合 verify、100 次 CCOUNT 和真实 WAV 回归，
+不能直接沿用本模型的 tensor ID 或性能结论。
+
+ESP-NN 降低模型阶段后，float log-Mel 前端约 60--70 ms 已成为最大单项开销。前端的 CCOUNT 分解、
+稀疏 Mel、流式缓存和数值回归策略见
+[ESP32-S3 音频特征提取优化方案](特征提取优化方案.md)；它与本节的 ESP-NN kernel 优化相互独立，
+不得改变模型特征契约后仍沿用原模型性能或精度结论。
 
 ## 6. 不建议的“优化”
 
@@ -158,7 +167,7 @@ integer 路径。历史逐算子测试已确认普通 `Conv2D`（约 79.5%）和
 
 ## 8. 相关资料
 
-- [模型真机基准测试汇总](audio_event模型真机基准测试汇总.md)：统一性能与事件指标口径。
-- [性能与评估](性能与评估.md)：项目性能目标与离线评估口径。
+- [模型真机基准测试汇总](../项目基线/audio_event模型真机基准测试汇总.md)：统一性能与事件指标口径。
+- [性能与评估](../项目基线/性能与评估.md)：项目性能目标与离线评估口径。
 - [TFLM Kconfig](../../../apps/mlearning/tflite-micro/Kconfig)：现有 TFLM 开关。
 - [TFLM 构建配置](../../../apps/mlearning/tflite-micro/CMakeLists.txt)：`-O3` 与架构 backend 的源文件选择。

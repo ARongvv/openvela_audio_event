@@ -27,6 +27,17 @@ ESP-NN 与逐字节校验；audio_event 的生产 defconfig 在数值回归与�
 开始比较前应先按 [tflm_benchmark 算子剖析](../使用与调试/tflm_benchmark算子剖析.md)
 取得当前模型的算子级基线。
 
+### 为什么选择 ESP-NN
+
+选择 ESP-NN 不是因为它是通用的“神经网络加速开关”，而是因为它与本项目的目标芯片和热点算子同时匹配：
+
+- **芯片匹配**：ESP32-S3 使用 Xtensa LX7；ESP-NN 提供面向 ESP32-S3 的 C 和 Xtensa 汇编实现，能够使用该目标可用的向量计算路径。CMSIS-NN/CMSIS-DSP 面向 Arm Cortex-M，Xtensa HiFi kernel 又要求 S3 不具备的 HiFi DSP ISA，二者都不能替代 ESP-NN。
+- **模型匹配**：当前 `ds_cnn_small` 是全 int8、per-channel quantization 的卷积网络，三个 `Conv2D` 和两个 `DepthwiseConv2D` 正是 ESP-NN wrapper 已覆盖的路径；`Mean`、`FullyConnected`、`Softmax` 不是主要热点，不值得先为它们扩大移植面。
+- **收益已实测**：在同一 ESP32-S3、240 MHz、相同确定性 `pattern` 输入下，五个卷积节点由 reference 的 346.271 ms 降至 30.948 ms（11.1887×）；`output_hash=0x77a10bab` 保持相同。真实 WAV 端到端测试中，模型阶段约为 30--40 ms，`feature + infer` 约 90--110 ms，低于 250 ms hop。
+- **风险可控**：backend 只在白名单节点、输入形状和参数满足条件时启用；每个新节点先通过 TRACE/VERIFY 与 TFLM reference 逐字节比较，不支持的组合自动回退 reference。因此不需要修改训练模型语义或应用层 API。
+
+代价也必须一并接受：五节点组合的 Arena 实际使用从 22,788 B 增至 44,324 B（仍低于 65,536 B 上限），并且 tensor ID 白名单仅对当前模型有效。替换模型后必须重新进行 trace、单节点验证和组合性能测试，不能复用当前的节点编号或性能结论。
+
 ## 2. 适用性与边界
 
 ESP-NN 为 ESP32-S3 提供使用 LX7 向量指令的优化实现；它不是 CMSIS-NN，也不是
@@ -43,7 +54,7 @@ reference backend 的数值一致性。
 
 当前 `M001-small-int8` 的算子、Arena 及性能基线见
 [ESP32-S3 推理时间优化方案](ESP32-S3推理时间优化方案.md)；端侧效果和性能记录格式见
-[audio_event 模型真机基准测试汇总](audio_event模型真机基准测试汇总.md)。
+[audio_event 模型真机基准测试汇总](../项目基线/audio_event模型真机基准测试汇总.md)。
 
 ## 3. 目标架构
 
@@ -404,7 +415,7 @@ ESP32-S3 的 `CCOUNT` 是每 CPU 周期递增的 32 位计数器。配置
 `CONFIG_TFLITEMICRO_ESP32S3_CCOUNT_PROFILER=y` 后，基准程序有两层计时：
 
 完整的 reference/ESP-NN 构建、采集和结果归档流程见
-[Reference 与 ESP-NN 性能对比操作手册](Reference与ESP-NN性能对比操作手册.md)。
+[Reference 与 ESP-NN 性能对比操作手册](../项目基线/Reference与ESP-NN性能对比操作手册.md)。
 
 1. `--mode invoke` 在量化输入已复制到 input tensor 后、`Invoke()` 前后读取 CCOUNT；它测量整次
    模型执行，不包含输入量化、输入拷贝、串口打印或统计；
@@ -472,7 +483,7 @@ DepthwiseConv2D 随后已分别完成受控 ESP-NN 验证，但尚未同时启�
 ESP-NN 固件的单次每算子 CCOUNT 快照进一步确认这一判断：三个 Conv2D 分别为 4.947 ms、
 5.449 ms 和 1.921 ms，合计 12.317 ms；两个 reference DepthwiseConv2D 为 24.334 ms 和
 32.247 ms，合计 56.581 ms（约占事件 cycle 合计的 68.04%）。完整原始 cycle 表、输入口径和
-profiler 开销说明见 [Reference 与 ESP-NN 性能对比操作手册](Reference与ESP-NN性能对比操作手册.md)。
+profiler 开销说明见 [Reference 与 ESP-NN 性能对比操作手册](../项目基线/Reference与ESP-NN性能对比操作手册.md)。
 
 `tflm_benchmark_espnn_cycles_dw26_verify` 已确认 16-channel Depthwise `out_t=26` 与 reference
 逐字节一致；`tflm_benchmark_espnn_cycles_dw26` 的正式 mean 为 52.376 ms，相对三 Conv2D 的

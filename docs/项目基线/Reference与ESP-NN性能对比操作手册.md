@@ -9,6 +9,22 @@
 该对比测量的是模型的纯 `Invoke()` 时延，不代表音频采集、特征提取、检测逻辑、显示或串口输出的
 端到端时延。
 
+## 为什么使用 ESP-NN
+
+本项目运行在 ESP32-S3（Xtensa LX7），因此选择 Espressif 的 ESP-NN 作为 TFLM 的目标专用 backend：
+它覆盖当前 int8 模型最耗时的 `Conv2D` 与 `DepthwiseConv2D`，并提供 ESP32-S3 可执行的优化 C/Xtensa
+汇编路径。它不是 ARM 的 CMSIS-NN/CMSIS-DSP，也不是需要 HiFi DSP ISA 的 Xtensa HiFi backend；后两者不适用于
+ESP32-S3。
+
+这个选择以实测而非名称判断：全 reference 的 mean `Invoke()` 为 346.271 ms，三个 Conv2D 启用 ESP-NN 后为
+82.809 ms，五个卷积节点全部启用后为 30.948 ms，且三组测试的 `output_hash` 均为 `0x77a10bab`。因此本文继续采用
+ESP-NN；同时保留 reference profile、固定输入和逐字节 verify profile，确保收益不是由模型、输入、计时边界或数值
+变化造成的。
+
+ESP-NN 不是无条件替换：节点必须满足 wrapper 的 int8、batch、形状、对齐和参数约束，并显式列入当前模型的 tensor
+白名单。它会增加 scratch（五节点组合 Arena 为 44,324 B，而 reference 为 22,788 B）；更换模型后必须重新做准入和
+验证，不能照搬本手册的 tensor ID。
+
 ## 1. 测试口径
 
 两套固件均使用 ESP32-S3 `CCOUNT` 计数器。计时边界为：量化 int8 输入已经复制入 input tensor 后，
@@ -387,4 +403,4 @@ profile 的结果相加或推算。
 - 若结果异常，保存失败日志，不以手工挑选的成功样本替代。
 
 相关实现和 ESP-NN 节点准入过程参见
-[ESP-NN 移植到 openvela 实施指南](ESP-NN移植到openvela实施指南.md)。
+[ESP-NN 移植到 openvela 实施指南](../优化文档/ESP-NN移植到openvela实施指南.md)。

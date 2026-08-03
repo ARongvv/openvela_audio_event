@@ -3,6 +3,17 @@
 本文用于在生产 `audio_event` 应用中验证当前 4-class 模型的 ESP-NN 效果。它不同于
 `tflm_benchmark`：除了模型 Invoke，还会实际运行音频输入、特征提取、分类、检测和应用日志链路。
 
+## 为什么在 audio_event 中使用 ESP-NN
+
+ESP32-S3 的 Xtensa LX7 不能使用 ARM CMSIS-NN/CMSIS-DSP，也不具备 Xtensa HiFi DSP ISA；ESP-NN 才是与该芯片
+匹配的 TFLM 卷积 backend。当前 4-class 全 int8 DS-CNN 的主要计算正是三个 `Conv2D` 与两个
+`DepthwiseConv2D`，所以只替换这五个经过验证的节点，不改变音频前端、模型输入/输出、类别映射或检测策略。
+
+同模型的受控 CCOUNT 已显示五节点组合把纯 `Invoke()` mean 从 346.271 ms 降至 30.948 ms（11.1887×），且
+`output_hash` 与 reference 一致。端到端 profile 的目的，是确认这项 kernel 收益在真实特征、文件/麦克风输入、能量门
+和应用调度下仍然成立，而不是把 benchmark 结论直接外推到业务链路。代价是 Arena 从 reference 的 22,788 B 增至
+44,324 B；因此本文件的三个 profile 保持独立，且替换模型时必须重新 trace 和 verify。
+
 ## 1. 对比 profile
 
 | profile | 用途 | ESP-NN 状态 | WAV 资源 |
