@@ -23,19 +23,31 @@ tensor ID 和算子形状。
 WAV。资源区为 8 MiB，能容纳单个 5 MiB WAV、当前内置样本和 LittleFS 元数据；镜像内文件路径为
 `/data/<文件名>`。
 
-生成内置 WAV 的镜像：
+仓库已提供可直接使用的 `mklittlefs`：
+`vendor/artinchip/tools/scripts/mklittlefs`。当前音频脚本默认从 `PATH` 查找该工具，因此应像下面这样通过
+`MKLITTLEFS` 显式指定仓库内版本（该变量也可用于覆盖为其他版本的工具）。生成内置 WAV 的镜像：
 
 ```sh
-MKLITTLEFS=/absolute/path/to/mklittlefs \
-  ./ccf_audioevent/scripts/make_audio_event_littlefs_image.sh
+cd ~/openvela
+MKLITTLEFS="$PWD/vendor/artinchip/tools/scripts/mklittlefs" \
+  bash ccf_audioevent/scripts/make_audio_event_littlefs_image.sh
 ```
 
 将额外的 5 MiB WAV 一并加入镜像（可传一个或多个 WAV 文件或目录）：
 
 ```sh
-MKLITTLEFS=/absolute/path/to/mklittlefs \
-  ./ccf_audioevent/scripts/make_audio_event_littlefs_image.sh \
+MKLITTLEFS="$PWD/vendor/artinchip/tools/scripts/mklittlefs" \
+  bash ccf_audioevent/scripts/make_audio_event_littlefs_image.sh \
   ccf_audioevent/app/audio_event/res/audio /path/to/event_5mb.wav
+```
+
+例如，仅将项目中的 `combined_A_pure.wav` 制作为资源镜像：
+
+```sh
+cd ~/openvela
+MKLITTLEFS="$PWD/vendor/artinchip/tools/scripts/mklittlefs" \
+  bash ccf_audioevent/scripts/make_audio_event_littlefs_image.sh \
+  ccf_audioevent/test_data/combined_A_pure.wav
 ```
 
 先烧录任意一个 LittleFS-enabled ESP-NN firmware，再在主机上单独烧录资源镜像；这一步只覆盖上半区
