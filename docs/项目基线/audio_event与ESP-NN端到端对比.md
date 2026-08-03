@@ -6,8 +6,8 @@
 ## 为什么在 audio_event 中使用 ESP-NN
 
 ESP32-S3 的 Xtensa LX7 不能使用 ARM CMSIS-NN/CMSIS-DSP，也不具备 Xtensa HiFi DSP ISA；ESP-NN 才是与该芯片
-匹配的 TFLM 卷积 backend。当前 4-class 全 int8 DS-CNN 的主要计算正是三个 `Conv2D` 与两个
-`DepthwiseConv2D`，所以只替换这五个经过验证的节点，不改变音频前端、模型输入/输出、类别映射或检测策略。
+匹配的 TFLM 卷积 backend。当前 4-class 全 int8 DS-CNN 的主要计算正是三个 `Conv2D`、两个
+`DepthwiseConv2D` 和一个空间 Mean；因此替换这六个经过验证的节点，不改变音频前端、模型输入/输出、类别映射或检测策略。
 
 同模型的受控 CCOUNT 已显示五卷积 + Mean 组合把纯 `Invoke()` mean 从 346.271 ms 降至 17.591 ms（19.6840×），且
 各加速节点已完成逐字节 reference 对照、`output_hash` 与 reference 一致。端到端 profile 的目的，是确认这项 kernel 收益在真实特征、文件/麦克风输入、能量门
@@ -20,8 +20,8 @@ ESP32-S3 的 Xtensa LX7 不能使用 ARM CMSIS-NN/CMSIS-DSP，也不具备 Xtens
 | profile | 用途 | ESP-NN 状态 | WAV 资源 |
 | --- | --- | --- | --- |
 | `audio_event_espnn_ref_profile` | 公平 reference 对照 | 编入 ESP-NN wrapper，但不选择任何卷积节点 | LittleFS `/data` |
-| `audio_event_espnn_verify` | 真实特征的数值验证 | 选择 Conv `23/25/27`、DW `24/26`，开启 TRACE/VERIFY | LittleFS `/data` |
-| `audio_event_espnn_profile` | 端到端性能 | 选择相同五个节点，关闭 TRACE/VERIFY | LittleFS `/data` |
+| `audio_event_espnn_verify` | 真实特征的数值验证 | 选择 Conv 23/25/27、DW 24/26 和 Mean 28，开启 TRACE/VERIFY | LittleFS `/data` |
+| `audio_event_espnn_profile` | 端到端性能 | 选择相同五个卷积节点和 Mean 28，关闭 TRACE/VERIFY | LittleFS `/data` |
 
 三个 profile 均保持生产 `audio_event` 的 4-class 模型、16 kHz I2S、特征提取、能量门和 65,536 B
 Arena 配置。它们将 ESP32-S3 N16R8 的上半区 Flash MTD，即 `0x800000–0xFFFFFF`（8 MiB），配置为
@@ -92,11 +92,12 @@ audio_event --file /data/event_5mb.wav --repeat 1 --profile --no-oled
 audio_event --device /dev/audio/pcm_in1 --once --profile --no-oled
 ```
 
-每个被实际 Invoke 的窗口必须看到三个 Conv2D 和两个 DepthwiseConv2D 的 ESP-NN trace；并至少出现：
+每个被实际 Invoke 的窗口必须看到三个 Conv2D、两个 DepthwiseConv2D 和 Mean 的 ESP-NN trace；并至少出现：
 
 ```text
 [espnn-verify] DepthwiseConv2D out_t=24 match bytes=6000
 [espnn-verify] DepthwiseConv2D out_t=26 match bytes=8000
+[espnn-verify] Mean out_t=28 match bytes=24
 ```
 
 同时保存 Conv2D 的 `match` 日志，以及 `[infer]` 的类别和概率输出。若任一节点不匹配，wrapper 会恢复
