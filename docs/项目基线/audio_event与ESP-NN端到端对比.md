@@ -12,7 +12,8 @@
 | `audio_event_espnn_profile` | 端到端性能 | 选择相同五个节点，关闭 TRACE/VERIFY | LittleFS `/data` |
 
 三个 profile 均保持生产 `audio_event` 的 4-class 模型、16 kHz I2S、特征提取、能量门和 65,536 B
-Arena 配置。它们还将静态 Flash MTD 的 `0x180000–0x980000` 配置为 8 MiB LittleFS，并挂载到 `/data`；
+Arena 配置。它们将 ESP32-S3 N16R8 的上半区 Flash MTD，即 `0x800000–0xFFFFFF`（8 MiB），配置为
+LittleFS，并挂载到 `/data`；
 基线 `audio_event` profile 不作修改。ESP-NN 选择仅对当前模型有效；替换模型后必须先用 TRACE 重新确认
 tensor ID 和算子形状。
 
@@ -37,12 +38,13 @@ MKLITTLEFS=/absolute/path/to/mklittlefs \
   ccf_audioevent/app/audio_event/res/audio /path/to/event_5mb.wav
 ```
 
-先烧录任意一个 LittleFS-enabled ESP-NN firmware。首次启动时，空白资源区会自动格式化为 LittleFS。随后，
-在主机上单独烧录资源镜像；这一步只覆盖 `0x180000` 起的 8 MiB 资源区，不会覆盖固件：
+先烧录任意一个 LittleFS-enabled ESP-NN firmware，再在主机上单独烧录资源镜像；这一步只覆盖上半区
+`0x800000–0xFFFFFF`，不会覆盖放置在下半区的当前固件。若该区域被用于 OTA 或其他数据，必须先重新规划
+分区，不能直接执行下面命令：
 
 ```sh
 esptool --chip esp32s3 --port /dev/ttyUSB0 --baud 921600 write-flash \
-  0x180000 ccf_audioevent/out/audio_event_littlefs/audio_event_littlefs.bin
+  0x800000 ccf_audioevent/out/audio_event_littlefs/audio_event_littlefs.bin
 ```
 
 复位开发板后，在 NSH 中确认 `ls /data` 能看到文件。以后仅更新 WAV 时，无需重烧固件，只需重新生成并烧录

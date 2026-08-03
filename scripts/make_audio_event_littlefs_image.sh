@@ -12,8 +12,9 @@ OUT_DIR="${PROJECT_DIR}/out/audio_event_littlefs"
 OUT_IMAGE="${OUT_DIR}/audio_event_littlefs.bin"
 
 # Keep these values in sync with the audio_event_*_espnn profile defconfigs.
+# ESP32-S3 N16R8 has a 16 MiB flash; reserve its upper 8 MiB for resources.
 FLASH_SIZE=0x1000000
-DATA_OFFSET=0x180000
+DATA_OFFSET=0x800000
 DATA_SIZE=0x800000
 BLOCK_SIZE=4096
 PAGE_SIZE=1024
