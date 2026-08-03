@@ -5,16 +5,50 @@
 
 ## 1. 对比 profile
 
-| profile | 用途 | ESP-NN 状态 |
-| --- | --- | --- |
-| `audio_event_espnn_ref_profile` | 公平 reference 对照 | 编入 ESP-NN wrapper，但不选择任何卷积节点 |
-| `audio_event_espnn_verify` | 真实特征的数值验证 | 选择 Conv `23/25/27`、DW `24/26`，开启 TRACE/VERIFY |
-| `audio_event_espnn_profile` | 端到端性能 | 选择相同五个节点，关闭 TRACE/VERIFY |
+| profile | 用途 | ESP-NN 状态 | WAV 资源 |
+| --- | --- | --- | --- |
+| `audio_event_espnn_ref_profile` | 公平 reference 对照 | 编入 ESP-NN wrapper，但不选择任何卷积节点 | LittleFS `/data` |
+| `audio_event_espnn_verify` | 真实特征的数值验证 | 选择 Conv `23/25/27`、DW `24/26`，开启 TRACE/VERIFY | LittleFS `/data` |
+| `audio_event_espnn_profile` | 端到端性能 | 选择相同五个节点，关闭 TRACE/VERIFY | LittleFS `/data` |
 
 三个 profile 均保持生产 `audio_event` 的 4-class 模型、16 kHz I2S、特征提取、能量门和 65,536 B
-Arena 配置。ESP-NN 选择仅对当前模型有效；替换模型后必须先用 TRACE 重新确认 tensor ID 和算子形状。
+Arena 配置。它们还将静态 Flash MTD 的 `0x180000–0x980000` 配置为 8 MiB LittleFS，并挂载到 `/data`；
+基线 `audio_event` profile 不作修改。ESP-NN 选择仅对当前模型有效；替换模型后必须先用 TRACE 重新确认
+tensor ID 和算子形状。
 
-## 2. 真实特征下的组合验证
+## 2. 制作并烧录板端 WAV 资源
+
+三套 ESP-NN profile 共用同一份 LittleFS 资源镜像，因此 reference、verify 与性能测试能够读取完全相同的
+WAV。资源区为 8 MiB，能容纳单个 5 MiB WAV、当前内置样本和 LittleFS 元数据；镜像内文件路径为
+`/data/<文件名>`。
+
+生成内置 WAV 的镜像：
+
+```sh
+MKLITTLEFS=/absolute/path/to/mklittlefs \
+  ./ccf_audioevent/scripts/make_audio_event_littlefs_image.sh
+```
+
+将额外的 5 MiB WAV 一并加入镜像（可传一个或多个 WAV 文件或目录）：
+
+```sh
+MKLITTLEFS=/absolute/path/to/mklittlefs \
+  ./ccf_audioevent/scripts/make_audio_event_littlefs_image.sh \
+  ccf_audioevent/app/audio_event/res/audio /path/to/event_5mb.wav
+```
+
+先烧录任意一个 LittleFS-enabled ESP-NN firmware。首次启动时，空白资源区会自动格式化为 LittleFS。随后，
+在主机上单独烧录资源镜像；这一步只覆盖 `0x180000` 起的 8 MiB 资源区，不会覆盖固件：
+
+```sh
+esptool --chip esp32s3 --port /dev/ttyUSB0 --baud 921600 write-flash \
+  0x180000 ccf_audioevent/out/audio_event_littlefs/audio_event_littlefs.bin
+```
+
+复位开发板后，在 NSH 中确认 `ls /data` 能看到文件。以后仅更新 WAV 时，无需重烧固件，只需重新生成并烧录
+该资源镜像。请勿将这条资源烧录命令用于基线 `audio_event`，因为它没有挂载 `/data`。
+
+## 3. 真实特征下的组合验证
 
 先构建并烧录 verify profile：
 
@@ -23,10 +57,10 @@ Arena 配置。ESP-NN 选择仅对当前模型有效；替换模型后必须先�
 make -C nuttx flash ESPTOOL_PORT=/dev/ttyUSB0
 ```
 
-使用同一个已知有效的 WAV（HostFS 已配置时）或相同的麦克风场景运行：
+使用刚烧录到 `/data` 的同一个 WAV，或相同的麦克风场景运行：
 
 ```sh
-audio_event --file <wav-path> --repeat 1 --profile --no-oled
+audio_event --file /data/event_5mb.wav --repeat 1 --profile --no-oled
 
 # 或实时采集
 audio_event --device /dev/audio/pcm_in1 --once --profile --no-oled
@@ -42,7 +76,7 @@ audio_event --device /dev/audio/pcm_in1 --once --profile --no-oled
 同时保存 Conv2D 的 `match` 日志，以及 `[infer]` 的类别和概率输出。若任一节点不匹配，wrapper 会恢复
 reference 输出；此时不可将该固件用于性能结论。
 
-## 3. Reference 与 ESP-NN 端到端性能
+## 4. Reference 与 ESP-NN 端到端性能
 
 使用同一块板、相同 CPU 频率、同一 WAV、相同命令参数和 `--no-oled`，分别构建 reference 与性能
 profile：
@@ -50,13 +84,13 @@ profile：
 ```sh
 ./build.sh ccf_audioevent/board/esp32s3-devkit/configs/audio_event_espnn_ref_profile -j8
 make -C nuttx flash ESPTOOL_PORT=/dev/ttyUSB0
-audio_event --file <wav-path> --repeat 20 --profile --no-oled
+audio_event --file /data/event_5mb.wav --repeat 20 --profile --no-oled
 ```
 
 ```sh
 ./build.sh ccf_audioevent/board/esp32s3-devkit/configs/audio_event_espnn_profile -j8
 make -C nuttx flash ESPTOOL_PORT=/dev/ttyUSB0
-audio_event --file <wav-path> --repeat 20 --profile --no-oled
+audio_event --file /data/event_5mb.wav --repeat 20 --profile --no-oled
 ```
 
 比较 `[profile]` 行中的 `feature`、`infer` 和 `total`。能量门可能跳过静音窗口的 DSP/TFLM；因此应选用
@@ -64,7 +98,7 @@ audio_event --file <wav-path> --repeat 20 --profile --no-oled
 输出反量化，适合评价业务应用的模型阶段；它不是纯 Invoke cycle，纯模型基线仍以
 `tflm_benchmark` 的 CCOUNT 结果为准。
 
-## 4. 实时验收
+## 5. 实时验收
 
 固定 WAV 对比通过后，再以实时设备运行：
 
