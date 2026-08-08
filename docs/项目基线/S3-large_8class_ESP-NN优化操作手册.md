@@ -158,13 +158,36 @@ tflm_benchmark --mode operator --warmup 10 --repeat 1 --csv
 
 ## 5. 验收与后续接入
 
+### 5.1 内存：内部 DRAM arena + PSRAM 音频工作区
+
+8 类模型的 ESP-NN performance arena 配置为 196,608 B（benchmark 实测 `arena_used` 为
+132,692 B）。为了保持该 arena 位于已验证的内部 DRAM，生产 profile 不把它移动到 PSRAM；而是将
+体积更大的音频工作区移入 PSRAM：2 秒 ring（64,000 B）、1 秒 window（32,000 B）、特征
+（23,520 B）及采样 block。总计约 121 KiB。
+
+实现和约束如下：
+
+- `event_classifier.cc`：8-class 与 4-class 一样使用 16-byte 对齐的静态内部 DRAM arena；
+- `audio_event_main.c`：8-class 通过 `kmm_memalign(16, ...)` 一次性申请约 121 KiB 的连续工作区，
+  再在此块内放置 ring/window/features；退出时一次 `kmm_free()`。common heap 使用 best-fit，首个
+  大块仍可能落入内部 DRAM；实现会临时保留该内部块并重试，使工作区落入 PSRAM region，随后立即释放
+  临时块。同时校验最终地址属于 PSRAM 映射范围；
+- `audio_event_8class/defconfig`：选择 `CONFIG_ESP32S3_SPIRAM_COMMON_HEAP=y` 且
+  `CONFIG_MM_REGIONS=2`。不使用 `ESP32S3_SPIRAM_USER_HEAP`，避免改变 flat build 的早期堆拓扑。
+
+这使 ESP-NN 的 tensor/scratch 仍在内部 DRAM，而前端的大块连续缓冲使用 N16R8 的 8 MiB PSRAM。
+启动时应看到 `[app] audio buffers in PSRAM:` 与 `[model] arena static DRAM`；任一 PSRAM 分配失败会
+明确退出，不会继续使用错误地址。
+
+### 5.2 生产接入清单
+
 完成以下条件后，才能把 S3-large 接入生产 `audio_event`：
 
 - [ ] reference profile 可稳定 AllocateTensors/Invoke；
 - [ ] 四 Conv、三 DW、Mean96 全部逐字节 match；
 - [ ] reference 与正式 ESP-NN 的 100 次 `output_hash` 一致；
 - [ ] ESP-NN Invoke P95 加上当前 60–70 ms 特征提取后仍显著低于 250 ms hop；
-- [ ] arena、静态 RAM、任务栈和连续运行没有异常；
+- [ ] arena（内部 DRAM）、PSRAM 音频工作区、任务栈和连续运行没有异常；
 - [ ] 8-class 类别映射、检测阈值、UI/告警/上报已从固定 4-class 逻辑完成适配；
 - [ ] 使用真实 WAV 和麦克风完成误报率、漏报率与不同 SNR/距离回归。
 

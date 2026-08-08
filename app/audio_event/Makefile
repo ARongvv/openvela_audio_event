@@ -74,7 +74,11 @@ CSRCS += ui_oled/audio_event_oled_ui.c
 endif
 
 CXXSRCS  = model/event_classifier.cc
+ifeq ($(CONFIG_EXAMPLES_AUDIO_EVENT_MODEL_8CLASS),y)
+CXXSRCS += model/s3_large_8class_model.cc
+else
 CXXSRCS += model/model.cc
+endif
 
 endif
 

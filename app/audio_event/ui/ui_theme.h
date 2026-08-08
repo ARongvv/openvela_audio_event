@@ -83,6 +83,12 @@ extern "C" {
 
 #define UI_COLOR_KNOCK        lv_color_hex(0xE65100)
 #define UI_COLOR_COUGH        lv_color_hex(0x7B1FA2)
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_MODEL_8CLASS
+#  define UI_COLOR_GLASS      lv_color_hex(0x00695C)
+#  define UI_COLOR_YES        lv_color_hex(0x2E7D32)
+#  define UI_COLOR_NO         lv_color_hex(0xC62828)
+#  define UI_COLOR_STOP       lv_color_hex(0xEF6C00)
+#endif
 #define UI_COLOR_BACKGROUND   lv_color_hex(0x78909C)
 #define UI_COLOR_SILENCE      lv_color_hex(0x90A4AE)
 
@@ -102,6 +108,12 @@ extern "C" {
 
 #define UI_CLASS_NAME_KNOCK      "Knock"
 #define UI_CLASS_NAME_COUGH      "Cough"
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_MODEL_8CLASS
+#  define UI_CLASS_NAME_GLASS    "Glass"
+#  define UI_CLASS_NAME_YES      "Yes"
+#  define UI_CLASS_NAME_NO       "No"
+#  define UI_CLASS_NAME_STOP     "Stop"
+#endif
 #define UI_CLASS_NAME_BACKGROUND "Bgnd"
 #define UI_CLASS_NAME_SILENCE    "Quiet"
 

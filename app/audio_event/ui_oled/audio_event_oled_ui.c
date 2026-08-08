@@ -47,6 +47,12 @@ static const char *const g_class_names[AUDIO_EVENT_CLASS_COUNT] =
 {
   "KNOCK",
   "COUGH",
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_MODEL_8CLASS
+  "GLASS",
+  "YES",
+  "NO",
+  "STOP",
+#endif
   "BGND",
   "QUIET"
 };

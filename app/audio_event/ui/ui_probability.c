@@ -1,7 +1,7 @@
 /**
  * apps/examples/audio_event/ui/ui_probability.c
  *
- * Four-class probability bar chart (Knock / Cough / Bgnd / Quiet).
+ * Probability bar chart (Knock / Cough / Glass / Yes / No / Stop / Bgnd / Quiet).
  */
 
 #include "audio_event_ui.h"
@@ -12,6 +12,12 @@ static const char *const g_class_names[AUDIO_EVENT_CLASS_COUNT] =
 {
   UI_CLASS_NAME_KNOCK,
   UI_CLASS_NAME_COUGH,
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_MODEL_8CLASS
+  UI_CLASS_NAME_GLASS,
+  UI_CLASS_NAME_YES,
+  UI_CLASS_NAME_NO,
+  UI_CLASS_NAME_STOP,
+#endif
   UI_CLASS_NAME_BACKGROUND,
   UI_CLASS_NAME_SILENCE
 };
@@ -24,8 +30,17 @@ void ui_probability_create(audio_event_ui_t *ui, lv_obj_t *parent)
   /* Initialize colors at runtime (lv_color_hex is not a constant) */
   class_colors[0] = UI_COLOR_KNOCK;
   class_colors[1] = UI_COLOR_COUGH;
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_MODEL_8CLASS
+  class_colors[2] = UI_COLOR_GLASS;
+  class_colors[3] = UI_COLOR_YES;
+  class_colors[4] = UI_COLOR_NO;
+  class_colors[5] = UI_COLOR_STOP;
+  class_colors[6] = UI_COLOR_BACKGROUND;
+  class_colors[7] = UI_COLOR_SILENCE;
+#else
   class_colors[2] = UI_COLOR_BACKGROUND;
   class_colors[3] = UI_COLOR_SILENCE;
+#endif
 
   /* Outer container — fills the probability card */
   ui->prob_container = lv_obj_create(parent);

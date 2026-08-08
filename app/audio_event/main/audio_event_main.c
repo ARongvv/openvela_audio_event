@@ -3,6 +3,7 @@
  */
 
 #include <nuttx/config.h>
+#include <nuttx/kmalloc.h>
 
 #include <errno.h>
 #include <pthread.h>
@@ -42,6 +43,14 @@
 #define AUDIO_RING_SAMPLES (AUDIO_EVENT_SAMPLE_RATE * AUDIO_RING_SECONDS)
 #define AUDIO_CAPTURE_PRIORITY_BOOST 40
 
+#define AUDIO_SPIRAM_WORKSPACE_SIZE \
+  (AUDIO_RING_SAMPLES * sizeof(int16_t) + \
+   AUDIO_EVENT_CLIP_SAMPLES * sizeof(int16_t) + \
+   AUDIO_IO_BLOCK_SAMPLES * sizeof(int16_t) + \
+   AUDIO_EVENT_FEATURE_SIZE * sizeof(float) + \
+   AUDIO_EVENT_CLASS_COUNT * sizeof(float))
+#define AUDIO_SPIRAM_ALLOC_ATTEMPTS 3
+
 enum input_mode_e
 {
   INPUT_MODE_DEVICE = 0,
@@ -77,16 +86,137 @@ static const char *const g_event_names[AUDIO_EVENT_CLASS_COUNT] =
 {
   "knock",
   "cough",
+#if defined(CONFIG_EXAMPLES_AUDIO_EVENT_MODEL_8CLASS)
+  "glass_breaking",
+  "yes",
+  "no",
+  "stop",
+#endif
   "background",
   "silence"
 };
 
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_MODEL_8CLASS
+/* Large audio buffers in SPI RAM on the 8-class build so the tensor arena
+ * can stay in internal DRAM as a static array.
+ */
+
+static int16_t *g_audio_ring;
+static int16_t *g_audio_window;
+static int16_t *g_audio_block;
+static float *g_features;
+static float *g_probabilities;
+static uint8_t *g_audio_workspace;
+#else
 static int16_t g_audio_ring[AUDIO_RING_SAMPLES];
 static int16_t g_audio_window[AUDIO_EVENT_CLIP_SAMPLES];
 static int16_t g_audio_block[AUDIO_IO_BLOCK_SAMPLES];
 static float g_features[AUDIO_EVENT_FEATURE_SIZE];
 static float g_probabilities[AUDIO_EVENT_CLASS_COUNT];
+#endif
 static struct capture_state_s g_capture_state;
+
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_MODEL_8CLASS
+/* Keep the tensor arena in internal DRAM for ESP-NN. The 8-class profile
+ * adds PSRAM as a common heap region; request one contiguous ~121 KiB block,
+ * which cannot fit in the remaining internal heap and therefore comes from
+ * PSRAM. Check the returned range to make that placement an invariant.
+ */
+
+extern uint32_t esp_spiram_allocable_vaddr_start(void);
+extern uint32_t esp_spiram_allocable_vaddr_end(void);
+
+static bool audio_spiram_contains(const void *buffer, size_t size)
+{
+  uintptr_t start = (uintptr_t)esp_spiram_allocable_vaddr_start();
+  uintptr_t end = (uintptr_t)esp_spiram_allocable_vaddr_end();
+  uintptr_t address = (uintptr_t)buffer;
+
+  return address >= start && address <= end && size <= end - address;
+}
+
+static void audio_spiram_buffers_deinit(void)
+{
+  kmm_free(g_audio_workspace);
+
+  g_audio_ring = NULL;
+  g_audio_window = NULL;
+  g_audio_block = NULL;
+  g_features = NULL;
+  g_probabilities = NULL;
+  g_audio_workspace = NULL;
+}
+
+static int audio_spiram_buffers_init(void)
+{
+  void *internal_guards[AUDIO_SPIRAM_ALLOC_ATTEMPTS - 1] = {NULL};
+  unsigned int guard_count = 0;
+  unsigned int attempt;
+  uint8_t *cursor;
+
+  /* kmm_memalign uses best fit across internal DRAM and PSRAM regions. On
+   * this board the first ~121 KiB request can still select a large internal
+   * chunk. Retain that chunk temporarily, then retry: the next request must
+   * use PSRAM. Release all guards immediately after the PSRAM block has
+   * been acquired, so they do not contribute to steady-state memory use.
+   */
+
+  for (attempt = 0; attempt < AUDIO_SPIRAM_ALLOC_ATTEMPTS; attempt++)
+    {
+      g_audio_workspace = kmm_memalign(16, AUDIO_SPIRAM_WORKSPACE_SIZE);
+      if (g_audio_workspace == NULL)
+        {
+          break;
+        }
+
+      if (audio_spiram_contains(g_audio_workspace,
+                                AUDIO_SPIRAM_WORKSPACE_SIZE))
+        {
+          break;
+        }
+
+      if (guard_count == AUDIO_SPIRAM_ALLOC_ATTEMPTS - 1)
+        {
+          kmm_free(g_audio_workspace);
+          g_audio_workspace = NULL;
+          break;
+        }
+
+      internal_guards[guard_count++] = g_audio_workspace;
+      g_audio_workspace = NULL;
+    }
+
+  for (attempt = 0; attempt < guard_count; attempt++)
+    {
+      kmm_free(internal_guards[attempt]);
+    }
+
+  if (g_audio_workspace == NULL ||
+      !audio_spiram_contains(g_audio_workspace, AUDIO_SPIRAM_WORKSPACE_SIZE))
+    {
+      fprintf(stderr,
+              "[app] PSRAM workspace allocation failed (%lu bytes)\n",
+              (unsigned long)AUDIO_SPIRAM_WORKSPACE_SIZE);
+      audio_spiram_buffers_deinit();
+      return -ENOMEM;
+    }
+
+  cursor = g_audio_workspace;
+  g_audio_ring = (int16_t *)cursor;
+  cursor += AUDIO_RING_SAMPLES * sizeof(*g_audio_ring);
+  g_audio_window = (int16_t *)cursor;
+  cursor += AUDIO_EVENT_CLIP_SAMPLES * sizeof(*g_audio_window);
+  g_audio_block = (int16_t *)cursor;
+  cursor += AUDIO_IO_BLOCK_SAMPLES * sizeof(*g_audio_block);
+  g_features = (float *)cursor;
+  cursor += AUDIO_EVENT_FEATURE_SIZE * sizeof(*g_features);
+  g_probabilities = (float *)cursor;
+
+  printf("[app] audio buffers in PSRAM: ring=%p window=%p features=%p\n",
+         (void *)g_audio_ring, (void *)g_audio_window, (void *)g_features);
+  return 0;
+}
+#endif
 
 #ifdef AUDIO_EVENT_HAS_DISPLAY
 static uint64_t g_cooldown_start_ms;
@@ -354,22 +484,29 @@ static void print_probabilities(uint64_t timestamp_ms,
                                 uint64_t wall_timestamp_ms)
 {
   int best = best_class(g_probabilities);
+  int i;
 
-  printf("[infer] t=%llu ms wall=%llu ms class=%s "
-         "probs_permille=[%d %d %d %d]\n",
+  printf("[infer] t=%llu ms wall=%llu ms class=%s probs_permille=[",
          (unsigned long long)timestamp_ms,
-         (unsigned long long)wall_timestamp_ms, g_event_names[best],
-         probability_permille(g_probabilities[0]),
-         probability_permille(g_probabilities[1]),
-         probability_permille(g_probabilities[2]),
-         probability_permille(g_probabilities[3]));
+         (unsigned long long)wall_timestamp_ms, g_event_names[best]);
+  for (i = 0; i < AUDIO_EVENT_CLASS_COUNT; i++)
+    {
+      printf("%s%d", i > 0 ? " " : "",
+             probability_permille(g_probabilities[i]));
+    }
+
+  printf("]\n");
 }
 
 static int run_model_smoke(void)
 {
   int ret;
 
-  memset(g_features, 0, sizeof(g_features));
+  /* g_features is a pointer on the 8-class build, so sizeof() cannot be
+   * used here. Zero the full feature vector explicitly.
+   */
+
+  memset(g_features, 0, AUDIO_EVENT_FEATURE_SIZE * sizeof(float));
   ret = event_classifier_predict(g_features, AUDIO_EVENT_FEATURE_SIZE,
                                  g_probabilities,
                                  AUDIO_EVENT_CLASS_COUNT);
@@ -990,9 +1127,22 @@ int audio_event_main(int argc, char *argv[])
     }
 
   printf("=== Audio Event Detection ===\n");
+
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_MODEL_8CLASS
+  ret = audio_spiram_buffers_init();
+  if (ret < 0)
+    {
+      fprintf(stderr, "[app] PSRAM audio buffer allocation failed: %d\n", ret);
+      return EXIT_FAILURE;
+    }
+#endif
+
   ret = event_classifier_init();
   if (ret < 0)
     {
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_MODEL_8CLASS
+      audio_spiram_buffers_deinit();
+#endif
       return EXIT_FAILURE;
     }
 
@@ -1000,6 +1150,9 @@ int audio_event_main(int argc, char *argv[])
     {
       ret = run_model_smoke();
       event_classifier_deinit();
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_MODEL_8CLASS
+      audio_spiram_buffers_deinit();
+#endif
       return ret < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
     }
 
@@ -1007,6 +1160,9 @@ int audio_event_main(int argc, char *argv[])
   if (ret < 0)
     {
       event_classifier_deinit();
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_MODEL_8CLASS
+      audio_spiram_buffers_deinit();
+#endif
       return EXIT_FAILURE;
     }
 
@@ -1200,6 +1356,9 @@ cleanup:
   event_alert_deinit();
   feature_extract_deinit();
   event_classifier_deinit();
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_MODEL_8CLASS
+  audio_spiram_buffers_deinit();
+#endif
   if (file_power_gate_initialized)
     {
       power_gate_get_stats(&file_power_gate, &power_stats);

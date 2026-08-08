@@ -15,6 +15,29 @@ config EXAMPLES_AUDIO_EVENT
 
 if EXAMPLES_AUDIO_EVENT
 
+choice EXAMPLES_AUDIO_EVENT_MODEL
+	prompt "Audio event model"
+	default EXAMPLES_AUDIO_EVENT_MODEL_4CLASS
+	---help---
+		Select the deployed classification model. The choice changes the
+		model data, the class count, the class names and the event/keyword
+		class split in one step.
+
+config EXAMPLES_AUDIO_EVENT_MODEL_4CLASS
+	bool "4-class small DS-CNN (knock/cough/background/silence)"
+	---help---
+		Default model: INT8 small DS-CNN, ~12 KB, 40 ms inference.
+		Classes: knock, cough, background, silence (2 event classes).
+
+config EXAMPLES_AUDIO_EVENT_MODEL_8CLASS
+	bool "8-class S3-large (3 events + 3 keywords + 2 background)"
+	---help---
+		INT8 S3-large DS-CNN, ~37 KB, ~48 ms inference with ESP-NN.
+		Classes: knock, cough, glass_breaking, yes, no, stop, background,
+		silence (3 event classes + 3 keyword classes).
+
+endchoice
+
 config EXAMPLES_AUDIO_EVENT_PROGNAME
 	string "Program name"
 	default "audio_event"
@@ -66,7 +89,8 @@ config EXAMPLES_AUDIO_EVENT_INMP441_SHIFT
 
 config EXAMPLES_AUDIO_EVENT_ARENA_SIZE
 	int "TFLite Micro tensor arena size"
-	default 98304
+	default 196608 if EXAMPLES_AUDIO_EVENT_MODEL_8CLASS
+	default 65536
 	range 32768 262144
 
 config EXAMPLES_AUDIO_EVENT_HOP_MS
@@ -230,6 +254,22 @@ config EXAMPLES_AUDIO_EVENT_COUGH_THRESHOLD
 	int "Cough threshold in permille"
 	default 750
 	range 0 1000
+
+config EXAMPLES_AUDIO_EVENT_GLASS_THRESHOLD
+	int "Glass breaking threshold in permille"
+	default 750
+	range 0 1000
+	depends on EXAMPLES_AUDIO_EVENT_MODEL_8CLASS
+
+config EXAMPLES_AUDIO_EVENT_KEYWORD_THRESHOLD
+	int "Keyword threshold in permille"
+	default 600
+	range 0 1000
+	depends on EXAMPLES_AUDIO_EVENT_MODEL_8CLASS
+	---help---
+		Threshold for keyword classes (yes/no/stop). Keywords are short
+		utterances; a lower threshold than events is used so that a single
+		clear utterance can trigger without requiring repeated windows.
 
 config EXAMPLES_AUDIO_EVENT_CONSECUTIVE_HITS
 	int "Consecutive windows required for an alert"

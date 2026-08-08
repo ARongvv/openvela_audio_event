@@ -11,7 +11,8 @@
 
 #include "audio_event_config.h"
 #include "model/event_classifier.h"
-#ifdef CONFIG_EXAMPLES_TFLM_BENCHMARK_S3_LARGE_8CLASS
+#if defined(CONFIG_EXAMPLES_AUDIO_EVENT_MODEL_8CLASS) || \
+    defined(CONFIG_EXAMPLES_TFLM_BENCHMARK_S3_LARGE_8CLASS)
 #include "model/s3_large_8class_model.h"
 #else
 #include "model/model.h"
@@ -38,8 +39,9 @@ TFLMRegistration Register_MEAN();
 namespace
 {
 
-#ifdef CONFIG_EXAMPLES_TFLM_BENCHMARK_S3_LARGE_8CLASS
-constexpr size_t kClassCount = 8;
+#if defined(CONFIG_EXAMPLES_AUDIO_EVENT_MODEL_8CLASS) || \
+    defined(CONFIG_EXAMPLES_TFLM_BENCHMARK_S3_LARGE_8CLASS)
+constexpr size_t kClassCount = AUDIO_EVENT_CLASS_COUNT;
 constexpr const char *kModelTag = "s3-large-8class";
 #define AUDIO_EVENT_ACTIVE_MODEL g_s3_model
 #define AUDIO_EVENT_ACTIVE_MODEL_LEN g_s3_model_len
@@ -54,7 +56,52 @@ constexpr const char *kModelTag = "model";
 #define EVENT_CLASSIFIER_ARENA_SIZE CONFIG_EXAMPLES_AUDIO_EVENT_ARENA_SIZE
 #endif
 
-alignas(16) uint8_t g_tensor_arena[EVENT_CLASSIFIER_ARENA_SIZE];
+/* The 8-class model needs a ~193 KiB tensor arena in internal DRAM as a
+ * static array. To make room, the 8-class build moves the large audio
+ * ring/window/feature buffers in audio_event_main.c to the PSRAM common heap.
+ * The 4-class build keeps everything in internal DRAM.
+ */
+
+static uint8_t *g_tensor_arena;
+
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_MODEL_8CLASS
+static uint8_t *classifier_arena_alloc(size_t size)
+{
+  /* 8-class arena back in internal DRAM as a static array: the audio
+   * ring/window/feature buffers moved to SPI RAM, so the DRAM .bss budget
+   * now fits the 192 KiB arena. Benchmark proved ESP-NN works on DRAM.
+   */
+
+  alignas(16) static uint8_t s_static_arena[EVENT_CLASSIFIER_ARENA_SIZE];
+
+  (void)size;
+
+  std::printf("[model] arena static DRAM size=%u\n",
+              (unsigned int)EVENT_CLASSIFIER_ARENA_SIZE);
+  return s_static_arena;
+}
+
+static void classifier_arena_free(uint8_t *arena)
+{
+  /* Static array, nothing to free. */
+
+  (void)arena;
+}
+#else
+static uint8_t *classifier_arena_alloc(size_t size)
+{
+  alignas(16) static uint8_t s_static_arena[EVENT_CLASSIFIER_ARENA_SIZE];
+
+  (void)size;
+
+  return s_static_arena;
+}
+
+static void classifier_arena_free(uint8_t *arena)
+{
+  (void)arena;
+}
+#endif
 
 tflite::MicroInterpreter *g_interpreter;
 TfLiteTensor *g_input;
@@ -108,6 +155,22 @@ extern "C" int event_classifier_init(void)
   static tflite::MicroMutableOpResolver<9> resolver;
   static bool resolver_initialized;
 
+  if (g_tensor_arena == nullptr)
+    {
+      g_tensor_arena = classifier_arena_alloc(EVENT_CLASSIFIER_ARENA_SIZE);
+      if (g_tensor_arena == nullptr)
+        {
+          std::fprintf(stderr, "[model] arena alloc failed: %u bytes\n",
+                       (unsigned int)EVENT_CLASSIFIER_ARENA_SIZE);
+          return -ENOMEM;
+        }
+
+      std::printf("[model] arena ptr=0x%08lx size=%u align_256=%d\n",
+                  (unsigned long)(uintptr_t)g_tensor_arena,
+                  (unsigned int)EVENT_CLASSIFIER_ARENA_SIZE,
+                  ((uintptr_t)g_tensor_arena & 0xFF) == 0);
+    }
+
   const tflite::Model *model = tflite::GetModel(AUDIO_EVENT_ACTIVE_MODEL);
   if (model == nullptr || model->version() != TFLITE_SCHEMA_VERSION)
     {
@@ -142,18 +205,18 @@ extern "C" int event_classifier_init(void)
 
 #ifdef CONFIG_TFLITEMICRO_DEBUG
   static tflite::MicroInterpreter interpreter(
-      model, resolver, g_tensor_arena, sizeof(g_tensor_arena), nullptr,
+      model, resolver, g_tensor_arena, EVENT_CLASSIFIER_ARENA_SIZE, nullptr,
       &g_profiler);
 #else
   static tflite::MicroInterpreter interpreter(
-      model, resolver, g_tensor_arena, sizeof(g_tensor_arena));
+      model, resolver, g_tensor_arena, EVENT_CLASSIFIER_ARENA_SIZE);
 #endif
   static bool tensors_allocated;
 
   if (!tensors_allocated && interpreter.AllocateTensors() != kTfLiteOk)
     {
       std::fprintf(stderr, "[model] AllocateTensors failed, arena=%zu\n",
-                   sizeof(g_tensor_arena));
+                   (size_t)EVENT_CLASSIFIER_ARENA_SIZE);
       return -ENOMEM;
     }
 
@@ -190,7 +253,7 @@ extern "C" int event_classifier_init(void)
     }
 
   std::printf("[%s] arena=%lu used=%lu model=%u bytes\n", kModelTag,
-              static_cast<unsigned long>(sizeof(g_tensor_arena)),
+              static_cast<unsigned long>(EVENT_CLASSIFIER_ARENA_SIZE),
               static_cast<unsigned long>(g_arena_used),
               AUDIO_EVENT_ACTIVE_MODEL_LEN);
   return 0;
@@ -202,6 +265,12 @@ extern "C" void event_classifier_deinit(void)
   g_input = nullptr;
   g_output = nullptr;
   g_arena_used = 0;
+
+  if (g_tensor_arena != nullptr)
+    {
+      classifier_arena_free(g_tensor_arena);
+      g_tensor_arena = nullptr;
+    }
 }
 
 extern "C" int event_classifier_predict_quantized(
