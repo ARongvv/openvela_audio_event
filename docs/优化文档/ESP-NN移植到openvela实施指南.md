@@ -33,7 +33,7 @@ ESP-NN 与逐字节校验；audio_event 的生产 defconfig 在数值回归与�
 
 - **芯片匹配**：ESP32-S3 使用 Xtensa LX7；ESP-NN 提供面向 ESP32-S3 的 C 和 Xtensa 汇编实现，能够使用该目标可用的向量计算路径。CMSIS-NN/CMSIS-DSP 面向 Arm Cortex-M，Xtensa HiFi kernel 又要求 S3 不具备的 HiFi DSP ISA，二者都不能替代 ESP-NN。
 - **模型匹配**：当前 `ds_cnn_small` 是全 int8、per-channel quantization 的卷积网络，三个 `Conv2D`、两个 `DepthwiseConv2D` 及末端 `[1,25,20,24]`、axes `{1,2}` 的 Mean 都有受控 wrapper 路径；`FullyConnected`、`Softmax` 仍不是主要热点。
-- **收益已实测**：在同一 ESP32-S3、240 MHz、相同确定性 `pattern` 输入下，五个卷积节点由 reference 的 346.271 ms 降至 30.948 ms（11.1887×）；加入特化 Mean 的性能 profile 进一步达到 17.591 ms（19.6840×），`output_hash=0x77a10bab` 保持相同，Mean verify 已输出 `out_t=28 match bytes=24`。真实 WAV 端到端测试仍为五卷积版本：模型阶段约为 30--40 ms，`feature + infer` 约 90--110 ms，低于 250 ms hop。
+- **收益已实测**：在同一 ESP32-S3、240 MHz、相同确定性 `pattern` 输入下，五个卷积节点由 reference 的 346.271 ms 降至 30.948 ms（11.1887×）；加入特化 Mean 的性能 profile 进一步达到 17.591 ms（19.6840×），`output_hash=0x77a10bab` 保持相同，Mean verify 已输出 `out_t=28 match bytes=24`。正式 `audio_event` 对 `combined_A_pure.wav` 的实测为 `infer=20 ms`、`feature=60--70 ms`、`total=80--90 ms`，低于 250 ms hop；完整验收步骤见 `ESP32-S3实时性验收实施方案.md`。
 - **风险可控**：backend 只在白名单节点、输入形状和参数满足条件时启用；每个新节点先通过 TRACE/VERIFY 与 TFLM reference 逐字节比较，不支持的组合自动回退 reference。因此不需要修改训练模型语义或应用层 API。
 
 代价也必须一并接受：五卷积 + Mean 性能组合的 Arena 实际使用从 22,788 B 增至 44,356 B（仍低于 65,536 B 上限），并且 tensor ID 白名单和 Mean 形状白名单仅对当前模型有效。替换模型后必须重新进行 trace、单节点验证和组合性能测试，不能复用当前的节点编号或性能结论。
