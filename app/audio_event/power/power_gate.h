@@ -72,6 +72,15 @@ struct power_gate_s
 void power_gate_init(struct power_gate_s *gate);
 
 /*
+ * Select whether this gate evaluates PCM energy at runtime. This must be
+ * called after power_gate_init() and before the first PCM block is processed.
+ * A disabled gate does not calculate RMS/peak and always allows inference,
+ * which provides the P0 continuous-inference baseline in the same firmware.
+ */
+
+void power_gate_set_enabled(struct power_gate_s *gate, bool enabled);
+
+/*
  * 提交一个连续 PCM 采集块并更新门控状态。
  *
  * sample_end 是该块结束时刻的单调累计样本位置，不是块内索引；调用方

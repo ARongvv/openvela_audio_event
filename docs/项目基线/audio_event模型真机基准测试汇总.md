@@ -59,7 +59,7 @@
 | --- | --- | --- | --- | --- | --- |
 | `P0-file-gate-ui` | 历史基线，保留本次已完成实测 | LittleFS WAV | 开 | 开 | 已完成 |
 | `P1-file-gate-nooled` | 后续模型的标准端侧事件/性能测试 | LittleFS WAV | 开 | 关 | 待执行 |
-| `P2-file-nogate-nooled` | 分离模型能力与门控代价 | LittleFS WAV | 关 | 关 | 待实现 `--no-power-gate` |
+| `P2-file-nogate-nooled` | 分离模型能力与门控代价 | LittleFS WAV | 关 | 关 | 待执行，使用 `--no-power-gate` |
 | `P3-device-gate-nooled` | 真麦克风连续运行验证 | `/dev/audio/pcm_in1` | 开 | 关 | 待执行 |
 
 `P0` 与 `P1/P2/P3` 不应直接横向比较总耗时，因为 `P0` 启用了 OLED。后续模型
@@ -162,7 +162,8 @@ PCM 输入质量应单独测试，不能与性能命令拼接：
 nsh> audio_event --file combined_A_pure.wav --audio-stats
 ```
 
-`P2` 需要实现 `--no-power-gate` 后再执行；不可用“未记录门控状态”的日志替代。
+`P2` 使用同一份已启用能量门控的固件，追加 `--no-power-gate` 即可执行；日志必须记录
+`[power_gate] ... runtime=off mode=continuous`，不可用“未记录门控状态”的日志替代。
 
 ### 7.3 结果归档
 
@@ -217,7 +218,7 @@ nsh> audio_event --file combined_A_pure.wav --audio-stats
 1. 训练中加入 `stop`、dog bark、`yes/no`、glass breaking 作为 hard negative；
 2. 将 knock/cough 改为独立候选状态和独立冷却时间；
 3. 评估“独立目标概率 + margin”及 EMA/2-of-3 窗策略；
-4. 实现 `--no-power-gate`，量化门控收益和漏检代价；
+4. 执行 `--power-gate` / `--no-power-gate` 对照，量化门控收益和漏检代价；
 5. 用 `P1` 重测 M001，建立无 OLED 的可比较性能基线；
 6. 若目标为持续麦克风检测，考虑至少 500 ms hop 或更快模型。
 

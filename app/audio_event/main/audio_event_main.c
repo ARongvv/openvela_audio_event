@@ -57,6 +57,13 @@ enum input_mode_e
   INPUT_MODE_FILE
 };
 
+enum power_gate_override_e
+{
+  POWER_GATE_DEFAULT = 0,
+  POWER_GATE_ENABLED,
+  POWER_GATE_DISABLED
+};
+
 struct app_options_s
 {
   enum input_mode_e mode;
@@ -67,6 +74,7 @@ struct app_options_s
   bool audio_stats;
   bool no_oled;
   bool profile;
+  enum power_gate_override_e power_gate_override;
 };
 
 struct capture_state_s
@@ -289,7 +297,8 @@ static void usage(const char *program)
 {
   printf("Usage: %s [--file PATH | --device PATH] [--once] "
          "[--repeat N] [--model-smoke] [--audio-stats] "
-         "[--no-oled] [--profile]\n", program);
+         "[--no-oled] [--profile] [--power-gate | --no-power-gate]\n",
+         program);
   printf("  --file PATH    Read 16 kHz mono PCM16 or WAV from HostFS\n");
   printf("  --device PATH  Read from a NuttX Audio capture device\n");
   printf("  --once         Stop after the first one-second inference\n");
@@ -298,6 +307,8 @@ static void usage(const char *program)
   printf("  --audio-stats  Print PCM min/max/mean/rms/zero_count per window\n");
   printf("  --no-oled      Disable OLED init and updates for audio diagnostics\n");
   printf("  --profile      Print per-window processing time breakdown\n");
+  printf("  --power-gate   Enable PCM energy gate (P1; requires gate-capable build)\n");
+  printf("  --no-power-gate  Disable gate and run continuous inference (P0)\n");
 }
 
 static int parse_options(int argc, char **argv, struct app_options_s *options)
@@ -312,6 +323,7 @@ static int parse_options(int argc, char **argv, struct app_options_s *options)
   options->audio_stats = false;
   options->no_oled = false;
   options->profile = false;
+  options->power_gate_override = POWER_GATE_DEFAULT;
 
   for (i = 1; i < argc; i++)
     {
@@ -356,6 +368,26 @@ static int parse_options(int argc, char **argv, struct app_options_s *options)
         {
           options->profile = true;
         }
+      else if (strcmp(argv[i], "--power-gate") == 0)
+        {
+          if (options->power_gate_override == POWER_GATE_DISABLED)
+            {
+              fprintf(stderr, "--power-gate conflicts with --no-power-gate\n");
+              return -EINVAL;
+            }
+
+          options->power_gate_override = POWER_GATE_ENABLED;
+        }
+      else if (strcmp(argv[i], "--no-power-gate") == 0)
+        {
+          if (options->power_gate_override == POWER_GATE_ENABLED)
+            {
+              fprintf(stderr, "--no-power-gate conflicts with --power-gate\n");
+              return -EINVAL;
+            }
+
+          options->power_gate_override = POWER_GATE_DISABLED;
+        }
       else if (strcmp(argv[i], "--help") == 0 ||
                strcmp(argv[i], "-h") == 0)
         {
@@ -370,7 +402,27 @@ static int parse_options(int argc, char **argv, struct app_options_s *options)
         }
     }
 
+#ifndef CONFIG_EXAMPLES_AUDIO_EVENT_POWER_ENERGY_GATE
+  if (options->power_gate_override == POWER_GATE_ENABLED)
+    {
+      fprintf(stderr,
+              "--power-gate requires CONFIG_EXAMPLES_AUDIO_EVENT_POWER_ENERGY_GATE=y\n");
+      return -ENOSYS;
+    }
+#endif
+
   return 0;
+}
+
+static bool power_gate_runtime_enabled(
+    enum power_gate_override_e override)
+{
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_POWER_ENERGY_GATE
+  return override != POWER_GATE_DISABLED;
+#else
+  (void)override;
+  return false;
+#endif
 }
 
 static void print_audio_stats(const int16_t *samples, size_t sample_count,
@@ -519,12 +571,13 @@ static int run_model_smoke(void)
   return 0;
 }
 
-static void print_power_gate_config(void)
+static void print_power_gate_config(bool enabled)
 {
 #ifdef CONFIG_EXAMPLES_AUDIO_EVENT_POWER_ENERGY_GATE
-  printf("[power_gate] mode=energy_gate calibration=%dms rms="
+  printf("[power_gate] compiled=1 runtime=%s mode=%s calibration=%dms rms="
          "floor*%d/1000+%d clamp=[%d,%d] peak=min=%d ratio=%d/1000 "
          "hold=%dms probe=%dms\n",
+         enabled ? "on" : "off", enabled ? "energy_gate" : "continuous",
          CONFIG_EXAMPLES_AUDIO_EVENT_ENERGY_GATE_CALIBRATION_MS,
          CONFIG_EXAMPLES_AUDIO_EVENT_ENERGY_GATE_RMS_RATIO_PERMILLE,
          CONFIG_EXAMPLES_AUDIO_EVENT_ENERGY_GATE_RMS_OFFSET,
@@ -535,7 +588,8 @@ static void print_power_gate_config(void)
          CONFIG_EXAMPLES_AUDIO_EVENT_ENERGY_GATE_ACTIVE_HOLD_MS,
          CONFIG_EXAMPLES_AUDIO_EVENT_ENERGY_GATE_FORCE_PROBE_MS);
 #else
-  printf("[power_gate] mode=continuous\n");
+  (void)enabled;
+  printf("[power_gate] compiled=0 runtime=off mode=continuous\n");
 #endif
 }
 
@@ -643,7 +697,8 @@ static void *capture_thread_main(void *arg)
   return NULL;
 }
 
-static int capture_worker_start(struct capture_state_s *state)
+static int capture_worker_start(struct capture_state_s *state,
+                                bool power_gate_enabled)
 {
   pthread_attr_t attr;
   struct sched_param param;
@@ -653,6 +708,7 @@ static int capture_worker_start(struct capture_state_s *state)
 
   memset(state, 0, sizeof(*state));
   power_gate_init(&state->power_gate);
+  power_gate_set_enabled(&state->power_gate, power_gate_enabled);
   ret = pthread_mutex_init(&state->lock, NULL);
   if (ret != 0)
     {
@@ -1021,7 +1077,9 @@ static int run_device_loop(const struct app_options_s *options,
          (unsigned int)AUDIO_EVENT_CLIP_SAMPLES,
          (unsigned long long)hop_samples);
 
-  ret = capture_worker_start(&g_capture_state);
+  ret = capture_worker_start(&g_capture_state,
+                             power_gate_runtime_enabled(
+                                 options->power_gate_override));
   if (ret < 0)
     {
       fprintf(stderr, "[app] capture worker start failed: %d\n", ret);
@@ -1112,6 +1170,7 @@ int audio_event_main(int argc, char *argv[])
   bool file_open = false;
   bool file_power_gate_initialized = false;
   bool capture_open = false;
+  bool power_gate_enabled;
 #ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
   bool oled_active = false;
 #endif
@@ -1125,6 +1184,9 @@ int audio_event_main(int argc, char *argv[])
     {
       return ret > 0 ? 0 : EXIT_FAILURE;
     }
+
+  power_gate_enabled =
+      power_gate_runtime_enabled(options.power_gate_override);
 
   printf("=== Audio Event Detection ===\n");
 
@@ -1174,11 +1236,12 @@ int audio_event_main(int argc, char *argv[])
     }
 
   wall_start_ms = monotonic_ms();
-  print_power_gate_config();
+  print_power_gate_config(power_gate_enabled);
 
   if (options.mode == INPUT_MODE_FILE)
     {
       power_gate_init(&file_power_gate);
+      power_gate_set_enabled(&file_power_gate, power_gate_enabled);
       file_power_gate_initialized = true;
       ret = audio_file_open(&file_source, options.path,
                             options.repeat_count);

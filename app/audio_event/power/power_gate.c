@@ -111,6 +111,21 @@ void power_gate_init(struct power_gate_s *gate)
 #endif
 }
 
+void power_gate_set_enabled(struct power_gate_s *gate, bool enabled)
+{
+  if (gate == NULL)
+    {
+      return;
+    }
+
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_POWER_ENERGY_GATE
+  gate->stats.enabled = enabled;
+#else
+  (void)enabled;
+  gate->stats.enabled = false;
+#endif
+}
+
 void power_gate_process(struct power_gate_s *gate, const int16_t *samples,
                         size_t sample_count, uint64_t sample_end)
 {
@@ -122,6 +137,11 @@ void power_gate_process(struct power_gate_s *gate, const int16_t *samples,
   bool activity;
 
   if (gate == NULL || samples == NULL || sample_count == 0)
+    {
+      return;
+    }
+
+  if (!gate->stats.enabled)
     {
       return;
     }
@@ -221,7 +241,7 @@ bool power_gate_take_inference(struct power_gate_s *gate,
     }
 
 #ifdef CONFIG_EXAMPLES_AUDIO_EVENT_POWER_ENERGY_GATE
-  if (gate->stats.calibrated && !gate->stats.active)
+  if (gate->stats.enabled && gate->stats.calibrated && !gate->stats.active)
     {
       run = gate->probe_pending;
       gate->probe_pending = false;
