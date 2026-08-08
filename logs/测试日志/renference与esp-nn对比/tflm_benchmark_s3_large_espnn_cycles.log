@@ -1,0 +1,66 @@
+nsh> tflm_benchmark --mode operator --warmup 10 --repeat 1 --csv
+[model] arena ptr=0x3fc93f80 size=196608 align_256=0
+0 (id=0): size=5888, offset=5888, first_used=0 last_used=4
+1 (id=1): size=16, offset=16, first_used=1 last_used=2
+2 (id=2): size=16, offset=0, first_used=2 last_used=3
+3 (id=3): size=16, offset=11776, first_used=3 last_used=4
+4 (id=4): size=5888, offset=0, first_used=4 last_used=5
+5 (id=5): size=16000, offset=35312, first_used=5 last_used=6
+6 (id=6): size=16000, offset=19312, first_used=6 last_used=7
+7 (id=7): size=32000, offset=70608, first_used=7 last_used=8
+8 (id=8): size=32000, offset=38608, first_used=8 last_used=9
+9 (id=9): size=32000, offset=80000, first_used=9 last_used=10
+a (id=10): size=32000, offset=48000, first_used=10 last_used=11
+b (id=11): size=48000, offset=0, first_used=11 last_used=12
+c (id=12): size=96, offset=48384, first_used=12 last_used=13
+d (id=13): size=16, offset=16, first_used=13 last_used=14
+e (id=14): size=16, offset=0, first_used=14 last_used=14
+f (id=15): size=2864, offset=5888, first_used=5 last_used=5
+g (id=16): size=19312, offset=0, first_used=6 last_used=6
+h (id=17): size=2624, offset=0, first_used=7 last_used=7
+i (id=18): size=38608, offset=0, first_used=8 last_used=8
+j (id=19): size=5184, offset=0, first_used=9 last_used=9
+k (id=20): size=38608, offset=0, first_used=10 last_used=10
+l (id=21): size=7232, offset=80000, first_used=11 last_used=11
+m (id=22): size=384, offset=48000, first_used=12 last_used=12
+ 0: ....0000........................................................................ (6k)
+ 1: ....0000........................................................................ (6k)
+ 2: ....0000........................................................................ (6k)
+ 3: ....0000........................................................................ (6k)
+ 4: 44440000........................................................................ (12k)
+ 5: 4444ff...................55555555555............................................ (25k)
+ 6: ggggggggggggg66666666666655555555555............................................ (51k)
+ 7: h............666666666666.........................77777777777777777777777....... (50k)
+ 8: iiiiiiiiiiiiiiiiiiiiiiiiiii8888888888888888888888877777777777777777777777....... (101k)
+ 9: jjj........................88888888888888888888888.......99999999999999999999999 (68k)
+10: kkkkkkkkkkkkkkkkkkkkkkkkkkk.......aaaaaaaaaaaaaaaaaaaaaaa99999999999999999999999 (101k)
+11: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaalllll.................. (86k)
+12: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.............................................. (48k)
+13: ................................................................................ (1k)
+14: ................................................................................ (1k)
+[s3-large-8class] arena=196608 used=132692 model=37784 bytes
+[tflm_benchmark] feature_count=5880 arena_used=132692
+[tflm_benchmark] warmup=10 repeat=1 csv=1
+[tflm_benchmark] iteration=1
+"Event","Tag","Ticks"
+0,SHAPE,11088
+1,STRIDED_SLICE,35780
+2,PACK,11767
+3,RESHAPE,11087
+4,CONV_2D,2580610
+5,DEPTHWISE_CONV_2D,734956
+6,CONV_2D,1278185
+7,DEPTHWISE_CONV_2D,1337615
+8,CONV_2D,1487709
+9,DEPTHWISE_CONV_2D,1336324
+10,CONV_2D,2221151
+11,MEAN,366646
+12,FULLY_CONNECTED,36281
+13,SOFTMAX,60641
+nsh> tflm_benchmark --mode invoke --input pattern --warmup 20 --repeat 100
+[model] arena ptr=0x3fc93f80 size=196608 align_256=0
+[s3-large-8class] arena=196608 used=132692 model=37784 bytes
+[tflm_benchmark] feature_count=5880 arena_used=132692
+[tflm_benchmark] mode=invoke input=pattern warmup=20 repeat=100 ccount_hz=240000000
+[tflm_benchmark] invoke_cycles min=11334998 p50=11346360 mean=11347697 p95=11353989 max=11354702
+[tflm_benchmark] invoke_us min=47229 p50=47276 mean=47282 p95=47308 max=47311 output_hash=0xc18cf11e
