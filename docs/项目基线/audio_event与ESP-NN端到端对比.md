@@ -12,8 +12,9 @@ ESP32-S3 的 Xtensa LX7 不能使用 ARM CMSIS-NN/CMSIS-DSP，也不具备 Xtens
 同模型的受控 CCOUNT 已显示五卷积 + Mean 组合把纯 `Invoke()` mean 从 346.271 ms 降至 17.591 ms（19.6840×），且
 各加速节点已完成逐字节 reference 对照、`output_hash` 与 reference 一致。端到端 profile 的目的，是确认这项 kernel 收益在真实特征、文件/麦克风输入、能量门
 和应用调度下仍然成立，而不是把 benchmark 结论直接外推到业务链路。代价是 Arena 从 reference 的 22,788 B 增至
-44,356 B；因此本文件的三个 profile 保持独立，且替换模型时必须重新 trace 和 verify。现有真实 WAV 数据仍为
-五卷积版本，Mean 新组合需重新回放后才能更新应用侧 infer 时间。
+44,356 B；因此本文件的三个 profile 保持独立，且替换模型时必须重新 trace 和 verify。正式性能固件对
+`combined_A_pure.wav` 的实测为 `feature=60–70 ms`、`infer=20 ms`、`total=80–90 ms`；该口径为业务侧
+毫秒计时，仍需按本文的文件长稳和真实采集步骤继续验收。
 
 ## 1. 对比 profile
 
@@ -111,16 +112,17 @@ profile：
 ```sh
 ./build.sh ccf_audioevent/board/esp32s3-devkit/configs/audio_event_espnn_ref_profile -j8
 make -C nuttx flash ESPTOOL_PORT=/dev/ttyUSB0
-audio_event --file /data/event_5mb.wav --repeat 20 --profile --no-oled
+audio_event --file /data/event_5mb.wav --repeat 1 --profile --no-oled
 ```
 
 ```sh
 ./build.sh ccf_audioevent/board/esp32s3-devkit/configs/audio_event_espnn_profile -j8
 make -C nuttx flash ESPTOOL_PORT=/dev/ttyUSB0
-audio_event --file /data/event_5mb.wav --repeat 20 --profile --no-oled
+audio_event --file /data/event_5mb.wav --repeat 1 --profile --no-oled
 ```
 
-比较 `[profile]` 行中的 `feature`、`infer` 和 `total`。能量门可能跳过静音窗口的 DSP/TFLM；因此应选用
+比较 `[profile]` 行中的 `feature`、`infer` 和 `total`。单个约 5 MiB 的 WAV 已含数百个 hop，`--repeat 1`
+足以形成常规 P50/P95 性能样本；`--repeat 20` 仅用于约 20 分钟的长稳与积压检查。能量门可能跳过静音窗口的 DSP/TFLM；因此应选用
 稳定触发的事件 WAV，并只对实际执行了模型的窗口统计 `infer`。`infer` 包含输入量化、TFLM Invoke 和
 输出反量化，适合评价业务应用的模型阶段；它不是纯 Invoke cycle，纯模型基线仍以
 `tflm_benchmark` 的 CCOUNT 结果为准。
