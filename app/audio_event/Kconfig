@@ -193,6 +193,15 @@ endchoice
 
 if EXAMPLES_AUDIO_EVENT_POWER_ENERGY_GATE
 
+config EXAMPLES_AUDIO_EVENT_POWER_GATE_DEFAULT
+	bool "Enable PCM energy gate by default"
+	default n
+	---help---
+		Keep the gate implementation available, but start in continuous P0
+		mode unless --power-gate is passed to audio_event. This makes the
+		default behavior deterministic for functional and power baselines;
+		--no-power-gate remains available as an explicit P0 marker.
+
 config EXAMPLES_AUDIO_EVENT_ENERGY_GATE_CALIBRATION_MS
 	int "Startup noise-floor calibration time (ms)"
 	default 2000

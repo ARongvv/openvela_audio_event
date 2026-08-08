@@ -418,7 +418,21 @@ static bool power_gate_runtime_enabled(
     enum power_gate_override_e override)
 {
 #ifdef CONFIG_EXAMPLES_AUDIO_EVENT_POWER_ENERGY_GATE
-  return override != POWER_GATE_DISABLED;
+  if (override == POWER_GATE_ENABLED)
+    {
+      return true;
+    }
+
+  if (override == POWER_GATE_DISABLED)
+    {
+      return false;
+    }
+
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_POWER_GATE_DEFAULT
+  return true;
+#else
+  return false;
+#endif
 #else
   (void)override;
   return false;
