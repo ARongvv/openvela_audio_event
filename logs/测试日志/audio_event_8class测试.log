@@ -1,0 +1,1183 @@
+
+nsh> audio_event --model-smoke
+=== Audio Event Detection ===
+[app] audio buffers in PSRAM: ring=0x3c070010 window=0x3c07fa10 features=0x3c087b10
+[model] arena static DRAM size=196608
+[model] arena ptr=0x3fc8e250 size=196608 align_256=0
+[s3-large-8class] arena=196608 used=132692 model=37784 bytes
+[infer] t=0 ms wall=0 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+nsh> audio_event --file /data/combined_A_pure.wav --profile --no-oled
+=== Audio Event Detection ===
+[app] audio buffers in PSRAM: ring=0x3c070010 window=0x3c07fa10 features=0x3c087b10
+[model] arena static DRAM size=196608
+[model] arena ptr=0x3fc8e250 size=196608 align_256=0
+[s3-large-8class] arena=196608 used=132692 model=37784 bytes
+[feature] log-mel+delta ready: frames=49 bins=40 channels=3 fft=512
+[event_alert] init OK
+[power_gate] mode=energy_gate calibration=2000ms rms=floor*2000/1000+200 clamp=[600,6000] peak=min=1800 ratio=2500/1000 hold=1500ms probe=5000ms
+[file] opened /data/combined_A_pure.wav, samples=2611838 repeat=1
+[app] source=file hop=250 ms
+[app] OLED disabled by --no-oled
+[infer] t=1000 ms wall=80 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=1000 ms wall=80 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=1250 ms wall=210 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=1250 ms wall=210 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=1500 ms wall=350 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=1500 ms wall=350 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=1750 ms wall=490 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=1750 ms wall=490 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=2750 ms wall=680 ms class=yes probs_permille=[0 4 4 926 16 35 12 0]
+[ALERT] *** yes detected *** (confidence=926/1000)
+[profile] t=2750 ms wall=680 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=3000 ms wall=820 ms class=yes probs_permille=[0 47 0 770 8 152 20 0]
+[profile] t=3000 ms wall=820 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=3250 ms wall=960 ms class=yes probs_permille=[0 31 0 672 0 266 27 0]
+[profile] t=3250 ms wall=960 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=3500 ms wall=1090 ms class=yes probs_permille=[0 8 0 914 0 70 4 0]
+[profile] t=3500 ms wall=1090 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=3750 ms wall=1230 ms class=stop probs_permille=[0 125 8 199 8 633 31 0]
+[profile] t=3750 ms wall=1230 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=4000 ms wall=1370 ms class=yes probs_permille=[0 0 0 996 0 0 0 0]
+[profile] t=4000 ms wall=1370 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=4250 ms wall=1510 ms class=yes probs_permille=[0 0 0 996 0 0 0 0]
+[ALERT] *** yes detected *** (confidence=996/1000)
+[profile] t=4250 ms wall=1510 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=4500 ms wall=1640 ms class=yes probs_permille=[0 0 0 996 0 0 0 0]
+[profile] t=4500 ms wall=1640 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=4750 ms wall=1780 ms class=yes probs_permille=[0 0 0 996 0 0 0 0]
+[profile] t=4750 ms wall=1780 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=5000 ms wall=1920 ms class=yes probs_permille=[4 0 39 953 0 0 4 0]
+[profile] t=5000 ms wall=1920 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=5250 ms wall=2060 ms class=background probs_permille=[129 27 82 27 51 20 648 20]
+[profile] t=5250 ms wall=2060 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=5500 ms wall=2200 ms class=silence probs_permille=[78 39 78 20 51 20 316 398]
+[profile] t=5500 ms wall=2200 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=6500 ms wall=2380 ms class=background probs_permille=[47 125 195 125 47 39 391 31]
+[profile] t=6500 ms wall=2380 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=6750 ms wall=2520 ms class=yes probs_permille=[0 109 0 543 344 4 0 0]
+[profile] t=6750 ms wall=2520 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=7000 ms wall=2660 ms class=no probs_permille=[0 4 0 20 977 0 0 0]
+[ALERT] *** no detected *** (confidence=977/1000)
+[profile] t=7000 ms wall=2660 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=7250 ms wall=2790 ms class=no probs_permille=[0 31 0 4 969 0 0 0]
+[profile] t=7250 ms wall=2790 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=7500 ms wall=2930 ms class=no probs_permille=[254 63 8 20 645 4 4 0]
+[profile] t=7500 ms wall=2930 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=7750 ms wall=3070 ms class=background probs_permille=[207 66 164 20 51 16 262 207]
+[profile] t=7750 ms wall=3070 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=8000 ms wall=3200 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=8000 ms wall=3200 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=8250 ms wall=3340 ms class=yes probs_permille=[4 16 27 578 59 4 289 27]
+[profile] t=8250 ms wall=3340 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=8500 ms wall=3480 ms class=no probs_permille=[0 0 0 47 949 0 0 0]
+[ALERT] *** no detected *** (confidence=949/1000)
+[profile] t=8500 ms wall=3480 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=8750 ms wall=3620 ms class=no probs_permille=[0 0 0 4 996 0 0 0]
+[profile] t=8750 ms wall=3620 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=9000 ms wall=3750 ms class=no probs_permille=[0 0 0 4 996 0 0 0]
+[profile] t=9000 ms wall=3750 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=9250 ms wall=3890 ms class=no probs_permille=[387 4 0 4 488 78 39 0]
+[profile] t=9250 ms wall=3890 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=9500 ms wall=4030 ms class=background probs_permille=[35 16 35 27 113 35 734 0]
+[profile] t=9500 ms wall=4030 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=9750 ms wall=4170 ms class=background probs_permille=[55 27 70 27 35 20 719 43]
+[profile] t=9750 ms wall=4170 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=10000 ms wall=4300 ms class=silence probs_permille=[4 4 16 0 0 0 195 781]
+[profile] t=10000 ms wall=4300 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=10250 ms wall=4440 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=10250 ms wall=4440 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=11000 ms wall=4610 ms class=background probs_permille=[8 199 98 39 51 16 395 199]
+[profile] t=11000 ms wall=4610 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=11250 ms wall=4750 ms class=no probs_permille=[0 160 0 20 816 0 0 0]
+[ALERT] *** no detected *** (confidence=816/1000)
+[profile] t=11250 ms wall=4750 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=11500 ms wall=4890 ms class=cough probs_permille=[0 758 0 4 238 0 0 0]
+[profile] t=11500 ms wall=4890 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=11750 ms wall=5020 ms class=cough probs_permille=[0 961 0 0 39 0 0 0]
+[profile] t=11750 ms wall=5020 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=12000 ms wall=5160 ms class=cough probs_permille=[0 988 0 0 8 0 0 0]
+[profile] t=12000 ms wall=5160 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=12250 ms wall=5290 ms class=knock probs_permille=[363 145 227 12 16 4 227 8]
+[profile] t=12250 ms wall=5290 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=12500 ms wall=5430 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=12500 ms wall=5430 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=12750 ms wall=5570 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=12750 ms wall=5570 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=13250 ms wall=5720 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=13250 ms wall=5720 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=13750 ms wall=5880 ms class=background probs_permille=[12 94 293 184 4 27 371 12]
+[profile] t=13750 ms wall=5880 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=14000 ms wall=6010 ms class=glass_breaking probs_permille=[27 82 664 164 4 8 51 0]
+[profile] t=14000 ms wall=6010 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=14250 ms wall=6150 ms class=glass_breaking probs_permille=[8 109 430 430 0 20 0 0]
+[profile] t=14250 ms wall=6150 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=14500 ms wall=6290 ms class=yes probs_permille=[16 223 277 445 4 12 27 0]
+[profile] t=14500 ms wall=6290 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=14750 ms wall=6420 ms class=glass_breaking probs_permille=[55 55 281 141 70 43 176 176]
+[profile] t=14750 ms wall=6420 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=15000 ms wall=6560 ms class=silence probs_permille=[4 4 12 0 0 0 59 922]
+[profile] t=15000 ms wall=6560 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=15750 ms wall=6730 ms class=cough probs_permille=[47 492 121 12 4 0 309 12]
+[profile] t=15750 ms wall=6730 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=16000 ms wall=6860 ms class=knock probs_permille=[910 47 4 0 16 12 16 0]
+[profile] t=16000 ms wall=6860 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=16250 ms wall=7000 ms class=knock probs_permille=[996 0 0 0 0 0 0 0]
+[ALERT] *** knock detected *** (confidence=996/1000)
+[profile] t=16250 ms wall=7000 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=16500 ms wall=7140 ms class=knock probs_permille=[996 0 0 0 0 0 0 0]
+[profile] t=16500 ms wall=7140 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=16750 ms wall=7280 ms class=knock probs_permille=[996 4 0 0 0 0 0 0]
+[profile] t=16750 ms wall=7280 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=17000 ms wall=7410 ms class=knock probs_permille=[996 4 0 0 0 0 0 0]
+[profile] t=17000 ms wall=7410 ms copy=0 stats=0 feature=60 infer=50 log=0 ui=0 detector=0 alert=0 total=110 ms
+[infer] t=17250 ms wall=7550 ms class=knock probs_permille=[293 145 47 145 117 20 234 0]
+[profile] t=17250 ms wall=7550 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=17500 ms wall=7680 ms class=background probs_permille=[105 55 215 35 16 20 340 215]
+[profile] t=17500 ms wall=7680 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=17750 ms wall=7820 ms class=knock probs_permille=[309 152 152 39 39 63 246 4]
+[profile] t=17750 ms wall=7820 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=18000 ms wall=7960 ms class=cough probs_permille=[4 590 35 234 4 117 12 0]
+[profile] t=18000 ms wall=7960 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=18250 ms wall=8100 ms class=stop probs_permille=[20 129 4 320 16 512 4 0]
+[profile] t=18250 ms wall=8100 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=18500 ms wall=8230 ms class=stop probs_permille=[23 113 0 141 8 711 4 0]
+[ALERT] *** stop detected *** (confidence=711/1000)
+[profile] t=18500 ms wall=8230 ms copy=0 stats=0 feature=60 infer=50 log=0 ui=0 detector=0 alert=0 total=110 ms
+[infer] t=18750 ms wall=8370 ms class=yes probs_permille=[133 105 8 664 51 27 16 0]
+[profile] t=18750 ms wall=8370 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=19000 ms wall=8510 ms class=knock probs_permille=[293 94 117 94 74 27 293 8]
+[profile] t=19000 ms wall=8510 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=19250 ms wall=8650 ms class=silence probs_permille=[4 4 27 4 0 0 129 832]
+[profile] t=19250 ms wall=8650 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=19500 ms wall=8780 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=19500 ms wall=8780 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=19750 ms wall=8920 ms class=silence probs_permille=[0 0 8 4 0 0 90 898]
+[profile] t=19750 ms wall=8920 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=20500 ms wall=9090 ms class=no probs_permille=[152 242 47 152 305 23 74 0]
+[profile] t=20500 ms wall=9090 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=20750 ms wall=9230 ms class=yes probs_permille=[0 0 0 984 12 4 0 0]
+[ALERT] *** yes detected *** (confidence=984/1000)
+[profile] t=20750 ms wall=9230 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=21000 ms wall=9370 ms class=yes probs_permille=[0 0 0 984 12 4 0 0]
+[profile] t=21000 ms wall=9370 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=21250 ms wall=9500 ms class=yes probs_permille=[0 0 0 996 4 0 0 0]
+[profile] t=21250 ms wall=9500 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=21500 ms wall=9640 ms class=background probs_permille=[78 152 98 4 8 12 613 39]
+[profile] t=21500 ms wall=9640 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=21750 ms wall=9780 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=21750 ms wall=9780 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=22000 ms wall=9910 ms class=silence probs_permille=[8 12 51 66 51 12 266 531]
+[profile] t=22000 ms wall=9910 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=22500 ms wall=10070 ms class=stop probs_permille=[8 47 63 63 8 777 39 0]
+[ALERT] *** stop detected *** (confidence=777/1000)
+[profile] t=22500 ms wall=10070 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=22750 ms wall=10200 ms class=stop probs_permille=[0 0 0 39 8 953 0 0]
+[profile] t=22750 ms wall=10200 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=23000 ms wall=10340 ms class=stop probs_permille=[0 0 0 4 0 996 0 0]
+[profile] t=23000 ms wall=10340 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=23250 ms wall=10470 ms class=stop probs_permille=[0 0 0 8 20 973 0 0]
+[profile] t=23250 ms wall=10470 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=23500 ms wall=10610 ms class=stop probs_permille=[12 129 4 320 129 406 4 0]
+[profile] t=23500 ms wall=10610 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=23750 ms wall=10740 ms class=background probs_permille=[27 8 105 4 4 0 426 426]
+[profile] t=23750 ms wall=10740 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=24000 ms wall=10880 ms class=background probs_permille=[12 23 78 102 20 51 398 316]
+[profile] t=24000 ms wall=10880 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=24250 ms wall=11020 ms class=stop probs_permille=[0 4 0 195 0 785 16 0]
+[ALERT] *** stop detected *** (confidence=785/1000)
+[profile] t=24250 ms wall=11020 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=24500 ms wall=11150 ms class=stop probs_permille=[0 0 0 31 0 969 0 0]
+[profile] t=24500 ms wall=11150 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=24750 ms wall=11290 ms class=stop probs_permille=[0 0 0 0 0 996 0 0]
+[profile] t=24750 ms wall=11290 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=25000 ms wall=11430 ms class=stop probs_permille=[0 0 0 0 0 996 0 0]
+[profile] t=25000 ms wall=11430 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=25250 ms wall=11560 ms class=stop probs_permille=[27 148 4 47 23 746 8 0]
+[profile] t=25250 ms wall=11560 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=25500 ms wall=11700 ms class=background probs_permille=[105 207 82 43 43 43 418 66]
+[profile] t=25500 ms wall=11700 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=25750 ms wall=11840 ms class=silence probs_permille=[0 0 8 0 0 0 109 879]
+[profile] t=25750 ms wall=11840 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=26000 ms wall=11980 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=26000 ms wall=11980 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=26250 ms wall=12110 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=26250 ms wall=12110 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=27250 ms wall=12300 ms class=yes probs_permille=[0 0 0 887 109 0 0 0]
+[ALERT] *** yes detected *** (confidence=887/1000)
+[profile] t=27250 ms wall=12300 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=27500 ms wall=12430 ms class=no probs_permille=[0 0 0 199 801 0 0 0]
+[profile] t=27500 ms wall=12430 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=27750 ms wall=12570 ms class=no probs_permille=[0 0 0 47 953 0 0 0]
+[profile] t=27750 ms wall=12570 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=28000 ms wall=12710 ms class=no probs_permille=[0 0 0 31 969 0 0 0]
+[profile] t=28000 ms wall=12710 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=28250 ms wall=12840 ms class=silence probs_permille=[63 39 125 31 23 16 313 395]
+[profile] t=28250 ms wall=12840 ms copy=0 stats=0 feature=60 infer=50 log=0 ui=0 detector=0 alert=0 total=110 ms
+[infer] t=28500 ms wall=12980 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=28500 ms wall=12980 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=28750 ms wall=13120 ms class=background probs_permille=[16 55 86 215 35 8 543 43]
+[profile] t=28750 ms wall=13120 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=29000 ms wall=13250 ms class=yes probs_permille=[4 102 27 652 129 4 82 0]
+[ALERT] *** yes detected *** (confidence=652/1000)
+[profile] t=29000 ms wall=13250 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=29250 ms wall=13380 ms class=no probs_permille=[0 8 0 438 551 0 0 0]
+[profile] t=29250 ms wall=13380 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=29500 ms wall=13520 ms class=yes probs_permille=[0 102 0 645 254 0 0 0]
+[profile] t=29500 ms wall=13520 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=29750 ms wall=13660 ms class=cough probs_permille=[4 867 0 27 43 43 16 0]
+[profile] t=29750 ms wall=13660 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=30000 ms wall=13790 ms class=cough probs_permille=[4 828 8 39 16 27 82 0]
+[profile] t=30000 ms wall=13790 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=30250 ms wall=13930 ms class=cough probs_permille=[0 387 8 309 78 63 152 0]
+[profile] t=30250 ms wall=13930 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=30500 ms wall=14070 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=30500 ms wall=14070 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=30750 ms wall=14200 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=30750 ms wall=14200 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=31250 ms wall=14350 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=31250 ms wall=14350 ms copy=0 stats=0 feature=60 infer=50 log=0 ui=0 detector=0 alert=0 total=110 ms
+[infer] t=31500 ms wall=14490 ms class=silence probs_permille=[4 35 47 4 16 4 297 594]
+[profile] t=31500 ms wall=14490 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=31750 ms wall=14620 ms class=glass_breaking probs_permille=[35 55 449 355 12 4 90 0]
+[profile] t=31750 ms wall=14620 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=32000 ms wall=14760 ms class=yes probs_permille=[16 98 78 793 8 4 4 0]
+[ALERT] *** yes detected *** (confidence=793/1000)
+[profile] t=32000 ms wall=14760 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=32250 ms wall=14900 ms class=cough probs_permille=[4 789 8 195 0 0 0 0]
+[profile] t=32250 ms wall=14900 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=32500 ms wall=15030 ms class=cough probs_permille=[31 473 375 117 0 0 0 0]
+[profile] t=32500 ms wall=15030 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=32750 ms wall=15170 ms class=cough probs_permille=[16 754 188 39 4 0 0 0]
+[profile] t=32750 ms wall=15170 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=33000 ms wall=15310 ms class=cough probs_permille=[20 605 242 121 0 0 12 0]
+[profile] t=33000 ms wall=15310 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=33250 ms wall=15440 ms class=silence probs_permille=[39 16 152 4 8 4 301 480]
+[profile] t=33250 ms wall=15440 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=33500 ms wall=15580 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=33500 ms wall=15580 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=36250 ms wall=15890 ms class=silence probs_permille=[0 4 12 0 0 0 133 848]
+[profile] t=36250 ms wall=15890 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=37250 ms wall=16070 ms class=silence probs_permille=[12 12 51 8 4 4 258 652]
+[profile] t=37250 ms wall=16070 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=37500 ms wall=16210 ms class=no probs_permille=[16 43 55 176 445 70 176 16]
+[profile] t=37500 ms wall=16210 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=37750 ms wall=16350 ms class=yes probs_permille=[12 63 78 309 309 78 152 0]
+[profile] t=37750 ms wall=16350 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=38000 ms wall=16480 ms class=yes probs_permille=[16 55 70 445 16 355 43 0]
+[profile] t=38000 ms wall=16480 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=38250 ms wall=16620 ms class=yes probs_permille=[0 0 4 980 0 16 0 0]
+[ALERT] *** yes detected *** (confidence=980/1000)
+[profile] t=38250 ms wall=16620 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=38500 ms wall=16760 ms class=yes probs_permille=[0 0 4 957 0 39 0 0]
+[profile] t=38500 ms wall=16760 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=38750 ms wall=16890 ms class=glass_breaking probs_permille=[23 121 387 191 8 78 191 0]
+[profile] t=38750 ms wall=16890 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=39000 ms wall=17030 ms class=glass_breaking probs_permille=[12 51 652 258 0 16 8 0]
+[profile] t=39000 ms wall=17030 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=39250 ms wall=17170 ms class=glass_breaking probs_permille=[0 23 938 35 0 0 0 0]
+[profile] t=39250 ms wall=17170 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=39500 ms wall=17300 ms class=glass_breaking probs_permille=[0 8 973 20 0 0 0 0]
+[profile] t=39500 ms wall=17300 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=39750 ms wall=17440 ms class=glass_breaking probs_permille=[0 113 711 176 0 0 0 0]
+[profile] t=39750 ms wall=17440 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=40000 ms wall=17580 ms class=yes probs_permille=[0 4 39 961 0 0 0 0]
+[ALERT] *** yes detected *** (confidence=961/1000)
+[profile] t=40000 ms wall=17580 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=40250 ms wall=17710 ms class=yes probs_permille=[0 4 20 977 0 0 0 0]
+[profile] t=40250 ms wall=17710 ms copy=0 stats=0 feature=60 infer=50 log=0 ui=0 detector=0 alert=0 total=110 ms
+[infer] t=40500 ms wall=17850 ms class=yes probs_permille=[23 23 184 578 16 35 113 27]
+[profile] t=40500 ms wall=17850 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=40750 ms wall=17980 ms class=silence probs_permille=[0 0 4 0 0 0 109 883]
+[profile] t=40750 ms wall=17980 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=41250 ms wall=18130 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=41250 ms wall=18130 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=41750 ms wall=18290 ms class=silence probs_permille=[0 0 4 0 0 0 47 949]
+[profile] t=41750 ms wall=18290 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=42000 ms wall=18430 ms class=cough probs_permille=[246 313 98 12 12 4 313 8]
+[profile] t=42000 ms wall=18430 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=42250 ms wall=18560 ms class=knock probs_permille=[828 164 4 0 0 0 0 0]
+[profile] t=42250 ms wall=18560 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=42500 ms wall=18700 ms class=knock probs_permille=[891 109 0 0 0 0 0 0]
+[ALERT] *** knock detected *** (confidence=891/1000)
+[profile] t=42500 ms wall=18700 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=42750 ms wall=18840 ms class=knock probs_permille=[668 332 0 0 0 0 0 0]
+[profile] t=42750 ms wall=18840 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=43000 ms wall=18970 ms class=cough probs_permille=[379 602 8 0 4 0 8 0]
+[profile] t=43000 ms wall=18970 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=43250 ms wall=19110 ms class=background probs_permille=[250 125 125 16 20 20 316 125]
+[profile] t=43250 ms wall=19110 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=43500 ms wall=19250 ms class=silence probs_permille=[0 0 4 0 0 0 90 902]
+[profile] t=43500 ms wall=19250 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=43750 ms wall=19380 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=43750 ms wall=19380 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=44500 ms wall=19550 ms class=silence probs_permille=[4 43 43 27 12 27 328 523]
+[profile] t=44500 ms wall=19550 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=44750 ms wall=19690 ms class=background probs_permille=[12 152 59 242 59 59 383 31]
+[profile] t=44750 ms wall=19690 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=45000 ms wall=19820 ms class=yes probs_permille=[8 184 23 461 90 145 90 0]
+[profile] t=45000 ms wall=19820 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=45250 ms wall=19960 ms class=yes probs_permille=[0 0 0 863 137 0 0 0]
+[ALERT] *** yes detected *** (confidence=863/1000)
+[profile] t=45250 ms wall=19960 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=45500 ms wall=20100 ms class=no probs_permille=[0 0 0 20 980 0 0 0]
+[profile] t=45500 ms wall=20100 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=45750 ms wall=20230 ms class=no probs_permille=[0 0 0 74 926 0 0 0]
+[profile] t=45750 ms wall=20230 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=46000 ms wall=20370 ms class=no probs_permille=[0 0 0 8 988 0 0 0]
+[profile] t=46000 ms wall=20370 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=46250 ms wall=20510 ms class=silence probs_permille=[35 23 74 16 16 12 367 461]
+[profile] t=46250 ms wall=20510 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=46500 ms wall=20640 ms class=no probs_permille=[0 4 0 375 598 4 20 0]
+[profile] t=46500 ms wall=20640 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=46750 ms wall=20770 ms class=no probs_permille=[0 0 0 0 996 0 0 0]
+[ALERT] *** no detected *** (confidence=996/1000)
+[profile] t=46750 ms wall=20770 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=47000 ms wall=20910 ms class=no probs_permille=[0 0 0 0 996 0 0 0]
+[profile] t=47000 ms wall=20910 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=47250 ms wall=21050 ms class=no probs_permille=[0 0 0 0 996 0 0 0]
+[profile] t=47250 ms wall=21050 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=47500 ms wall=21180 ms class=no probs_permille=[43 0 0 16 902 27 12 0]
+[profile] t=47500 ms wall=21180 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=47750 ms wall=21320 ms class=background probs_permille=[59 23 113 27 20 16 727 20]
+[profile] t=47750 ms wall=21320 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=48000 ms wall=21450 ms class=silence probs_permille=[20 23 63 23 16 16 320 512]
+[profile] t=48000 ms wall=21450 ms copy=0 stats=0 feature=60 infer=50 log=0 ui=0 detector=0 alert=0 total=110 ms
+[infer] t=48250 ms wall=21590 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=48250 ms wall=21590 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=49250 ms wall=21770 ms class=background probs_permille=[12 12 109 109 35 16 707 4]
+[profile] t=49250 ms wall=21770 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=49500 ms wall=21910 ms class=yes probs_permille=[0 27 12 586 293 23 59 0]
+[profile] t=49500 ms wall=21910 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=49750 ms wall=22050 ms class=yes probs_permille=[4 31 4 797 63 23 78 0]
+[ALERT] *** yes detected *** (confidence=797/1000)
+[profile] t=49750 ms wall=22050 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=50000 ms wall=22180 ms class=yes probs_permille=[4 90 4 719 113 55 16 0]
+[profile] t=50000 ms wall=22180 ms copy=0 stats=0 feature=60 infer=50 log=0 ui=0 detector=0 alert=0 total=110 ms
+[infer] t=50250 ms wall=22320 ms class=yes probs_permille=[12 31 20 797 31 78 31 0]
+[profile] t=50250 ms wall=22320 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=50500 ms wall=22460 ms class=yes probs_permille=[4 27 43 664 43 66 133 27]
+[profile] t=50500 ms wall=22460 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=50750 ms wall=22590 ms class=silence probs_permille=[0 0 12 0 0 0 133 848]
+[profile] t=50750 ms wall=22590 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=51000 ms wall=22730 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=51000 ms wall=22730 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=52000 ms wall=22920 ms class=background probs_permille=[27 344 86 16 55 20 434 20]
+[profile] t=52000 ms wall=22920 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=52250 ms wall=23050 ms class=cough probs_permille=[0 977 0 0 4 8 8 0]
+[profile] t=52250 ms wall=23050 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=52500 ms wall=23180 ms class=cough probs_permille=[0 984 0 4 0 0 8 0]
+[ALERT] *** cough detected *** (confidence=984/1000)
+[profile] t=52500 ms wall=23180 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=52750 ms wall=23320 ms class=cough probs_permille=[0 984 0 4 0 0 12 0]
+[profile] t=52750 ms wall=23320 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=53000 ms wall=23460 ms class=yes probs_permille=[16 398 4 500 20 31 31 0]
+[profile] t=53000 ms wall=23460 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=53250 ms wall=23590 ms class=yes probs_permille=[0 125 0 801 20 51 4 0]
+[profile] t=53250 ms wall=23590 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=53500 ms wall=23730 ms class=yes probs_permille=[0 20 4 832 66 51 27 0]
+[profile] t=53500 ms wall=23730 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=53750 ms wall=23870 ms class=silence probs_permille=[0 0 12 0 0 0 133 848]
+[profile] t=53750 ms wall=23870 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=54000 ms wall=24000 ms class=silence probs_permille=[4 8 31 12 12 12 262 660]
+[profile] t=54000 ms wall=24000 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=54250 ms wall=24140 ms class=background probs_permille=[12 8 43 20 12 12 844 51]
+[profile] t=54250 ms wall=24140 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=54500 ms wall=24280 ms class=glass_breaking probs_permille=[4 414 523 31 0 20 4 0]
+[profile] t=54500 ms wall=24280 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=54750 ms wall=24410 ms class=glass_breaking probs_permille=[90 180 719 8 0 0 0 0]
+[profile] t=54750 ms wall=24410 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=55000 ms wall=24550 ms class=knock probs_permille=[492 313 195 0 0 0 0 0]
+[profile] t=55000 ms wall=24550 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=55250 ms wall=24680 ms class=glass_breaking probs_permille=[383 12 605 0 0 0 0 0]
+[profile] t=55250 ms wall=24680 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=55500 ms wall=24820 ms class=glass_breaking probs_permille=[43 90 285 90 43 20 285 141]
+[profile] t=55500 ms wall=24820 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=55750 ms wall=24960 ms class=background probs_permille=[43 23 109 55 27 35 352 352]
+[profile] t=55750 ms wall=24960 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=56000 ms wall=25090 ms class=background probs_permille=[31 16 78 78 78 51 641 20]
+[profile] t=56000 ms wall=25090 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=56250 ms wall=25230 ms class=yes probs_permille=[0 0 0 863 137 0 0 0]
+[ALERT] *** yes detected *** (confidence=863/1000)
+[profile] t=56250 ms wall=25230 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=56500 ms wall=25360 ms class=no probs_permille=[0 0 0 441 559 0 0 0]
+[profile] t=56500 ms wall=25360 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=56750 ms wall=25500 ms class=yes probs_permille=[0 0 0 715 281 0 0 0]
+[profile] t=56750 ms wall=25500 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=57000 ms wall=25630 ms class=no probs_permille=[8 0 0 375 598 12 4 0]
+[profile] t=57000 ms wall=25630 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=57250 ms wall=25770 ms class=background probs_permille=[59 20 59 94 94 74 590 20]
+[profile] t=57250 ms wall=25770 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=57500 ms wall=25910 ms class=silence probs_permille=[12 8 70 8 4 4 348 551]
+[profile] t=57500 ms wall=25910 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=57750 ms wall=26040 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=57750 ms wall=26040 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=58000 ms wall=26180 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=58000 ms wall=26180 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=58250 ms wall=26310 ms class=silence probs_permille=[0 4 12 4 4 4 133 844]
+[profile] t=58250 ms wall=26310 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=58500 ms wall=26450 ms class=yes probs_permille=[0 0 0 957 39 0 4 0]
+[ALERT] *** yes detected *** (confidence=957/1000)
+[profile] t=58500 ms wall=26450 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=58750 ms wall=26580 ms class=yes probs_permille=[0 0 0 996 4 0 0 0]
+[profile] t=58750 ms wall=26580 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=59000 ms wall=26720 ms class=yes probs_permille=[0 0 0 996 4 0 0 0]
+[profile] t=59000 ms wall=26720 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=59250 ms wall=26860 ms class=yes probs_permille=[0 0 0 953 39 0 8 0]
+[profile] t=59250 ms wall=26860 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=59500 ms wall=26990 ms class=background probs_permille=[20 51 125 125 20 20 637 0]
+[profile] t=59500 ms wall=26990 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=59750 ms wall=27130 ms class=background probs_permille=[20 63 78 78 20 51 629 63]
+[profile] t=59750 ms wall=27130 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=60500 ms wall=27290 ms class=background probs_permille=[4 8 35 82 16 8 426 426]
+[profile] t=60500 ms wall=27290 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=60750 ms wall=27430 ms class=yes probs_permille=[0 0 0 941 59 0 0 0]
+[ALERT] *** yes detected *** (confidence=941/1000)
+[profile] t=60750 ms wall=27430 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=61000 ms wall=27560 ms class=no probs_permille=[0 0 0 0 996 0 0 0]
+[profile] t=61000 ms wall=27560 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=61250 ms wall=27700 ms class=no probs_permille=[0 0 0 0 996 0 0 0]
+[profile] t=61250 ms wall=27700 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=61500 ms wall=27840 ms class=no probs_permille=[0 0 0 0 996 0 0 0]
+[profile] t=61500 ms wall=27840 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=61750 ms wall=27970 ms class=knock probs_permille=[445 27 8 27 445 27 23 0]
+[profile] t=61750 ms wall=27970 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=62000 ms wall=28110 ms class=background probs_permille=[109 55 137 27 35 27 344 273]
+[profile] t=62000 ms wall=28110 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=62250 ms wall=28240 ms class=silence probs_permille=[0 4 12 0 0 0 109 871]
+[profile] t=62250 ms wall=28240 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=62500 ms wall=28380 ms class=cough probs_permille=[12 652 164 20 12 4 102 31]
+[profile] t=62500 ms wall=28380 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=62750 ms wall=28510 ms class=yes probs_permille=[4 23 4 926 16 12 20 0]
+[ALERT] *** yes detected *** (confidence=926/1000)
+[profile] t=62750 ms wall=28510 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=63000 ms wall=28650 ms class=stop probs_permille=[0 0 0 39 191 770 0 0]
+[profile] t=63000 ms wall=28650 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=63250 ms wall=28780 ms class=stop probs_permille=[4 16 0 8 59 918 0 0]
+[profile] t=63250 ms wall=28780 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=63500 ms wall=28920 ms class=stop probs_permille=[4 4 0 59 188 746 0 0]
+[profile] t=63500 ms wall=28920 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=63750 ms wall=29060 ms class=knock probs_permille=[355 223 0 23 8 355 35 0]
+[profile] t=63750 ms wall=29060 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=64000 ms wall=29190 ms class=background probs_permille=[98 195 8 195 8 98 395 0]
+[profile] t=64000 ms wall=29190 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=64250 ms wall=29320 ms class=background probs_permille=[219 12 109 12 4 8 551 86]
+[profile] t=64250 ms wall=29320 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=64500 ms wall=29460 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=64500 ms wall=29460 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=64750 ms wall=29590 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=64750 ms wall=29590 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=65000 ms wall=29730 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=65000 ms wall=29730 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=65500 ms wall=29870 ms class=yes probs_permille=[0 0 0 996 0 0 0 0]
+[ALERT] *** yes detected *** (confidence=996/1000)
+[profile] t=65500 ms wall=29870 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=65750 ms wall=30010 ms class=yes probs_permille=[0 0 0 996 0 0 0 0]
+[profile] t=65750 ms wall=30010 ms copy=0 stats=0 feature=60 infer=50 log=0 ui=0 detector=0 alert=0 total=110 ms
+[infer] t=66000 ms wall=30150 ms class=yes probs_permille=[0 0 0 996 0 0 0 0]
+[profile] t=66000 ms wall=30150 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=66250 ms wall=30290 ms class=yes probs_permille=[0 0 0 996 0 0 0 0]
+[profile] t=66250 ms wall=30290 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=66500 ms wall=30430 ms class=yes probs_permille=[47 23 117 746 27 16 23 0]
+[profile] t=66500 ms wall=30430 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=66750 ms wall=30570 ms class=background probs_permille=[227 47 113 27 70 35 363 113]
+[profile] t=66750 ms wall=30570 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=68750 ms wall=30820 ms class=cough probs_permille=[203 508 125 20 51 12 78 0]
+[profile] t=68750 ms wall=30820 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=69000 ms wall=30960 ms class=knock probs_permille=[871 66 12 0 4 16 27 0]
+[profile] t=69000 ms wall=30960 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=69250 ms wall=31100 ms class=knock probs_permille=[629 16 4 199 4 98 51 0]
+[ALERT] *** knock detected *** (confidence=629/1000)
+[profile] t=69250 ms wall=31100 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=69500 ms wall=31230 ms class=knock probs_permille=[758 8 4 59 4 20 148 0]
+[profile] t=69500 ms wall=31230 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=69750 ms wall=31370 ms class=yes probs_permille=[164 4 20 410 39 31 328 0]
+[profile] t=69750 ms wall=31370 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=70000 ms wall=31500 ms class=background probs_permille=[102 20 102 8 8 4 508 254]
+[profile] t=70000 ms wall=31500 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=70250 ms wall=31640 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=70250 ms wall=31640 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=70500 ms wall=31780 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=70500 ms wall=31780 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=70750 ms wall=31910 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=70750 ms wall=31910 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=71250 ms wall=32070 ms class=yes probs_permille=[0 4 8 961 20 8 4 0]
+[ALERT] *** yes detected *** (confidence=961/1000)
+[profile] t=71250 ms wall=32070 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=71500 ms wall=32200 ms class=yes probs_permille=[0 156 199 633 12 0 0 0]
+[profile] t=71500 ms wall=32200 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=71750 ms wall=32340 ms class=yes probs_permille=[0 8 4 992 0 0 0 0]
+[profile] t=71750 ms wall=32340 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=72000 ms wall=32480 ms class=cough probs_permille=[0 988 8 4 0 0 0 0]
+[profile] t=72000 ms wall=32480 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=72250 ms wall=32610 ms class=cough probs_permille=[20 461 461 59 0 0 0 0]
+[profile] t=72250 ms wall=32610 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=72500 ms wall=32750 ms class=yes probs_permille=[4 43 137 699 0 43 70 4]
+[profile] t=72500 ms wall=32750 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=72750 ms wall=32890 ms class=silence probs_permille=[0 0 4 0 0 0 47 949]
+[profile] t=72750 ms wall=32890 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=73000 ms wall=33020 ms class=silence probs_permille=[4 4 12 4 4 4 133 840]
+[profile] t=73000 ms wall=33020 ms copy=0 stats=0 feature=60 infer=50 log=0 ui=0 detector=0 alert=0 total=110 ms
+[infer] t=73250 ms wall=33160 ms class=cough probs_permille=[160 324 160 51 63 12 203 23]
+[profile] t=73250 ms wall=33160 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=73500 ms wall=33300 ms class=knock probs_permille=[887 27 12 16 35 12 16 0]
+[profile] t=73500 ms wall=33300 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=73750 ms wall=33430 ms class=knock probs_permille=[965 31 4 0 0 0 0 0]
+[ALERT] *** knock detected *** (confidence=965/1000)
+[profile] t=73750 ms wall=33430 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=74000 ms wall=33570 ms class=knock probs_permille=[980 20 0 0 0 0 0 0]
+[profile] t=74000 ms wall=33570 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=74250 ms wall=33710 ms class=knock probs_permille=[992 4 0 0 0 0 0 0]
+[profile] t=74250 ms wall=33710 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=74500 ms wall=33840 ms class=background probs_permille=[55 70 113 8 12 8 449 285]
+[profile] t=74500 ms wall=33840 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=74750 ms wall=33980 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=74750 ms wall=33980 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=75000 ms wall=34120 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=75000 ms wall=34120 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=75750 ms wall=34280 ms class=background probs_permille=[20 23 70 59 90 12 363 363]
+[profile] t=75750 ms wall=34280 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=76000 ms wall=34420 ms class=background probs_permille=[16 20 63 254 203 39 320 82]
+[profile] t=76000 ms wall=34420 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=76250 ms wall=34560 ms class=stop probs_permille=[4 12 16 266 12 668 20 0]
+[ALERT] *** stop detected *** (confidence=668/1000)
+[profile] t=76250 ms wall=34560 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=76500 ms wall=34690 ms class=stop probs_permille=[0 0 0 285 0 715 0 0]
+[profile] t=76500 ms wall=34690 ms copy=0 stats=0 feature=60 infer=50 log=0 ui=0 detector=10 alert=0 total=120 ms
+[infer] t=76750 ms wall=34830 ms class=yes probs_permille=[0 0 0 762 0 238 0 0]
+[profile] t=76750 ms wall=34830 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=77000 ms wall=34970 ms class=stop probs_permille=[0 0 0 281 0 715 0 0]
+[profile] t=77000 ms wall=34970 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=77250 ms wall=35100 ms class=yes probs_permille=[4 4 16 883 0 55 35 0]
+[profile] t=77250 ms wall=35100 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=77500 ms wall=35240 ms class=silence probs_permille=[16 8 117 4 0 0 375 477]
+[profile] t=77500 ms wall=35240 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=77750 ms wall=35370 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=77750 ms wall=35370 ms copy=0 stats=0 feature=60 infer=50 log=0 ui=0 detector=0 alert=0 total=110 ms
+[infer] t=78000 ms wall=35510 ms class=cough probs_permille=[35 578 70 4 8 4 289 8]
+[profile] t=78000 ms wall=35510 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=78250 ms wall=35650 ms class=cough probs_permille=[0 996 0 0 0 0 0 0]
+[profile] t=78250 ms wall=35650 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=78500 ms wall=35780 ms class=cough probs_permille=[0 996 0 0 0 4 0 0]
+[ALERT] *** cough detected *** (confidence=996/1000)
+[profile] t=78500 ms wall=35780 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=78750 ms wall=35920 ms class=cough probs_permille=[0 996 0 0 0 4 0 0]
+[profile] t=78750 ms wall=35920 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=79000 ms wall=36060 ms class=cough probs_permille=[0 922 0 0 12 59 8 0]
+[profile] t=79000 ms wall=36060 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=79250 ms wall=36190 ms class=cough probs_permille=[129 512 51 16 63 63 160 4]
+[profile] t=79250 ms wall=36190 ms copy=0 stats=0 feature=60 infer=50 log=0 ui=0 detector=0 alert=0 total=110 ms
+[infer] t=79500 ms wall=36330 ms class=silence probs_permille=[4 12 39 39 16 4 250 637]
+[profile] t=79500 ms wall=36330 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=79750 ms wall=36460 ms class=background probs_permille=[4 8 31 66 20 12 844 16]
+[profile] t=79750 ms wall=36460 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=80000 ms wall=36600 ms class=background probs_permille=[8 8 16 102 63 8 805 0]
+[profile] t=80000 ms wall=36600 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=80250 ms wall=36740 ms class=yes probs_permille=[0 0 0 910 70 0 20 0]
+[ALERT] *** yes detected *** (confidence=910/1000)
+[profile] t=80250 ms wall=36740 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=80500 ms wall=36870 ms class=no probs_permille=[0 0 0 332 668 0 0 0]
+[profile] t=80500 ms wall=36870 ms copy=0 stats=0 feature=60 infer=50 log=0 ui=0 detector=0 alert=0 total=110 ms
+[infer] t=80750 ms wall=37010 ms class=no probs_permille=[0 0 0 285 715 0 0 0]
+[profile] t=80750 ms wall=37010 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=81000 ms wall=37140 ms class=no probs_permille=[4 273 12 66 434 43 172 0]
+[profile] t=81000 ms wall=37140 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=81250 ms wall=37280 ms class=background probs_permille=[12 16 55 8 4 4 555 352]
+[profile] t=81250 ms wall=37280 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=81500 ms wall=37410 ms class=silence probs_permille=[4 4 27 16 8 4 223 711]
+[profile] t=81500 ms wall=37410 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=81750 ms wall=37550 ms class=background probs_permille=[20 12 121 152 20 47 613 12]
+[profile] t=81750 ms wall=37550 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=82000 ms wall=37680 ms class=cough probs_permille=[4 543 105 20 8 215 105 0]
+[profile] t=82000 ms wall=37680 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=82250 ms wall=37820 ms class=cough probs_permille=[8 379 188 47 4 74 301 0]
+[profile] t=82250 ms wall=37820 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=82500 ms wall=37960 ms class=yes probs_permille=[8 262 105 414 0 207 4 0]
+[profile] t=82500 ms wall=37960 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=82750 ms wall=38100 ms class=yes probs_permille=[8 27 188 746 4 16 12 0]
+[ALERT] *** yes detected *** (confidence=746/1000)
+[profile] t=82750 ms wall=38100 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=83000 ms wall=38230 ms class=yes probs_permille=[4 20 39 805 16 63 51 4]
+[profile] t=83000 ms wall=38230 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=83250 ms wall=38370 ms class=background probs_permille=[66 27 137 43 27 27 539 137]
+[profile] t=83250 ms wall=38370 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=83500 ms wall=38510 ms class=yes probs_permille=[20 31 74 383 47 191 242 16]
+[profile] t=83500 ms wall=38510 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=83750 ms wall=38640 ms class=stop probs_permille=[0 16 8 230 0 734 8 0]
+[profile] t=83750 ms wall=38640 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=84000 ms wall=38780 ms class=stop probs_permille=[0 0 0 74 0 926 0 0]
+[profile] t=84000 ms wall=38780 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=84250 ms wall=38920 ms class=stop probs_permille=[0 0 0 12 0 988 0 0]
+[ALERT] *** stop detected *** (confidence=988/1000)
+[profile] t=84250 ms wall=38920 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=84500 ms wall=39050 ms class=stop probs_permille=[0 0 0 0 0 996 0 0]
+[profile] t=84500 ms wall=39050 ms copy=0 stats=0 feature=60 infer=50 log=0 ui=0 detector=0 alert=0 total=110 ms
+[infer] t=84750 ms wall=39190 ms class=background probs_permille=[74 31 74 74 31 47 598 74]
+[profile] t=84750 ms wall=39190 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=85000 ms wall=39330 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=85000 ms wall=39330 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=85250 ms wall=39460 ms class=background probs_permille=[47 74 148 31 20 16 594 74]
+[profile] t=85250 ms wall=39460 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=85500 ms wall=39600 ms class=cough probs_permille=[137 348 109 86 55 86 176 0]
+[profile] t=85500 ms wall=39600 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=85750 ms wall=39730 ms class=cough probs_permille=[4 820 0 4 63 102 4 0]
+[profile] t=85750 ms wall=39730 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=86000 ms wall=39870 ms class=cough probs_permille=[0 930 0 23 8 27 12 0]
+[ALERT] *** cough detected *** (confidence=930/1000)
+[profile] t=86000 ms wall=39870 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=86250 ms wall=40010 ms class=no probs_permille=[4 266 0 266 336 105 16 0]
+[profile] t=86250 ms wall=40010 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=86500 ms wall=40140 ms class=yes probs_permille=[74 121 31 480 94 47 152 0]
+[profile] t=86500 ms wall=40140 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=86750 ms wall=40280 ms class=yes probs_permille=[31 254 82 320 63 39 203 4]
+[profile] t=86750 ms wall=40280 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=87000 ms wall=40420 ms class=silence probs_permille=[0 0 12 0 0 0 133 848]
+[profile] t=87000 ms wall=40420 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=87250 ms wall=40550 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=87250 ms wall=40550 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=87500 ms wall=40680 ms class=glass_breaking probs_permille=[20 133 332 82 16 16 332 66]
+[profile] t=87500 ms wall=40680 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=87750 ms wall=40820 ms class=cough probs_permille=[0 984 4 0 0 8 4 0]
+[profile] t=87750 ms wall=40820 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=88000 ms wall=40960 ms class=cough probs_permille=[0 996 0 0 0 0 0 0]
+[ALERT] *** cough detected *** (confidence=996/1000)
+[profile] t=88000 ms wall=40960 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=88250 ms wall=41090 ms class=cough probs_permille=[0 996 0 0 0 0 0 0]
+[profile] t=88250 ms wall=41090 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=88500 ms wall=41230 ms class=cough probs_permille=[0 996 0 0 0 0 0 0]
+[profile] t=88500 ms wall=41230 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=88750 ms wall=41360 ms class=cough probs_permille=[0 996 0 0 0 0 0 0]
+[profile] t=88750 ms wall=41360 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=89000 ms wall=41500 ms class=cough probs_permille=[0 996 0 0 0 0 0 0]
+[profile] t=89000 ms wall=41500 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=89250 ms wall=41640 ms class=cough probs_permille=[82 512 129 0 4 4 254 16]
+[profile] t=89250 ms wall=41640 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=89500 ms wall=41770 ms class=silence probs_permille=[0 0 4 0 0 0 90 902]
+[profile] t=89500 ms wall=41770 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=89750 ms wall=41910 ms class=silence probs_permille=[4 12 47 148 31 47 238 473]
+[profile] t=89750 ms wall=41910 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=90000 ms wall=42040 ms class=yes probs_permille=[0 0 0 984 16 0 0 0]
+[ALERT] *** yes detected *** (confidence=984/1000)
+[profile] t=90000 ms wall=42040 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=90250 ms wall=42180 ms class=yes probs_permille=[0 0 0 992 8 0 0 0]
+[profile] t=90250 ms wall=42180 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=90500 ms wall=42320 ms class=yes probs_permille=[0 0 0 996 0 0 0 0]
+[profile] t=90500 ms wall=42320 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=90750 ms wall=42450 ms class=yes probs_permille=[0 0 0 996 0 0 0 0]
+[profile] t=90750 ms wall=42450 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=91000 ms wall=42590 ms class=yes probs_permille=[0 0 0 988 4 8 0 0]
+[profile] t=91000 ms wall=42590 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=91250 ms wall=42730 ms class=knock probs_permille=[898 16 35 4 4 8 35 0]
+[profile] t=91250 ms wall=42730 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=91500 ms wall=42860 ms class=yes probs_permille=[0 0 0 969 4 8 16 0]
+[ALERT] *** yes detected *** (confidence=969/1000)
+[profile] t=91500 ms wall=42860 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=91750 ms wall=43000 ms class=yes probs_permille=[0 0 0 996 4 0 0 0]
+[profile] t=91750 ms wall=43000 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=92000 ms wall=43130 ms class=yes probs_permille=[0 0 0 996 0 0 0 0]
+[profile] t=92000 ms wall=43130 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=92250 ms wall=43270 ms class=yes probs_permille=[0 0 0 996 0 0 0 0]
+[profile] t=92250 ms wall=43270 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=92500 ms wall=43410 ms class=yes probs_permille=[0 0 0 996 0 0 0 0]
+[profile] t=92500 ms wall=43410 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=92750 ms wall=43540 ms class=yes probs_permille=[31 39 78 781 16 8 47 0]
+[profile] t=92750 ms wall=43540 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=93000 ms wall=43670 ms class=silence probs_permille=[4 4 27 4 4 4 129 828]
+[profile] t=93000 ms wall=43670 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=93250 ms wall=43810 ms class=yes probs_permille=[4 12 43 285 285 20 285 70]
+[profile] t=93250 ms wall=43810 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=93500 ms wall=43940 ms class=yes probs_permille=[0 8 23 598 297 12 59 0]
+[profile] t=93500 ms wall=43940 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=93750 ms wall=44080 ms class=yes probs_permille=[0 0 0 996 0 0 0 0]
+[ALERT] *** yes detected *** (confidence=996/1000)
+[profile] t=93750 ms wall=44080 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=94000 ms wall=44210 ms class=yes probs_permille=[0 0 0 996 0 0 0 0]
+[profile] t=94000 ms wall=44210 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=94250 ms wall=44350 ms class=yes probs_permille=[0 0 0 996 0 0 0 0]
+[profile] t=94250 ms wall=44350 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=94500 ms wall=44490 ms class=yes probs_permille=[0 0 0 996 0 0 0 0]
+[profile] t=94500 ms wall=44490 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=94750 ms wall=44620 ms class=yes probs_permille=[8 12 55 570 4 27 285 35]
+[profile] t=94750 ms wall=44620 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=95000 ms wall=44760 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=95000 ms wall=44760 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=95250 ms wall=44890 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=95250 ms wall=44890 ms copy=0 stats=0 feature=60 infer=50 log=0 ui=0 detector=0 alert=0 total=110 ms
+[infer] t=95500 ms wall=45030 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=95500 ms wall=45030 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=96250 ms wall=45190 ms class=yes probs_permille=[0 59 47 582 12 230 74 0]
+[profile] t=96250 ms wall=45190 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=96500 ms wall=45330 ms class=stop probs_permille=[0 0 0 39 0 961 0 0]
+[ALERT] *** stop detected *** (confidence=961/1000)
+[profile] t=96500 ms wall=45330 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=96750 ms wall=45470 ms class=stop probs_permille=[0 0 0 199 0 801 0 0]
+[profile] t=96750 ms wall=45470 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=97000 ms wall=45600 ms class=stop probs_permille=[0 0 0 23 0 977 0 0]
+[profile] t=97000 ms wall=45600 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=97250 ms wall=45740 ms class=yes probs_permille=[0 20 0 961 8 12 0 0]
+[profile] t=97250 ms wall=45740 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=97500 ms wall=45870 ms class=background probs_permille=[31 12 125 16 4 4 496 313]
+[profile] t=97500 ms wall=45870 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=97750 ms wall=46000 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=97750 ms wall=46000 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=98000 ms wall=46140 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=98000 ms wall=46140 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=99250 ms wall=46340 ms class=knock probs_permille=[309 195 309 23 20 20 121 4]
+[profile] t=99250 ms wall=46340 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=99500 ms wall=46470 ms class=knock probs_permille=[379 191 94 121 47 74 94 0]
+[profile] t=99500 ms wall=46470 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=99750 ms wall=46610 ms class=cough probs_permille=[199 633 39 98 16 12 0 0]
+[profile] t=99750 ms wall=46610 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=100000 ms wall=46750 ms class=cough probs_permille=[8 508 63 402 4 4 12 0]
+[profile] t=100000 ms wall=46750 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=100250 ms wall=46880 ms class=yes probs_permille=[8 94 94 590 35 94 74 12]
+[profile] t=100250 ms wall=46880 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=100500 ms wall=47020 ms class=silence probs_permille=[4 4 27 4 0 0 129 832]
+[profile] t=100500 ms wall=47020 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=100750 ms wall=47160 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=100750 ms wall=47160 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=101000 ms wall=47300 ms class=background probs_permille=[4 20 39 254 12 16 637 20]
+[profile] t=101000 ms wall=47300 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=101250 ms wall=47430 ms class=background probs_permille=[0 55 4 109 0 137 691 0]
+[profile] t=101250 ms wall=47430 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=101500 ms wall=47570 ms class=yes probs_permille=[0 0 0 559 0 441 0 0]
+[profile] t=101500 ms wall=47570 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=101750 ms wall=47700 ms class=yes probs_permille=[0 0 0 555 4 441 0 0]
+[profile] t=101750 ms wall=47700 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=102000 ms wall=47840 ms class=stop probs_permille=[0 0 0 74 0 926 0 0]
+[ALERT] *** stop detected *** (confidence=926/1000)
+[profile] t=102000 ms wall=47840 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=102250 ms wall=47980 ms class=yes probs_permille=[70 27 4 453 20 359 70 0]
+[profile] t=102250 ms wall=47980 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=102500 ms wall=48110 ms class=background probs_permille=[39 63 47 313 78 63 391 8]
+[profile] t=102500 ms wall=48110 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=102750 ms wall=48250 ms class=silence probs_permille=[0 0 4 0 0 0 59 938]
+[profile] t=102750 ms wall=48250 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=103000 ms wall=48390 ms class=yes probs_permille=[0 12 12 633 250 0 78 12]
+[profile] t=103000 ms wall=48390 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=103250 ms wall=48520 ms class=no probs_permille=[0 0 0 20 980 0 0 0]
+[profile] t=103250 ms wall=48520 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=103500 ms wall=48660 ms class=no probs_permille=[0 0 0 31 969 0 0 0]
+[ALERT] *** no detected *** (confidence=969/1000)
+[profile] t=103500 ms wall=48660 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=103750 ms wall=48800 ms class=no probs_permille=[0 0 0 8 992 0 0 0]
+[profile] t=103750 ms wall=48800 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=104000 ms wall=48930 ms class=knock probs_permille=[848 8 12 12 82 27 12 0]
+[profile] t=104000 ms wall=48930 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=104250 ms wall=49070 ms class=background probs_permille=[78 31 102 31 63 51 320 320]
+[profile] t=104250 ms wall=49070 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=104500 ms wall=49200 ms class=silence probs_permille=[8 4 27 4 4 4 129 824]
+[profile] t=104500 ms wall=49200 ms copy=0 stats=0 feature=60 infer=50 log=0 ui=0 detector=0 alert=0 total=110 ms
+[infer] t=104750 ms wall=49340 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=104750 ms wall=49340 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=108750 ms wall=49710 ms class=yes probs_permille=[0 4 4 840 133 4 16 0]
+[ALERT] *** yes detected *** (confidence=840/1000)
+[profile] t=108750 ms wall=49710 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=109000 ms wall=49840 ms class=yes probs_permille=[0 4 0 945 16 8 31 0]
+[profile] t=109000 ms wall=49840 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=109250 ms wall=49980 ms class=yes probs_permille=[0 23 0 762 152 59 8 0]
+[profile] t=109250 ms wall=49980 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=109500 ms wall=50110 ms class=no probs_permille=[0 230 0 145 461 117 47 0]
+[profile] t=109500 ms wall=50110 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=109750 ms wall=50250 ms class=background probs_permille=[16 94 31 191 191 94 383 4]
+[profile] t=109750 ms wall=50250 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=110000 ms wall=50390 ms class=background probs_permille=[47 8 39 0 4 0 602 301]
+[profile] t=110000 ms wall=50390 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=110250 ms wall=50520 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=110250 ms wall=50520 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=110500 ms wall=50650 ms class=background probs_permille=[8 27 43 113 141 20 359 285]
+[profile] t=110500 ms wall=50650 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=110750 ms wall=50790 ms class=yes probs_permille=[0 0 0 984 16 0 0 0]
+[ALERT] *** yes detected *** (confidence=984/1000)
+[profile] t=110750 ms wall=50790 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=111000 ms wall=50920 ms class=yes probs_permille=[0 0 0 980 20 0 0 0]
+[profile] t=111000 ms wall=50920 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=111250 ms wall=51060 ms class=yes probs_permille=[0 0 0 980 20 0 0 0]
+[profile] t=111250 ms wall=51060 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=111500 ms wall=51200 ms class=yes probs_permille=[0 4 0 820 164 4 8 0]
+[profile] t=111500 ms wall=51200 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=111750 ms wall=51330 ms class=background probs_permille=[12 31 47 98 39 8 770 0]
+[profile] t=111750 ms wall=51330 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=112000 ms wall=51470 ms class=background probs_permille=[12 27 16 27 82 12 824 4]
+[profile] t=112000 ms wall=51470 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=112250 ms wall=51600 ms class=silence probs_permille=[16 16 78 8 4 4 391 488]
+[profile] t=112250 ms wall=51600 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=114000 ms wall=51830 ms class=yes probs_permille=[0 4 0 918 4 70 0 0]
+[ALERT] *** yes detected *** (confidence=918/1000)
+[profile] t=114000 ms wall=51830 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=114250 ms wall=51960 ms class=yes probs_permille=[0 12 0 840 16 133 0 0]
+[profile] t=114250 ms wall=51960 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=114500 ms wall=52100 ms class=stop probs_permille=[0 86 0 340 35 539 0 0]
+[profile] t=114500 ms wall=52100 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=114750 ms wall=52230 ms class=yes probs_permille=[0 16 0 926 23 35 0 0]
+[profile] t=114750 ms wall=52230 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=115000 ms wall=52370 ms class=knock probs_permille=[344 109 215 8 8 20 273 20]
+[profile] t=115000 ms wall=52370 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=115250 ms wall=52510 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=115250 ms wall=52510 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=115500 ms wall=52640 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=115500 ms wall=52640 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=116000 ms wall=52790 ms class=cough probs_permille=[113 566 90 20 20 20 180 0]
+[profile] t=116000 ms wall=52790 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=116250 ms wall=52930 ms class=knock probs_permille=[910 70 8 0 0 0 8 0]
+[profile] t=116250 ms wall=52930 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=116500 ms wall=53060 ms class=knock probs_permille=[996 4 0 0 0 0 0 0]
+[ALERT] *** knock detected *** (confidence=996/1000)
+[profile] t=116500 ms wall=53060 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=116750 ms wall=53200 ms class=knock probs_permille=[996 0 0 0 0 0 0 0]
+[profile] t=116750 ms wall=53200 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=117000 ms wall=53330 ms class=knock probs_permille=[988 8 0 0 0 0 4 0]
+[profile] t=117000 ms wall=53330 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=117250 ms wall=53470 ms class=knock probs_permille=[762 152 23 0 0 4 59 0]
+[profile] t=117250 ms wall=53470 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=117500 ms wall=53610 ms class=silence probs_permille=[63 23 156 23 12 12 313 395]
+[profile] t=117500 ms wall=53610 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=117750 ms wall=53740 ms class=background probs_permille=[82 51 63 160 63 51 516 12]
+[profile] t=117750 ms wall=53740 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=118000 ms wall=53880 ms class=knock probs_permille=[797 63 23 4 0 12 98 0]
+[profile] t=118000 ms wall=53880 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=118250 ms wall=54010 ms class=knock probs_permille=[980 20 0 0 0 0 0 0]
+[ALERT] *** knock detected *** (confidence=980/1000)
+[profile] t=118250 ms wall=54010 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=118500 ms wall=54150 ms class=knock probs_permille=[996 4 0 0 0 0 0 0]
+[profile] t=118500 ms wall=54150 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=118750 ms wall=54280 ms class=knock probs_permille=[996 0 0 0 0 0 0 0]
+[profile] t=118750 ms wall=54280 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=119000 ms wall=54420 ms class=knock probs_permille=[938 4 23 4 4 0 27 0]
+[profile] t=119000 ms wall=54420 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=119250 ms wall=54560 ms class=silence probs_permille=[8 8 35 4 4 4 188 750]
+[profile] t=119250 ms wall=54560 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=119500 ms wall=54690 ms class=silence probs_permille=[0 0 8 0 0 0 90 898]
+[profile] t=119500 ms wall=54690 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=119750 ms wall=54830 ms class=silence probs_permille=[8 8 51 20 12 16 395 496]
+[profile] t=119750 ms wall=54830 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=120000 ms wall=54960 ms class=yes probs_permille=[0 0 0 953 39 0 8 0]
+[ALERT] *** yes detected *** (confidence=953/1000)
+[profile] t=120000 ms wall=54960 ms copy=0 stats=0 feature=60 infer=50 log=0 ui=0 detector=0 alert=10 total=120 ms
+[infer] t=120250 ms wall=55100 ms class=yes probs_permille=[0 0 0 988 12 0 0 0]
+[profile] t=120250 ms wall=55100 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=120500 ms wall=55230 ms class=yes probs_permille=[0 0 0 996 0 0 0 0]
+[profile] t=120500 ms wall=55230 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=120750 ms wall=55370 ms class=yes probs_permille=[0 0 0 996 0 0 0 0]
+[profile] t=120750 ms wall=55370 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=121000 ms wall=55500 ms class=yes probs_permille=[0 0 0 996 0 0 0 0]
+[profile] t=121000 ms wall=55500 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=121250 ms wall=55640 ms class=yes probs_permille=[4 8 125 641 4 39 78 102]
+[profile] t=121250 ms wall=55640 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=121500 ms wall=55780 ms class=silence probs_permille=[4 16 39 23 16 8 301 598]
+[profile] t=121500 ms wall=55780 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=121750 ms wall=55910 ms class=yes probs_permille=[0 0 0 996 0 0 0 0]
+[ALERT] *** yes detected *** (confidence=996/1000)
+[profile] t=121750 ms wall=55910 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=122000 ms wall=56040 ms class=yes probs_permille=[0 0 0 996 0 0 0 0]
+[profile] t=122000 ms wall=56040 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=122250 ms wall=56180 ms class=yes probs_permille=[0 0 0 996 0 0 0 0]
+[profile] t=122250 ms wall=56180 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=122500 ms wall=56310 ms class=yes probs_permille=[0 0 0 996 0 0 0 0]
+[profile] t=122500 ms wall=56310 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=122750 ms wall=56440 ms class=yes probs_permille=[8 12 31 840 12 82 16 0]
+[profile] t=122750 ms wall=56440 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=123000 ms wall=56580 ms class=silence probs_permille=[35 23 55 8 20 12 281 566]
+[profile] t=123000 ms wall=56580 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=123250 ms wall=56720 ms class=silence probs_permille=[0 0 4 0 0 0 59 938]
+[profile] t=123250 ms wall=56720 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=123500 ms wall=56850 ms class=yes probs_permille=[0 20 35 461 23 367 74 23]
+[profile] t=123500 ms wall=56850 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=123750 ms wall=56990 ms class=stop probs_permille=[0 0 0 8 0 992 0 0]
+[ALERT] *** stop detected *** (confidence=992/1000)
+[profile] t=123750 ms wall=56990 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=124000 ms wall=57120 ms class=stop probs_permille=[0 0 0 23 0 977 0 0]
+[profile] t=124000 ms wall=57120 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=124250 ms wall=57260 ms class=stop probs_permille=[0 0 0 20 0 980 0 0]
+[profile] t=124250 ms wall=57260 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=124500 ms wall=57400 ms class=no probs_permille=[0 8 0 309 621 63 0 0]
+[profile] t=124500 ms wall=57400 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=124750 ms wall=57530 ms class=knock probs_permille=[895 43 4 4 43 8 4 0]
+[profile] t=124750 ms wall=57530 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=125000 ms wall=57670 ms class=silence probs_permille=[121 98 152 23 47 12 242 305]
+[profile] t=125000 ms wall=57670 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=125250 ms wall=57800 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=125250 ms wall=57800 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=125500 ms wall=57940 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=125500 ms wall=57940 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=126250 ms wall=58100 ms class=yes probs_permille=[0 4 4 910 70 8 4 0]
+[ALERT] *** yes detected *** (confidence=910/1000)
+[profile] t=126250 ms wall=58100 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=126500 ms wall=58240 ms class=yes probs_permille=[0 94 4 598 297 4 0 0]
+[profile] t=126500 ms wall=58240 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=126750 ms wall=58370 ms class=yes probs_permille=[8 281 4 352 352 0 0 0]
+[profile] t=126750 ms wall=58370 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=127000 ms wall=58510 ms class=cough probs_permille=[66 660 0 105 164 4 0 0]
+[profile] t=127000 ms wall=58510 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=127250 ms wall=58640 ms class=knock probs_permille=[789 98 78 4 16 0 16 0]
+[profile] t=127250 ms wall=58640 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=127500 ms wall=58780 ms class=background probs_permille=[266 51 133 27 66 16 422 20]
+[profile] t=127500 ms wall=58780 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=127750 ms wall=58910 ms class=silence probs_permille=[23 8 47 4 8 8 301 602]
+[profile] t=127750 ms wall=58910 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=129000 ms wall=59100 ms class=background probs_permille=[27 184 113 27 59 4 578 4]
+[profile] t=129000 ms wall=59100 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=129250 ms wall=59230 ms class=cough probs_permille=[0 699 0 16 277 4 0 0]
+[profile] t=129250 ms wall=59230 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=129500 ms wall=59370 ms class=cough probs_permille=[0 715 0 0 285 0 0 0]
+[profile] t=129500 ms wall=59370 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=129750 ms wall=59500 ms class=cough probs_permille=[0 668 0 0 332 0 0 0]
+[profile] t=129750 ms wall=59500 ms copy=0 stats=0 feature=60 infer=50 log=0 ui=10 detector=0 alert=0 total=120 ms
+[infer] t=130000 ms wall=59640 ms class=cough probs_permille=[355 566 4 0 70 4 0 0]
+[profile] t=130000 ms wall=59640 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=130250 ms wall=59770 ms class=knock probs_permille=[480 74 94 4 16 8 301 23]
+[profile] t=130250 ms wall=59770 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=130500 ms wall=59910 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=130500 ms wall=59910 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=130750 ms wall=60040 ms class=silence probs_permille=[4 4 12 4 4 4 133 840]
+[profile] t=130750 ms wall=60040 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=131250 ms wall=60190 ms class=cough probs_permille=[66 344 215 344 16 4 8 0]
+[profile] t=131250 ms wall=60190 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=131500 ms wall=60330 ms class=cough probs_permille=[156 789 51 4 4 0 0 0]
+[profile] t=131500 ms wall=60330 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=131750 ms wall=60460 ms class=cough probs_permille=[20 945 35 0 0 0 0 0]
+[ALERT] *** cough detected *** (confidence=945/1000)
+[profile] t=131750 ms wall=60460 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=132000 ms wall=60600 ms class=glass_breaking probs_permille=[137 273 551 35 0 0 0 0]
+[profile] t=132000 ms wall=60600 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=132250 ms wall=60730 ms class=cough probs_permille=[86 543 172 12 12 8 137 35]
+[profile] t=132250 ms wall=60730 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=132500 ms wall=60870 ms class=silence probs_permille=[0 0 8 0 0 0 133 852]
+[profile] t=132500 ms wall=60870 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=132750 ms wall=61000 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=132750 ms wall=61000 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=133750 ms wall=61180 ms class=background probs_permille=[31 98 98 39 63 20 398 250]
+[profile] t=133750 ms wall=61180 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=134000 ms wall=61320 ms class=knock probs_permille=[402 125 160 160 31 39 78 0]
+[profile] t=134000 ms wall=61320 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=134250 ms wall=61450 ms class=knock probs_permille=[586 184 35 117 35 20 23 0]
+[ALERT] *** knock detected *** (confidence=586/1000)
+[profile] t=134250 ms wall=61450 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=134500 ms wall=61590 ms class=knock probs_permille=[422 336 82 105 12 8 31 0]
+[profile] t=134500 ms wall=61590 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=134750 ms wall=61720 ms class=knock probs_permille=[313 51 313 31 63 31 156 51]
+[profile] t=134750 ms wall=61720 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=135000 ms wall=61850 ms class=silence probs_permille=[8 8 31 4 4 4 156 785]
+[profile] t=135000 ms wall=61850 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=135750 ms wall=62020 ms class=silence probs_permille=[0 4 12 12 4 4 105 859]
+[profile] t=135750 ms wall=62020 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=136250 ms wall=62170 ms class=cough probs_permille=[4 656 82 66 39 129 20 0]
+[profile] t=136250 ms wall=62170 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=136500 ms wall=62300 ms class=cough probs_permille=[0 969 0 8 0 23 0 0]
+[profile] t=136500 ms wall=62300 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=136750 ms wall=62440 ms class=cough probs_permille=[0 996 0 0 0 0 0 0]
+[ALERT] *** cough detected *** (confidence=996/1000)
+[profile] t=136750 ms wall=62440 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=137000 ms wall=62570 ms class=cough probs_permille=[0 996 0 0 0 0 0 0]
+[profile] t=137000 ms wall=62570 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=137250 ms wall=62710 ms class=cough probs_permille=[4 957 12 8 4 4 12 0]
+[profile] t=137250 ms wall=62710 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=137500 ms wall=62840 ms class=background probs_permille=[23 12 86 4 0 0 699 176]
+[profile] t=137500 ms wall=62840 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=137750 ms wall=62980 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=137750 ms wall=62980 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=138000 ms wall=63110 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=138000 ms wall=63110 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=138500 ms wall=63260 ms class=background probs_permille=[117 297 117 59 23 4 371 12]
+[profile] t=138500 ms wall=63260 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=138750 ms wall=63390 ms class=knock probs_permille=[508 78 8 0 0 0 402 0]
+[profile] t=138750 ms wall=63390 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=139000 ms wall=63530 ms class=knock probs_permille=[992 8 0 0 0 0 0 0]
+[ALERT] *** knock detected *** (confidence=992/1000)
+[profile] t=139000 ms wall=63530 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=139250 ms wall=63660 ms class=knock probs_permille=[992 8 0 0 0 0 0 0]
+[profile] t=139250 ms wall=63660 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=139500 ms wall=63790 ms class=knock probs_permille=[996 0 0 0 0 0 0 0]
+[profile] t=139500 ms wall=63790 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=139750 ms wall=63930 ms class=knock probs_permille=[996 4 0 0 0 0 0 0]
+[profile] t=139750 ms wall=63930 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=140000 ms wall=64070 ms class=knock probs_permille=[973 8 4 0 4 0 12 0]
+[profile] t=140000 ms wall=64070 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=140250 ms wall=64200 ms class=silence probs_permille=[4 4 12 0 0 0 160 816]
+[profile] t=140250 ms wall=64200 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=140500 ms wall=64330 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=140500 ms wall=64330 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=140750 ms wall=64470 ms class=silence probs_permille=[20 12 66 55 16 27 266 535]
+[profile] t=140750 ms wall=64470 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=141000 ms wall=64600 ms class=yes probs_permille=[4 12 59 465 23 145 293 4]
+[profile] t=141000 ms wall=64600 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=141250 ms wall=64740 ms class=yes probs_permille=[0 0 0 965 20 16 0 0]
+[ALERT] *** yes detected *** (confidence=965/1000)
+[profile] t=141250 ms wall=64740 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=141500 ms wall=64870 ms class=stop probs_permille=[0 8 0 402 78 508 0 0]
+[profile] t=141500 ms wall=64870 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=141750 ms wall=65010 ms class=yes probs_permille=[0 4 0 543 16 434 0 0]
+[profile] t=141750 ms wall=65010 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=142000 ms wall=65140 ms class=knock probs_permille=[395 125 8 63 199 199 16 0]
+[profile] t=142000 ms wall=65140 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=142250 ms wall=65280 ms class=background probs_permille=[70 55 86 55 86 70 555 23]
+[profile] t=142250 ms wall=65280 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=142500 ms wall=65410 ms class=silence probs_permille=[12 12 63 12 4 4 398 504]
+[profile] t=142500 ms wall=65410 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=142750 ms wall=65540 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=142750 ms wall=65540 ms copy=0 stats=0 feature=60 infer=50 log=0 ui=0 detector=0 alert=0 total=110 ms
+[infer] t=143500 ms wall=65710 ms class=no probs_permille=[0 0 0 285 715 0 0 0]
+[ALERT] *** no detected *** (confidence=715/1000)
+[profile] t=143500 ms wall=65710 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=143750 ms wall=65840 ms class=no probs_permille=[0 0 0 8 992 0 0 0]
+[profile] t=143750 ms wall=65840 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=144000 ms wall=65970 ms class=no probs_permille=[0 0 0 47 953 0 0 0]
+[profile] t=144000 ms wall=65970 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=144250 ms wall=66110 ms class=no probs_permille=[0 0 0 20 980 0 0 0]
+[profile] t=144250 ms wall=66110 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=144500 ms wall=66240 ms class=background probs_permille=[74 27 145 117 59 47 461 74]
+[profile] t=144500 ms wall=66240 ms copy=0 stats=0 feature=60 infer=50 log=0 ui=0 detector=0 alert=0 total=110 ms
+[infer] t=144750 ms wall=66380 ms class=background probs_permille=[20 12 129 4 4 0 414 414]
+[profile] t=144750 ms wall=66380 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=145000 ms wall=66510 ms class=background probs_permille=[16 55 109 35 27 16 559 176]
+[profile] t=145000 ms wall=66510 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=145250 ms wall=66640 ms class=background probs_permille=[121 191 191 121 23 121 238 0]
+[profile] t=145250 ms wall=66640 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=145500 ms wall=66780 ms class=cough probs_permille=[86 348 137 86 55 109 176 0]
+[profile] t=145500 ms wall=66780 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=145750 ms wall=66910 ms class=no probs_permille=[4 12 0 285 574 35 90 0]
+[profile] t=145750 ms wall=66910 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=146000 ms wall=67040 ms class=no probs_permille=[0 0 0 4 992 0 0 0]
+[ALERT] *** no detected *** (confidence=992/1000)
+[profile] t=146000 ms wall=67040 ms copy=0 stats=0 feature=60 infer=50 log=0 ui=0 detector=0 alert=0 total=110 ms
+[infer] t=146250 ms wall=67180 ms class=no probs_permille=[0 0 0 12 988 0 0 0]
+[profile] t=146250 ms wall=67180 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=146500 ms wall=67310 ms class=no probs_permille=[23 23 4 16 895 16 27 0]
+[profile] t=146500 ms wall=67310 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=146750 ms wall=67440 ms class=silence probs_permille=[23 12 51 8 4 8 398 500]
+[profile] t=146750 ms wall=67440 ms copy=0 stats=0 feature=60 infer=50 log=0 ui=0 detector=0 alert=0 total=110 ms
+[infer] t=147000 ms wall=67580 ms class=silence probs_permille=[39 16 59 31 39 31 305 484]
+[profile] t=147000 ms wall=67580 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=147250 ms wall=67710 ms class=cough probs_permille=[90 355 90 227 180 4 55 0]
+[profile] t=147250 ms wall=67710 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=147500 ms wall=67840 ms class=yes probs_permille=[0 4 0 695 277 23 0 0]
+[ALERT] *** yes detected *** (confidence=695/1000)
+[profile] t=147500 ms wall=67840 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=147750 ms wall=67980 ms class=cough probs_permille=[16 754 0 188 16 16 12 0]
+[profile] t=147750 ms wall=67980 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=148000 ms wall=68110 ms class=cough probs_permille=[35 691 4 219 16 4 35 0]
+[profile] t=148000 ms wall=68110 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=148250 ms wall=68250 ms class=knock probs_permille=[676 35 20 0 0 0 270 0]
+[profile] t=148250 ms wall=68250 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=148500 ms wall=68380 ms class=background probs_permille=[281 90 141 0 4 0 449 35]
+[profile] t=148500 ms wall=68380 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=148750 ms wall=68520 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=148750 ms wall=68520 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=149000 ms wall=68650 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=149000 ms wall=68650 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=149250 ms wall=68780 ms class=silence probs_permille=[0 4 12 4 4 4 109 867]
+[profile] t=149250 ms wall=68780 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=149750 ms wall=68930 ms class=yes probs_permille=[0 0 0 977 8 4 8 0]
+[ALERT] *** yes detected *** (confidence=977/1000)
+[profile] t=149750 ms wall=68930 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=150000 ms wall=69070 ms class=yes probs_permille=[0 0 0 977 20 4 0 0]
+[profile] t=150000 ms wall=69070 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=150250 ms wall=69200 ms class=yes probs_permille=[0 0 0 930 59 12 0 0]
+[profile] t=150250 ms wall=69200 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=150500 ms wall=69330 ms class=yes probs_permille=[16 12 0 836 51 51 31 0]
+[profile] t=150500 ms wall=69330 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=150750 ms wall=69470 ms class=knock probs_permille=[375 94 117 23 59 20 297 20]
+[profile] t=150750 ms wall=69470 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=151000 ms wall=69600 ms class=silence probs_permille=[12 8 35 4 4 4 223 711]
+[profile] t=151000 ms wall=69600 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=151750 ms wall=69760 ms class=glass_breaking probs_permille=[23 63 508 4 0 4 320 78]
+[profile] t=151750 ms wall=69760 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=152000 ms wall=69890 ms class=glass_breaking probs_permille=[4 31 949 16 0 0 0 0]
+[profile] t=152000 ms wall=69890 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=152250 ms wall=70020 ms class=glass_breaking probs_permille=[0 0 984 12 0 0 0 0]
+[ALERT] *** glass_breaking detected *** (confidence=984/1000)
+[profile] t=152250 ms wall=70020 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=152500 ms wall=70160 ms class=glass_breaking probs_permille=[0 8 793 199 0 0 0 0]
+[profile] t=152500 ms wall=70160 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=152750 ms wall=70290 ms class=glass_breaking probs_permille=[0 8 977 16 0 0 0 0]
+[profile] t=152750 ms wall=70290 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=153000 ms wall=70420 ms class=yes probs_permille=[0 35 273 691 0 0 0 0]
+[profile] t=153000 ms wall=70420 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=153250 ms wall=70560 ms class=glass_breaking probs_permille=[16 78 637 125 4 4 125 12]
+[profile] t=153250 ms wall=70560 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=153500 ms wall=70690 ms class=background probs_permille=[168 82 133 51 31 31 332 168]
+[profile] t=153500 ms wall=70690 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=153750 ms wall=70820 ms class=knock probs_permille=[461 47 59 27 35 47 289 35]
+[profile] t=153750 ms wall=70820 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=154000 ms wall=70960 ms class=knock probs_permille=[535 336 20 8 43 4 55 0]
+[ALERT] *** knock detected *** (confidence=535/1000)
+[profile] t=154000 ms wall=70960 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=154250 ms wall=71090 ms class=knock probs_permille=[984 12 0 0 0 0 0 0]
+[profile] t=154250 ms wall=71090 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=154500 ms wall=71220 ms class=knock probs_permille=[910 47 4 4 27 4 0 0]
+[profile] t=154500 ms wall=71220 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=154750 ms wall=71360 ms class=knock probs_permille=[770 59 23 39 39 23 47 0]
+[profile] t=154750 ms wall=71360 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=155000 ms wall=71490 ms class=knock probs_permille=[676 55 105 12 43 27 66 16]
+[profile] t=155000 ms wall=71490 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=155250 ms wall=71620 ms class=knock probs_permille=[805 125 51 0 0 4 16 0]
+[profile] t=155250 ms wall=71620 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=155500 ms wall=71750 ms class=knock probs_permille=[883 109 4 0 0 0 4 0]
+[profile] t=155500 ms wall=71750 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=155750 ms wall=71890 ms class=cough probs_permille=[441 559 0 0 0 0 0 0]
+[profile] t=155750 ms wall=71890 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=156000 ms wall=72020 ms class=knock probs_permille=[762 238 0 0 0 0 0 0]
+[profile] t=156000 ms wall=72020 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=156250 ms wall=72150 ms class=knock probs_permille=[988 8 0 0 0 0 0 0]
+[ALERT] *** knock detected *** (confidence=988/1000)
+[profile] t=156250 ms wall=72150 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=156500 ms wall=72290 ms class=knock probs_permille=[879 86 8 0 0 0 27 0]
+[profile] t=156500 ms wall=72290 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=156750 ms wall=72420 ms class=knock probs_permille=[395 195 246 0 0 0 156 4]
+[profile] t=156750 ms wall=72420 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=157000 ms wall=72550 ms class=silence probs_permille=[0 0 4 0 0 0 47 945]
+[profile] t=157000 ms wall=72550 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=157250 ms wall=72680 ms class=no probs_permille=[0 74 4 301 602 8 8 0]
+[profile] t=157250 ms wall=72680 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=157500 ms wall=72810 ms class=cough probs_permille=[0 680 0 168 66 86 0 0]
+[profile] t=157500 ms wall=72810 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=157750 ms wall=72950 ms class=yes probs_permille=[0 105 0 840 20 31 0 0]
+[ALERT] *** yes detected *** (confidence=840/1000)
+[profile] t=157750 ms wall=72950 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=158000 ms wall=73080 ms class=yes probs_permille=[0 426 0 535 20 16 4 0]
+[profile] t=158000 ms wall=73080 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=158250 ms wall=73210 ms class=yes probs_permille=[8 70 113 566 8 8 223 0]
+[profile] t=158250 ms wall=73210 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=158500 ms wall=73340 ms class=silence probs_permille=[27 47 148 74 23 20 293 371]
+[profile] t=158500 ms wall=73340 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=158750 ms wall=73480 ms class=background probs_permille=[8 43 16 0 4 12 910 4]
+[profile] t=158750 ms wall=73480 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=159000 ms wall=73610 ms class=background probs_permille=[4 35 4 0 4 8 945 0]
+[profile] t=159000 ms wall=73610 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=159250 ms wall=73740 ms class=background probs_permille=[0 39 0 0 0 0 957 0]
+[profile] t=159250 ms wall=73740 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=159500 ms wall=73870 ms class=background probs_permille=[0 4 0 0 0 0 996 0]
+[profile] t=159500 ms wall=73870 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=159750 ms wall=74000 ms class=background probs_permille=[4 59 0 0 4 4 934 0]
+[profile] t=159750 ms wall=74000 ms copy=0 stats=0 feature=60 infer=50 log=10 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=160000 ms wall=74140 ms class=background probs_permille=[20 55 4 0 4 4 910 0]
+[profile] t=160000 ms wall=74140 ms copy=0 stats=0 feature=60 infer=60 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=160250 ms wall=74270 ms class=background probs_permille=[12 66 31 12 12 16 844 8]
+[profile] t=160250 ms wall=74270 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=160500 ms wall=74400 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=160500 ms wall=74400 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=160750 ms wall=74530 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=160750 ms wall=74530 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[infer] t=161000 ms wall=74660 ms class=silence probs_permille=[0 0 4 0 0 0 74 926]
+[profile] t=161000 ms wall=74660 ms copy=0 stats=0 feature=70 infer=50 log=0 ui=0 detector=0 alert=0 total=120 ms
+[power_gate] source=file enabled=1 calibrated=1 active=0 blocks=5224 active_blocks=4119 entries=40 infer=539 skip=110 floor=49 rms_threshold=600 peak_threshold=1800 last_rms=0 last_peak=0
+[app] stopped, windows=539 status=0
+nsh> ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xf (BROWNOUT_RST),boot:0x8 (SPI_FAST_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:2
+load:0x3fcc33c0,len:0x10cc
+load:0x40374000,len:0x6094
+SHA-256 comparison failed:
+Calculated: b9ad23607a0e795bcda128c3f326bfe0e05a9378f5d9b0fd7ba77e5283b57792
+ExpÿõESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xf (BROWNOUT_RST),boot:0x8 (SPI_FAST_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:2
+load:0x3fcc33c0,len:0x10cc
+lïESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xf (BROWNOUT_RST)ÿESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xf (BROÿ
