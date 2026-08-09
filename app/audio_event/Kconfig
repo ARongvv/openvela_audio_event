@@ -178,11 +178,13 @@ config EXAMPLES_AUDIO_EVENT_REMOTE_THREAD_STACKSIZE
 
 config EXAMPLES_AUDIO_EVENT_REMOTE_THREAD_PRIORITY
 	int "Remote reporter thread priority"
-	default 80
+	default 101
 	range 1 255
 	---help---
-		Keep this below the audio application and capture-worker priorities
-		so reporting cannot delay PCM processing.
+		Keep this above the audio application main task so queued events can
+		be sent during file replay, but below the capture worker so reporting
+		cannot delay PCM acquisition. With the default audio task priority
+		of 100 and capture worker priority of 140, use 101.
 
 endif # EXAMPLES_AUDIO_EVENT_REMOTE_REPORT
 
