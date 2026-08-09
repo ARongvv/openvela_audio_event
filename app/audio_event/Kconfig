@@ -93,6 +93,18 @@ config EXAMPLES_AUDIO_EVENT_ARENA_SIZE
 	default 65536
 	range 32768 262144
 
+config EXAMPLES_AUDIO_EVENT_ARENA_PSRAM
+	bool "Allocate 8-class TFLite Micro tensor arena in PSRAM"
+	default n
+	depends on EXAMPLES_AUDIO_EVENT_MODEL_8CLASS && ESP32S3_SPIRAM_COMMON_HEAP
+	---help---
+		Allocate the 8-class TFLite Micro tensor arena once from the
+		ESP32-S3 PSRAM common heap instead of linking a static arena into
+		internal DRAM. This frees internal DRAM for Wi-Fi and TCP/IP, but
+		may increase inference time because activations and ESP-NN scratch
+		buffers are then cache-backed PSRAM. The allocation is checked to
+		ensure it actually belongs to PSRAM.
+
 config EXAMPLES_AUDIO_EVENT_HOP_MS
 	int "Inference window hop in milliseconds"
 	default 250

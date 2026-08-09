@@ -4,8 +4,13 @@
 
 #include <nuttx/config.h>
 
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_ARENA_PSRAM
+#include <nuttx/kmalloc.h>
+#endif
+
 #include <cerrno>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
@@ -56,21 +61,92 @@ constexpr const char *kModelTag = "model";
 #define EVENT_CLASSIFIER_ARENA_SIZE CONFIG_EXAMPLES_AUDIO_EVENT_ARENA_SIZE
 #endif
 
-/* The 8-class model needs a ~193 KiB tensor arena in internal DRAM as a
- * static array. To make room, the 8-class build moves the large audio
- * ring/window/feature buffers in audio_event_main.c to the PSRAM common heap.
- * The 4-class build keeps everything in internal DRAM.
+/* The normal 8-class profile keeps its ~193 KiB tensor arena as a static
+ * internal-DRAM array for the fastest ESP-NN path. The remote HTTP profile
+ * can instead allocate it from PSRAM, leaving internal DRAM for Wi-Fi.
  */
 
 static uint8_t *g_tensor_arena;
 
 #ifdef CONFIG_EXAMPLES_AUDIO_EVENT_MODEL_8CLASS
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_ARENA_PSRAM
+constexpr unsigned int kArenaPsramAllocAttempts = 3;
+
+extern "C" uint32_t esp_spiram_allocable_vaddr_start(void);
+extern "C" uint32_t esp_spiram_allocable_vaddr_end(void);
+
+static bool classifier_arena_in_psram(const void *arena, size_t size)
+{
+  uintptr_t start = (uintptr_t)esp_spiram_allocable_vaddr_start();
+  uintptr_t end = (uintptr_t)esp_spiram_allocable_vaddr_end();
+  uintptr_t address = (uintptr_t)arena;
+
+  return address >= start && address <= end && size <= end - address;
+}
+
 static uint8_t *classifier_arena_alloc(size_t size)
 {
-  /* 8-class arena back in internal DRAM as a static array: the audio
-   * ring/window/feature buffers moved to SPI RAM, so the DRAM .bss budget
-   * now fits the 192 KiB arena. Benchmark proved ESP-NN works on DRAM.
+  void *internal_guards[kArenaPsramAllocAttempts - 1] = {nullptr};
+  unsigned int guard_count = 0;
+  uint8_t *arena = nullptr;
+
+  /* kmm_memalign searches both common-heap regions. Keep any internal-DRAM
+   * candidate temporarily allocated, then retry until the large arena lands
+   * in PSRAM. This mirrors the audio workspace allocation policy.
    */
+
+  for (unsigned int attempt = 0; attempt < kArenaPsramAllocAttempts;
+       attempt++)
+    {
+      arena = static_cast<uint8_t *>(kmm_memalign(16, size));
+      if (arena == nullptr)
+        {
+          break;
+        }
+
+      if (classifier_arena_in_psram(arena, size))
+        {
+          break;
+        }
+
+      if (guard_count == kArenaPsramAllocAttempts - 1)
+        {
+          kmm_free(arena);
+          arena = nullptr;
+          break;
+        }
+
+      internal_guards[guard_count++] = arena;
+      arena = nullptr;
+    }
+
+  for (unsigned int attempt = 0; attempt < guard_count; attempt++)
+    {
+      kmm_free(internal_guards[attempt]);
+    }
+
+  if (arena == nullptr || !classifier_arena_in_psram(arena, size))
+    {
+      std::fprintf(stderr,
+                   "[model] PSRAM arena allocation failed: %u bytes\n",
+                   (unsigned int)size);
+      return nullptr;
+    }
+
+  std::printf("[model] arena PSRAM ptr=0x%08lx size=%u align_16=%d\n",
+              (unsigned long)(uintptr_t)arena, (unsigned int)size,
+              ((uintptr_t)arena & 0x0f) == 0);
+  return arena;
+}
+
+static void classifier_arena_free(uint8_t *arena)
+{
+  kmm_free(arena);
+}
+#else
+static uint8_t *classifier_arena_alloc(size_t size)
+{
+  /* 8-class performance profiles keep this static DRAM arena. */
 
   alignas(16) static uint8_t s_static_arena[EVENT_CLASSIFIER_ARENA_SIZE];
 
@@ -83,10 +159,9 @@ static uint8_t *classifier_arena_alloc(size_t size)
 
 static void classifier_arena_free(uint8_t *arena)
 {
-  /* Static array, nothing to free. */
-
   (void)arena;
 }
+#endif
 #else
 static uint8_t *classifier_arena_alloc(size_t size)
 {
