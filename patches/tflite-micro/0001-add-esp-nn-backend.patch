@@ -1,0 +1,303 @@
+--- a/apps/mlearning/tflite-micro/Kconfig
++++ b/apps/mlearning/tflite-micro/Kconfig
+@@ -36,6 +36,119 @@
+ 		This will use hardware-accelerated operators from
+ 		tensorflow/lite/micro/kernels/xtensa/ directory.
+ 
++	config TFLITEMICRO_ESP_NN
++	bool "Enable ESP-NN optimized kernels"
++	default n
++	depends on ARCH_CHIP_ESP32S3
++	depends on !MLEARNING_CMSIS_NN && !XTENSA_HIFI
++	---help---
++		Enable ESP-NN optimized implementations of the TFLite Micro
++		Conv2D and DepthwiseConv2D operators for ESP32-S3.
++
++	config TFLITEMICRO_ESP_NN_TRACE
++	bool "Trace ESP-NN operator eligibility"
++	default n
++	depends on TFLITEMICRO_ESP_NN
++	---help---
++		Print Conv2D and DepthwiseConv2D shapes, parameters, tensor IDs and
++		pointer alignment while the model is prepared and first invoked.
++		Use this only for bring-up; it is not intended for production images.
++
++	config TFLITEMICRO_ESP_NN_CONV2D_OUTPUT_TENSOR
++	int "ESP-NN Conv2D output tensor ID (-1 disables ESP-NN Conv2D)"
++	default -1
++	depends on TFLITEMICRO_ESP_NN
++	---help---
++		Enable ESP-NN for exactly one eligible Conv2D node selected by its
++		output tensor ID. The default value -1 keeps all Conv2D nodes on the
++		TFLite Micro reference kernel.
++
++	config TFLITEMICRO_ESP_NN_CONV2D_OUTPUT_TENSOR_MASK
++	hex "ESP-NN Conv2D output tensor bit mask"
++	default 0x0
++	depends on TFLITEMICRO_ESP_NN
++	---help---
++		Enable multiple eligible Conv2D nodes by their output tensor IDs. Bit N
++		selects output tensor N; this is combined with the single output tensor
++		ID option above. The default 0x0 selects no additional Conv2D nodes.
++		Only tensor IDs from 0 through 31 are representable.
++
++	config TFLITEMICRO_ESP_NN_CONV2D_GENERAL
++	bool "Enable ESP-NN general Conv2D dispatch"
++	default n
++	depends on TFLITEMICRO_ESP_NN
++	---help---
++		Permit the selected Conv2D node to use the ESP32-S3 general dispatcher,
++		including the im2col path for small input-channel convolutions. This is
++		bring-up only: select exactly one output tensor and enable verification
++		before relying on it for a production model.
++
++	config TFLITEMICRO_ESP_NN_CONV2D_VERIFY
++	bool "Verify selected ESP-NN Conv2D against reference output"
++	default n
++	depends on TFLITEMICRO_ESP_NN
++	---help---
++		Allocate a temporary reference output for the selected Conv2D and
++		compare it byte-for-byte with the ESP-NN result. On a mismatch, the
++		reference output is restored before downstream operators execute.
++
++	config TFLITEMICRO_ESP_NN_DEPTHWISE_CONV2D_OUTPUT_TENSOR
++	int "ESP-NN DepthwiseConv2D output tensor ID (-1 disables ESP-NN DepthwiseConv2D)"
++	default -1
++	depends on TFLITEMICRO_ESP_NN
++	---help---
++		Enable ESP-NN for exactly one eligible DepthwiseConv2D node selected by
++		its output tensor ID. The default value -1 keeps all DepthwiseConv2D
++		nodes on the TFLite Micro reference kernel.
++
++	config TFLITEMICRO_ESP_NN_DEPTHWISE_CONV2D_OUTPUT_TENSOR_MASK
++	hex "ESP-NN DepthwiseConv2D output tensor bit mask"
++	default 0x0
++	depends on TFLITEMICRO_ESP_NN
++	---help---
++		Enable multiple eligible DepthwiseConv2D nodes by their output tensor
++		IDs. Bit N selects output tensor N; this is combined with the single
++		output tensor ID option above. The default 0x0 selects no additional
++		DepthwiseConv2D nodes. Only tensor IDs from 0 through 31 are
++		representable.
++
++	config TFLITEMICRO_ESP_NN_DEPTHWISE_CONV2D_VERIFY
++	bool "Verify selected ESP-NN DepthwiseConv2D against reference output"
++	default n
++	depends on TFLITEMICRO_ESP_NN
++	---help---
++		Allocate a temporary reference output for the selected DepthwiseConv2D
++		and compare it byte-for-byte with the ESP-NN result. On a mismatch, the
++		reference output is restored before downstream operators execute.
++
++	config TFLITEMICRO_ESP_NN_MEAN
++	bool "Enable ESP-NN specialized NHWC Mean"
++	default n
++	depends on TFLITEMICRO_ESP_NN
++	---help---
++		Enable the ESP-NN Mean wrapper for the audio-event global average
++		pooling shape. Only int8 [1, H, W, 24] inputs reduced across axes 1
++		and 2 are accelerated; all other Mean nodes use the TFLite Micro
++		reference kernel.
++
++	config TFLITEMICRO_ESP_NN_MEAN_VERIFY
++	bool "Verify ESP-NN Mean against reference output"
++	default n
++	depends on TFLITEMICRO_ESP_NN_MEAN
++	---help---
++		Allocate a temporary reference output for the specialized ESP-NN Mean
++		node and compare it byte-for-byte with the ESP-NN result. A mismatch is
++		logged and the reference output is restored before downstream operators
++		execute. Use this only for bring-up and correctness verification.
++
++	config TFLITEMICRO_ESP32S3_CCOUNT_PROFILER
++	bool "Use ESP32-S3 cycle counter for TFLite Micro profiling"
++	default n
++	depends on TFLITEMICRO_DEBUG && ARCH_CHIP_ESP32S3
++	---help---
++		Use the ESP32-S3 CCOUNT register as the TFLite Micro profiler time
++		source. This reports CPU cycles instead of scheduler-quantized wall
++		time and is intended for reproducible on-target benchmarking.
+ 
+ 	config TFLITEMICRO_TOOL
+ 	bool "tflite-micro online compiling tool"
+--- a/apps/mlearning/tflite-micro/Makefile
++++ b/apps/mlearning/tflite-micro/Makefile
+@@ -28,6 +28,7 @@
+ TFLM_UNPACK  := tflite-micro
+ TFLM_VER     := cfa4c91d1b36c37c7c104b9c664615e59f1abfe3
+ TFLM_DIR     := $(APPDIR)/mlearning/tflite-micro/$(TFLM_UNPACK)
++ESP_NN_DIR   := $(APPDIR)/mlearning/esp-nn/esp-nn
+ 
+ tflite-micro.zip:
+ 	$(Q) curl -L https://github.com/tensorflow/tflite-micro/archive/$(TFLM_VER).zip -o tflite-micro.zip
+@@ -79,6 +80,12 @@
+ CXXSRCS += $(wildcard $(TFLM_DIR)/tensorflow/lite/schema/*.cc)
+ CXXSRCS := $(filter-out %test.cc, $(CXXSRCS))
+ 
++# Use the ESP32-S3 cycle counter instead of scheduler-quantized wall time
++# when collecting MicroProfiler events on target.
++ifneq ($(CONFIG_TFLITEMICRO_ESP32S3_CCOUNT_PROFILER),)
++CXXSRCS := $(filter-out $(TFLM_DIR)/tensorflow/lite/micro/micro_time.cc, $(CXXSRCS))
++CXXSRCS += kernels/esp_nn/micro_time_esp32s3.cc
++endif
+ 
+ ifneq ($(CONFIG_ETHOSU),)
+ CXXSRCS += $(wildcard $(TFLM_DIR)/tensorflow/lite/micro/kernels/ethos_u/*.cc)
+@@ -102,6 +109,28 @@
+ endif
+ endif
+ 
++# ESP-NN optimized TFLite Micro kernels for ESP32-S3.
++ifneq ($(CONFIG_TFLITEMICRO_ESP_NN),)
++COMMON_FLAGS += -DESP_NN=1
++COMMON_FLAGS += -DCONFIG_NN_OPTIMIZED=1
++COMMON_FLAGS += -DCONFIG_IDF_TARGET_ESP32S3=1
++COMMON_FLAGS += ${INCDIR_PREFIX}$(ESP_NN_DIR)/include
++COMMON_FLAGS += ${INCDIR_PREFIX}$(ESP_NN_DIR)/src/common
++
++ESP_NN_CSRCS := $(wildcard $(ESP_NN_DIR)/src/*/*_ansi.c)
++ESP_NN_CSRCS += $(wildcard $(ESP_NN_DIR)/src/*/*_opt.c)
++ESP_NN_CSRCS += $(wildcard $(ESP_NN_DIR)/src/*/*_esp32s3.c)
++ESP_NN_ASRCS := $(wildcard $(ESP_NN_DIR)/src/*/*_esp32s3.S)
++UNNEEDED_SRCS := $(TFLM_DIR)/tensorflow/lite/micro/kernels/conv.cc
++UNNEEDED_SRCS += $(TFLM_DIR)/tensorflow/lite/micro/kernels/depthwise_conv.cc
++CXXSRCS := $(filter-out $(UNNEEDED_SRCS), $(CXXSRCS))
++CXXSRCS += kernels/esp_nn/conv.cc
++CXXSRCS += kernels/esp_nn/depthwise_conv.cc
++CXXSRCS += kernels/esp_nn/mean.cc
++CSRCS += $(ESP_NN_CSRCS)
++ASRCS += $(ESP_NN_ASRCS)
++CFLAGS += -O2 -fno-unroll-loops
++endif
+ 
+ # extra hardware support.
+ -include $(TFLM_DIR)/tensorflow/lite/micro/nuttx/Makefile
+--- a/apps/mlearning/tflite-micro/CMakeLists.txt
++++ b/apps/mlearning/tflite-micro/CMakeLists.txt
+@@ -48,6 +48,19 @@
+     list(APPEND COMMON_FLAGS -DCMSIS_NN)
+   endif()
+ 
++  if(CONFIG_TFLITEMICRO_ESP_NN)
++    set(ESP_NN_DIR ${CMAKE_CURRENT_LIST_DIR}/../esp-nn/esp-nn)
++    if(NOT EXISTS ${ESP_NN_DIR}/include/esp_nn.h)
++      message(FATAL_ERROR
++              "ESP-NN is enabled but ${ESP_NN_DIR} is unavailable. "
++              "Run ccf_audioevent/scripts/link_esp_nn.sh first.")
++    endif()
++
++    list(APPEND COMMON_FLAGS
++         -DESP_NN=1
++         -DCONFIG_NN_OPTIMIZED=1
++         -DCONFIG_IDF_TARGET_ESP32S3=1)
++  endif()
+ 
+   # ############################################################################
+   # Additional flags for TFLM tool and hardware operators
+@@ -86,6 +99,14 @@
+   list(FILTER TFLITE_MICRO_SRCS EXCLUDE REGEX ".*test.cc")
+   list(FILTER TFLITE_MICRO_SRCS EXCLUDE REGEX ".*test_common.cc")
+ 
++  # Use the ESP32-S3 cycle counter instead of scheduler-quantized wall time
++  # when collecting MicroProfiler events on target.
++  if(CONFIG_TFLITEMICRO_ESP32S3_CCOUNT_PROFILER)
++    list(REMOVE_ITEM TFLITE_MICRO_SRCS
++         ${TFLITE_MICRO_DIR}/tensorflow/lite/micro/micro_time.cc)
++    list(APPEND TFLITE_MICRO_SRCS
++         ${CMAKE_CURRENT_LIST_DIR}/kernels/esp_nn/micro_time_esp32s3.cc)
++  endif()
+ 
+   # Add Ethos-U NPU kernel support if enabled
+   if(CONFIG_ETHOSU)
+@@ -151,6 +172,67 @@
+     endif()
+   endif()
+ 
++  # ESP-NN optimized Conv2D and DepthwiseConv2D for ESP32-S3.
++  if(CONFIG_TFLITEMICRO_ESP_NN)
++    set(ESP_NN_SRCS
++        ${ESP_NN_DIR}/src/activation_functions/esp_nn_relu_ansi.c
++        ${ESP_NN_DIR}/src/activation_functions/esp_nn_hard_swish_ansi.c
++        ${ESP_NN_DIR}/src/common/esp_nn_mean_ansi.c
++        ${ESP_NN_DIR}/src/basic_math/esp_nn_add_ansi.c
++        ${ESP_NN_DIR}/src/basic_math/esp_nn_mul_ansi.c
++        ${ESP_NN_DIR}/src/convolution/esp_nn_conv_ansi.c
++        ${ESP_NN_DIR}/src/convolution/esp_nn_conv_opt.c
++        ${ESP_NN_DIR}/src/convolution/esp_nn_depthwise_conv_ansi.c
++        ${ESP_NN_DIR}/src/convolution/esp_nn_depthwise_conv_opt.c
++        ${ESP_NN_DIR}/src/fully_connected/esp_nn_fully_connected_ansi.c
++        ${ESP_NN_DIR}/src/softmax/esp_nn_softmax_ansi.c
++        ${ESP_NN_DIR}/src/softmax/esp_nn_softmax_opt.c
++        ${ESP_NN_DIR}/src/logistic/esp_nn_logistic_ansi.c
++        ${ESP_NN_DIR}/src/pooling/esp_nn_avg_pool_ansi.c
++        ${ESP_NN_DIR}/src/pooling/esp_nn_max_pool_ansi.c
++        ${ESP_NN_DIR}/src/common/esp_nn_common_functions_esp32s3.S
++        ${ESP_NN_DIR}/src/common/esp_nn_dot_s8_esp32s3.S
++        ${ESP_NN_DIR}/src/common/esp_nn_multiply_by_quantized_mult_esp32s3.S
++        ${ESP_NN_DIR}/src/common/esp_nn_multiply_by_quantized_mult_ver1_esp32s3.S
++        ${ESP_NN_DIR}/src/activation_functions/esp_nn_relu_s8_esp32s3.S
++        ${ESP_NN_DIR}/src/activation_functions/esp_nn_hard_swish_s8_esp32s3.c
++        ${ESP_NN_DIR}/src/common/esp_nn_mean_s8_esp32s3.c
++        ${ESP_NN_DIR}/src/basic_math/esp_nn_add_s8_esp32s3.S
++        ${ESP_NN_DIR}/src/basic_math/esp_nn_mul_s8_esp32s3.S
++        ${ESP_NN_DIR}/src/basic_math/esp_nn_mul_broadcast_s8_esp32s3.S
++        ${ESP_NN_DIR}/src/convolution/esp_nn_conv_esp32s3.c
++        ${ESP_NN_DIR}/src/convolution/esp_nn_conv_s8_1x1_esp32s3.c
++        ${ESP_NN_DIR}/src/convolution/esp_nn_conv_s8_3x3_opt_esp32s3.c
++        ${ESP_NN_DIR}/src/convolution/esp_nn_depthwise_conv_s8_esp32s3.c
++        ${ESP_NN_DIR}/src/convolution/esp_nn_conv_s16_mult8_esp32s3.S
++        ${ESP_NN_DIR}/src/convolution/esp_nn_conv_s8_mult8_1x1_esp32s3.S
++        ${ESP_NN_DIR}/src/convolution/esp_nn_conv_s16_mult4_1x1_esp32s3.S
++        ${ESP_NN_DIR}/src/convolution/esp_nn_conv_s8_filter_aligned_input_padded_esp32s3.S
++        ${ESP_NN_DIR}/src/convolution/esp_nn_depthwise_conv_s8_mult1_3x3_padded_esp32s3.S
++        ${ESP_NN_DIR}/src/convolution/esp_nn_depthwise_conv_s16_mult1_esp32s3.S
++        ${ESP_NN_DIR}/src/convolution/esp_nn_depthwise_conv_s16_mult1_3x3_esp32s3.S
++        ${ESP_NN_DIR}/src/convolution/esp_nn_depthwise_conv_s16_mult1_3x3_no_pad_esp32s3.S
++        ${ESP_NN_DIR}/src/convolution/esp_nn_depthwise_conv_s16_mult8_3x3_esp32s3.S
++        ${ESP_NN_DIR}/src/convolution/esp_nn_depthwise_conv_s16_mult4_esp32s3.S
++        ${ESP_NN_DIR}/src/convolution/esp_nn_depthwise_conv_s16_mult8_esp32s3.S
++        ${ESP_NN_DIR}/src/fully_connected/esp_nn_fully_connected_esp32s3.c
++        ${ESP_NN_DIR}/src/fully_connected/esp_nn_fc_s8_mac16_esp32s3.S
++        ${ESP_NN_DIR}/src/fully_connected/esp_nn_fully_connected_s8_esp32s3.S
++        ${ESP_NN_DIR}/src/fully_connected/esp_nn_fully_connected_per_ch_s8_esp32s3.S
++        ${ESP_NN_DIR}/src/pooling/esp_nn_max_pool_s8_esp32s3.S
++        ${ESP_NN_DIR}/src/pooling/esp_nn_avg_pool_s8_esp32s3.c
++        ${ESP_NN_DIR}/src/pooling/esp_nn_avg_pool_s8_esp32s3.S
++        ${ESP_NN_DIR}/src/softmax/esp_nn_softmax_s8_esp32s3.c)
++
++    list(REMOVE_ITEM TFLITE_MICRO_SRCS
++         ${TFLITE_MICRO_DIR}/tensorflow/lite/micro/kernels/conv.cc
++         ${TFLITE_MICRO_DIR}/tensorflow/lite/micro/kernels/depthwise_conv.cc)
++    list(APPEND TFLITE_MICRO_SRCS
++         ${CMAKE_CURRENT_LIST_DIR}/kernels/esp_nn/conv.cc
++         ${CMAKE_CURRENT_LIST_DIR}/kernels/esp_nn/depthwise_conv.cc
++         ${CMAKE_CURRENT_LIST_DIR}/kernels/esp_nn/mean.cc
++         ${ESP_NN_SRCS})
++  endif()
+ 
+   # ############################################################################
+   # Xtensa hardware operator support
+@@ -259,12 +341,22 @@
+     list(APPEND INCDIR ${CMAKE_CURRENT_LIST_DIR}/../cmsis-nn/cmsis-nn/Include)
+   endif()
+ 
++  if(CONFIG_TFLITEMICRO_ESP_NN)
++    list(APPEND INCDIR ${ESP_NN_DIR}/include ${ESP_NN_DIR}/src/common)
++  endif()
++
+   # ############################################################################
+   # Library Configuration
+   # ############################################################################
+ 
+   nuttx_add_library(tflite_micro STATIC)
+-  target_compile_options(tflite_micro PRIVATE ${COMMON_FLAGS})  target_sources(tflite_micro PRIVATE ${TFLITE_MICRO_SRCS})
++  target_compile_options(tflite_micro PRIVATE ${COMMON_FLAGS})
++  if(CONFIG_TFLITEMICRO_ESP_NN)
++    set_source_files_properties(${ESP_NN_SRCS}
++                                PROPERTIES
++                                COMPILE_OPTIONS "-O2;-fno-unroll-loops;-mlongcalls")
++  endif()
++  target_sources(tflite_micro PRIVATE ${TFLITE_MICRO_SRCS})
+   target_include_directories(tflite_micro PUBLIC ${INCDIR})
+ 
+   # ############################################################################
