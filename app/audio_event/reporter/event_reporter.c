@@ -259,6 +259,17 @@ static int reporter_start_thread(void)
       ret = pthread_attr_setschedparam(&attr, &param);
     }
 
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_SMP_AFFINITY
+  if (ret == 0)
+    {
+      cpu_set_t cpuset;
+
+      CPU_ZERO(&cpuset);
+      CPU_SET(1, &cpuset);
+      ret = pthread_attr_setaffinity_np(&attr, sizeof(cpuset), &cpuset);
+    }
+#endif
+
   if (ret == 0)
     {
       ret = pthread_create(&g_reporter.thread, &attr, reporter_thread_main,
@@ -311,6 +322,10 @@ int event_reporter_init(void)
          CONFIG_EXAMPLES_AUDIO_EVENT_REMOTE_QUEUE_DEPTH,
          CONFIG_EXAMPLES_AUDIO_EVENT_REMOTE_HTTP_ENDPOINT[0] == '\0' ?
          "<unset>" : "<configured>");
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_SMP_AFFINITY
+  printf("[reporter] affinity=CPU1 priority=%d\n",
+         CONFIG_EXAMPLES_AUDIO_EVENT_REMOTE_THREAD_PRIORITY);
+#endif
   return 0;
 #else
   return 0;

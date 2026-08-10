@@ -24,6 +24,7 @@
 #include "dsp/feature_extract.h"
 #include "model/event_classifier.h"
 #include "power/power_gate.h"
+#include "streamer/pcm_streamer.h"
 
 #ifdef CONFIG_EXAMPLES_AUDIO_EVENT_UI
 #include "ui/audio_event_ui.h"
@@ -48,7 +49,8 @@
    AUDIO_EVENT_CLIP_SAMPLES * sizeof(int16_t) + \
    AUDIO_IO_BLOCK_SAMPLES * sizeof(int16_t) + \
    AUDIO_EVENT_FEATURE_SIZE * sizeof(float) + \
-   AUDIO_EVENT_CLASS_COUNT * sizeof(float))
+   AUDIO_EVENT_CLASS_COUNT * sizeof(float) + \
+   PCM_STREAM_QUEUE_STORAGE_SIZE)
 #define AUDIO_SPIRAM_ALLOC_ATTEMPTS 3
 
 enum input_mode_e
@@ -74,6 +76,7 @@ struct app_options_s
   bool audio_stats;
   bool no_oled;
   bool profile;
+  bool pcm_stream;
   enum power_gate_override_e power_gate_override;
 };
 
@@ -115,14 +118,37 @@ static int16_t *g_audio_block;
 static float *g_features;
 static float *g_probabilities;
 static uint8_t *g_audio_workspace;
+static void *g_pcm_stream_storage;
+#define AUDIO_PCM_STREAM_STORAGE g_pcm_stream_storage
 #else
 static int16_t g_audio_ring[AUDIO_RING_SAMPLES];
 static int16_t g_audio_window[AUDIO_EVENT_CLIP_SAMPLES];
 static int16_t g_audio_block[AUDIO_IO_BLOCK_SAMPLES];
 static float g_features[AUDIO_EVENT_FEATURE_SIZE];
 static float g_probabilities[AUDIO_EVENT_CLASS_COUNT];
+#define AUDIO_PCM_STREAM_STORAGE NULL
 #endif
 static struct capture_state_s g_capture_state;
+
+static int bind_audio_current_thread_to_cpu0(void)
+{
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_SMP_AFFINITY
+  cpu_set_t cpuset;
+  int ret;
+
+  CPU_ZERO(&cpuset);
+  CPU_SET(0, &cpuset);
+  ret = pthread_setaffinity_np(pthread_self(), sizeof(cpuset), &cpuset);
+  if (ret != 0)
+    {
+      fprintf(stderr, "[app] bind main thread to CPU0 failed: %d\n", ret);
+      return -ret;
+    }
+
+  printf("[app] affinity main=CPU0\n");
+#endif
+  return 0;
+}
 
 #ifdef CONFIG_EXAMPLES_AUDIO_EVENT_MODEL_8CLASS
 /* Keep the tensor arena in internal DRAM for ESP-NN. The 8-class profile
@@ -152,6 +178,7 @@ static void audio_spiram_buffers_deinit(void)
   g_audio_block = NULL;
   g_features = NULL;
   g_probabilities = NULL;
+  g_pcm_stream_storage = NULL;
   g_audio_workspace = NULL;
 }
 
@@ -219,9 +246,12 @@ static int audio_spiram_buffers_init(void)
   g_features = (float *)cursor;
   cursor += AUDIO_EVENT_FEATURE_SIZE * sizeof(*g_features);
   g_probabilities = (float *)cursor;
+  cursor += AUDIO_EVENT_CLASS_COUNT * sizeof(*g_probabilities);
+  g_pcm_stream_storage = cursor;
 
-  printf("[app] audio buffers in PSRAM: ring=%p window=%p features=%p\n",
-         (void *)g_audio_ring, (void *)g_audio_window, (void *)g_features);
+  printf("[app] audio buffers in PSRAM: ring=%p window=%p features=%p pcm=%p\n",
+         (void *)g_audio_ring, (void *)g_audio_window, (void *)g_features,
+         g_pcm_stream_storage);
   return 0;
 }
 #endif
@@ -297,7 +327,8 @@ static void usage(const char *program)
 {
   printf("Usage: %s [--file PATH | --device PATH] [--once] "
          "[--repeat N] [--model-smoke] [--audio-stats] "
-         "[--no-oled] [--profile] [--power-gate | --no-power-gate]\n",
+         "[--no-oled] [--profile] [--pcm-stream] "
+         "[--power-gate | --no-power-gate]\n",
          program);
   printf("  --file PATH    Read 16 kHz mono PCM16 or WAV from HostFS\n");
   printf("  --device PATH  Read from a NuttX Audio capture device\n");
@@ -307,6 +338,7 @@ static void usage(const char *program)
   printf("  --audio-stats  Print PCM min/max/mean/rms/zero_count per window\n");
   printf("  --no-oled      Disable OLED init and updates for audio diagnostics\n");
   printf("  --profile      Print per-window processing time breakdown\n");
+  printf("  --pcm-stream  Enable optional UDP PCM visualization stream\n");
   printf("  --power-gate   Enable PCM energy gate (P1; requires gate-capable build)\n");
   printf("  --no-power-gate  Disable gate and run continuous inference (P0)\n");
 }
@@ -323,6 +355,7 @@ static int parse_options(int argc, char **argv, struct app_options_s *options)
   options->audio_stats = false;
   options->no_oled = false;
   options->profile = false;
+  options->pcm_stream = false;
   options->power_gate_override = POWER_GATE_DEFAULT;
 
   for (i = 1; i < argc; i++)
@@ -367,6 +400,10 @@ static int parse_options(int argc, char **argv, struct app_options_s *options)
       else if (strcmp(argv[i], "--profile") == 0)
         {
           options->profile = true;
+        }
+      else if (strcmp(argv[i], "--pcm-stream") == 0)
+        {
+          options->pcm_stream = true;
         }
       else if (strcmp(argv[i], "--power-gate") == 0)
         {
@@ -699,6 +736,10 @@ static void *capture_thread_main(void *arg)
           break;
         }
 
+      (void)pcm_streamer_submit(g_audio_block, (size_t)count,
+                                (state->total_samples + count) * 1000 /
+                                AUDIO_EVENT_SAMPLE_RATE);
+
       pthread_mutex_lock(&state->lock);
       ring_append(&state->write_position, g_audio_block, (size_t)count);
       state->total_samples += (uint64_t)count;
@@ -774,6 +815,20 @@ static int capture_worker_start(struct capture_state_s *state,
       goto attr_error;
     }
 
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_SMP_AFFINITY
+  {
+    cpu_set_t cpuset;
+
+    CPU_ZERO(&cpuset);
+    CPU_SET(0, &cpuset);
+    ret = pthread_attr_setaffinity_np(&attr, sizeof(cpuset), &cpuset);
+    if (ret != 0)
+      {
+        goto attr_error;
+      }
+  }
+#endif
+
   ret = pthread_create(&state->thread, &attr, capture_thread_main, state);
   pthread_attr_destroy(&attr);
   attr_initialized = false;
@@ -788,6 +843,9 @@ static int capture_worker_start(struct capture_state_s *state,
   state->thread_created = true;
   printf("[app] capture worker priority=%d main=%d\n",
          capture_priority, CONFIG_EXAMPLES_AUDIO_EVENT_PRIORITY);
+#ifdef CONFIG_EXAMPLES_AUDIO_EVENT_SMP_AFFINITY
+  printf("[app] affinity capture=CPU0\n");
+#endif
   return 0;
 
 attr_error:
@@ -1176,6 +1234,7 @@ int audio_event_main(int argc, char *argv[])
   struct audio_file_s file_source;
   struct power_gate_s file_power_gate;
   struct power_gate_stats_s power_stats;
+  struct pcm_streamer_stats_s pcm_stats;
   size_t write_position = 0;
   size_t samples_until_inference = AUDIO_EVENT_CLIP_SAMPLES;
   uint64_t total_samples = 0;
@@ -1183,6 +1242,7 @@ int audio_event_main(int argc, char *argv[])
   unsigned int windows = 0;
   bool file_open = false;
   bool file_power_gate_initialized = false;
+  bool pcm_stream_started = false;
   bool capture_open = false;
   bool power_gate_enabled;
 #ifdef CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI
@@ -1203,6 +1263,12 @@ int audio_event_main(int argc, char *argv[])
       power_gate_runtime_enabled(options.power_gate_override);
 
   printf("=== Audio Event Detection ===\n");
+
+  ret = bind_audio_current_thread_to_cpu0();
+  if (ret < 0)
+    {
+      return EXIT_FAILURE;
+    }
 
 #ifdef CONFIG_EXAMPLES_AUDIO_EVENT_MODEL_8CLASS
   ret = audio_spiram_buffers_init();
@@ -1248,6 +1314,16 @@ int audio_event_main(int argc, char *argv[])
     {
       fprintf(stderr, "[alert] init failed: %d, serial output remains\n", ret);
     }
+
+  ret = pcm_streamer_init(options.pcm_stream, AUDIO_PCM_STREAM_STORAGE,
+                          PCM_STREAM_QUEUE_STORAGE_SIZE);
+  if (ret < 0)
+    {
+      fprintf(stderr, "[pcm] streamer unavailable: %d\n", ret);
+      goto cleanup;
+    }
+
+  pcm_stream_started = options.pcm_stream;
 
   wall_start_ms = monotonic_ms();
   print_power_gate_config(power_gate_enabled);
@@ -1340,6 +1416,9 @@ int audio_event_main(int argc, char *argv[])
 
       power_gate_process(&file_power_gate, g_audio_block, (size_t)count,
                          total_samples + (uint64_t)count);
+      (void)pcm_streamer_submit(g_audio_block, (size_t)count,
+                                (total_samples + (uint64_t)count) * 1000 /
+                                AUDIO_EVENT_SAMPLE_RATE);
       ring_append(&write_position, g_audio_block, count);
       total_samples += count;
       samples_until_inference -= count;
@@ -1428,6 +1507,19 @@ cleanup:
   if (capture_open)
     {
       audio_capture_deinit();
+    }
+
+  if (pcm_stream_started)
+    {
+      pcm_streamer_get_stats(&pcm_stats);
+      printf("[pcm] queued=%lu sent=%lu queue_dropped=%lu send_dropped=%lu "
+             "last_error=%d\n",
+             (unsigned long)pcm_stats.queued_frames,
+             (unsigned long)pcm_stats.sent_frames,
+             (unsigned long)pcm_stats.queue_dropped_frames,
+             (unsigned long)pcm_stats.send_dropped_frames,
+             pcm_stats.last_error);
+      pcm_streamer_deinit();
     }
 
   event_alert_deinit();

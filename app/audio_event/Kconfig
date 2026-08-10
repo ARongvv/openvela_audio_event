@@ -186,6 +186,57 @@ config EXAMPLES_AUDIO_EVENT_REMOTE_THREAD_PRIORITY
 		cannot delay PCM acquisition. With the default audio task priority
 		of 100 and capture worker priority of 140, use 101.
 
+config EXAMPLES_AUDIO_EVENT_SMP_AFFINITY
+	bool "Pin audio and remote reporter threads to separate CPUs"
+	default n
+	depends on SMP
+	---help---
+		Pin the audio application main task and capture worker to CPU0, and
+		pin the asynchronous HTTP reporter to CPU1. This prevents network
+		reporting from competing with feature extraction and inference. Use
+		only with a verified two-CPU ESP32-S3 SMP profile.
+
+config EXAMPLES_AUDIO_EVENT_PCM_STREAM
+	bool "Enable optional UDP PCM stream"
+	default n
+	depends on EXAMPLES_AUDIO_EVENT_MODEL_8CLASS && NET_UDP && ESP32S3_SPIRAM_COMMON_HEAP
+	---help---
+		Copy PCM blocks to a bounded PSRAM queue and send them over UDP from
+		a background thread. This is for trusted-LAN visualization only; it
+		never changes the model input and is disabled by default.
+
+if EXAMPLES_AUDIO_EVENT_PCM_STREAM
+
+config EXAMPLES_AUDIO_EVENT_PCM_STREAM_HOST
+	string "PCM stream receiver IPv4 address"
+	default ""
+
+config EXAMPLES_AUDIO_EVENT_PCM_STREAM_PORT
+	int "PCM stream receiver UDP port"
+	default 5004
+	range 1 65535
+
+config EXAMPLES_AUDIO_EVENT_PCM_STREAM_QUEUE_DEPTH
+	int "PCM stream queue depth (512-sample frames)"
+	default 8
+	range 2 32
+
+config EXAMPLES_AUDIO_EVENT_PCM_STREAM_STACKSIZE
+	int "PCM streamer thread stack size"
+	default 6144
+	range 4096 16384
+
+config EXAMPLES_AUDIO_EVENT_PCM_STREAM_PRIORITY
+	int "PCM streamer thread priority"
+	default 101
+	range 1 255
+	---help---
+		Use a priority above the File replay main task (100), but below the
+		I2S capture worker (140). UDP send failures drop only visualization
+		frames and never block audio capture or inference.
+
+endif # EXAMPLES_AUDIO_EVENT_PCM_STREAM
+
 endif # EXAMPLES_AUDIO_EVENT_REMOTE_REPORT
 
 choice EXAMPLES_AUDIO_EVENT_POWER_MODE

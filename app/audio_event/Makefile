@@ -58,6 +58,7 @@ CSRCS += detector/event_detector.c
 CSRCS += alert/event_alert.c
 CSRCS += reporter/event_reporter.c
 CSRCS += reporter/event_reporter_http.c
+CSRCS += streamer/pcm_streamer.c
 
 ifeq ($(CONFIG_EXAMPLES_AUDIO_EVENT_UI),y)
 CSRCS += ui/audio_event_ui.c

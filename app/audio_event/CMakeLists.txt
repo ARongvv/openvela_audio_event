@@ -17,7 +17,8 @@ if(CONFIG_EXAMPLES_AUDIO_EVENT)
       model/event_classifier.cc
       alert/event_alert.c
       reporter/event_reporter.c
-      reporter/event_reporter_http.c)
+      reporter/event_reporter_http.c
+      streamer/pcm_streamer.c)
 
   if(CONFIG_EXAMPLES_AUDIO_EVENT_MODEL_8CLASS)
     list(APPEND AUDIO_EVENT_SRCS model/s3_large_8class_model.cc)
