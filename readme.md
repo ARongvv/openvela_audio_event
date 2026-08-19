@@ -294,6 +294,6 @@ nsh> audio_event --file /data/combined_A_pure.wav --profile --no-oled --pcm-stre
 
 ## 开源与第三方声明
 
-项目源码使用 [MIT License](LICENSE)。第三方依赖、ESP-NN 上游来源和数据集许可摘要见
-[NOTICE](NOTICE) 与 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。训练/数据集的许可
-边界与商用使用条件需要单独审查，不能仅凭本仓库的模型文件推定可商用。
+项目自研源码与文档使用 [Apache License 2.0](LICENSE)。第三方依赖、ESP-NN 上游来源和
+数据集许可摘要见 [NOTICE](NOTICE) 与 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+训练/数据集的许可边界与商用使用条件需要单独审查，不能仅凭本仓库的模型文件推定可商用。

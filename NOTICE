@@ -1,7 +1,12 @@
 ccf_audioevent
 Copyright (c) 2026 ccf_audioevent contributors
 
-This project is released under the MIT License. See LICENSE.
+Project-authored source code and documentation are released under the
+Apache License, Version 2.0. See LICENSE.
+
+This NOTICE file is distributed for the attribution notices required by the
+Apache License, Version 2.0. It is informational and does not modify the
+license terms.
 
 This project is built for the openvela/NuttX ecosystem and uses openvela
 components, board support code, audio drivers, graphics drivers, and build
@@ -19,4 +24,4 @@ self-collected recordings. The source datasets retain their own licenses and
 attribution requirements. FSD50K contains clips with mixed Creative Commons
 licenses. ESC-50 is distributed as a Creative Commons Attribution-NonCommercial
 dataset. Self-collected recordings are project data unless otherwise stated.
-See THIRD_PARTY_NOTICES.md and docs/性能与评估.md.
+See THIRD_PARTY_NOTICES.md and docs/项目基线/性能与评估.md.

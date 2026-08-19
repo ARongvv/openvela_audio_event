@@ -6,8 +6,13 @@ full upstream license texts.
 
 ## Project License
 
-`ccf_audioevent` source code is released under the MIT License. See
-`LICENSE`.
+Project-authored `ccf_audioevent` source code and documentation are released
+under the Apache License, Version 2.0. See `LICENSE` and `NOTICE`.
+
+This license change applies only to project-authored material for which the
+project has authority to grant the license. Vendored or copied upstream code,
+linked openvela components, datasets, audio assets, and model artifacts retain
+their original licenses, copyright notices, and use restrictions.
 
 ## Runtime and Build Dependencies
 
