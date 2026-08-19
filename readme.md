@@ -1,501 +1,299 @@
-# 基于 openvela 的本地音频事件检测系统-ccf_audioevent
+# 基于 openvela 的端侧音频事件检测系统
 
-`ccf_audioevent` 是一个面向 openvela 的本地音频事件检测作品目录。当前主路径是
-`ESP32-S3-N16R8 DevKit + INMP441 数字麦克风 + 0.96 寸 I2C OLED`，核心应用是
-`audio_event`：采集音频、提取 log-mel/delta 特征、运行 TFLite Micro 模型，并在
-OLED 上显示检测状态。
+`ccf_audioevent` 是一个运行在 **ESP32-S3-N16R8 DevKit** 上的离线音频事件检测项目。
+它以 INMP441 数字麦克风或 LittleFS 中的 WAV 文件为输入，在设备端完成 PCM 采集、
+Log-Mel + Delta 特征提取、TFLite Micro INT8 推理、事件判决和本地告警；在可信局域网中还可选
+通过 HTTP 上报告警，并通过 UDP 显示实时 PCM 波形。
 
-`audio_record` 和 `audio_test` 是辅助工具：前者用于导出实录 WAV，后者用于检查
-I2S/INMP441 采集质量。goldfish 模拟器仍保留，用于文件输入、模型加载和大屏 LVGL UI
-验证，但放在真机主流程之后。
+当前建议使用的主线是 **S3-large 8-class INT8 模型 + ESP-NN**。模型与推理完全在端侧执行；
+网络能力是可选的可视化/上报扩展，网络不可用时不会成为本地识别的前置条件。
 
-按用途整理的文档入口见 [`docs/README.md`](docs/README.md)；源码、配置、脚本和测试资产的位置见
-[`docs/目录架构说明.md`](docs/目录架构说明.md)。
+> 本仓库需要位于 openvela 工作区根目录下，例如
+> `/home/arongw/openvela/ccf_audioevent`。下文将 openvela 根目录记为 `$OPENVELA_ROOT`。
 
-## 初赛要求对应关系
+## 项目能力一览
 
-| 初赛要求 | 当前实现 | 对应材料 |
+| 能力 | 当前实现 | 说明 |
 | --- | --- | --- |
-| 离线本地闭环 | `audio_event` 在端侧完成采集、特征提取、TFLite Micro 推理和 OLED/串口输出 | 本文“快速开始”“audio_event 主应用” |
-| 至少 2 类音频事件 | 当前支持 `knock`、`cough`，并保留 `background`、`silence` 作为背景/静音类别 | [docs/项目基线/事件定义与触发口径说明.md](docs/项目基线/事件定义与触发口径说明.md) |
-| 可复现运行 | 提供仓库拉取、openvela 软链接、ESP32-S3 DevKit 构建、烧录和运行命令 | 本文“准备工作”“快速开始”“真机构建和烧录” |
-| 基本异常处理 | 覆盖音频设备打开失败、采集全 0、OLED 不可用、模型加载失败等场景 | [docs/使用与调试/异常处理.md](docs/使用与调试/异常处理.md) |
-| 运行演示 | 提供真机运行日志和演示视频 | [logs/演示/演示日志.md](logs/演示/演示日志.md)、[logs/演示/演示视频.mp4](logs/演示/演示视频.mp4) |
-| 延迟与误报/漏报数据 | 提供端侧延迟、训练集/测试集指标和已知限制 | [docs/项目基线/性能与评估.md](docs/项目基线/性能与评估.md) |
-| 开源协议与第三方声明 | 补充项目协议、NOTICE 和第三方依赖/数据集声明 | [LICENSE](LICENSE)、[NOTICE](NOTICE)、[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) |
+| 本地音频识别 | 16 kHz、单声道 PCM16 输入 | 支持 INMP441 I2S 采集和 LittleFS/WAV 文件回放。 |
+| 特征提取 | Log-Mel + 一阶/二阶 Delta，`[49, 40, 3]` | 1 s 分析窗口、250 ms hop；内部使用 30 ms 帧、20 ms 帧移和 512 点 FFT。 |
+| 主模型 | S3-large 8-class INT8，37,784 B | `knock`、`cough`、`glass_breaking`、`yes`、`no`、`stop`、`background`、`silence`。 |
+| 推理加速 | ESP-NN：4 Conv2D、3 DepthwiseConv2D、Mean | 通过 TFLM 外层适配、节点选择、对齐缓冲、reference 回退与逐字节验证接入。 |
+| 本地输出 | 串口、OLED、事件阈值/连续命中/冷却判决 | 不依赖 Wi-Fi 或上位机。 |
+| 远程告警（可选） | HTTP POST JSON、异步有界队列 | 用于可信局域网；网络失败不会阻塞采集、推理或本地告警。 |
+| 波形可视化（可选） | UDP PCM → Python receiver → 浏览器 Canvas | 默认关闭；仅用于可信局域网监看，允许少量丢包。 |
+| 低功耗策略（可选） | PCM 能量门控 | 已实现运行时 `--power-gate` 开关；默认连续推理，尚未以电流仪完成物理功耗结论。 |
 
-## 初赛任务
-1. 离线本地闭环：完成采集 → 预处理/特征提取 → 模型识别 → 输出/告警（LED/蜂鸣器/屏幕/串口等）全流程在端侧完成；结果可验证、可重复运行。
-2. 基础类别覆盖：至少支持 2 类音频事件（如玻璃破碎、咳嗽），提供事件定义与触发口径说明。
-3. 可复现与工程化：提供清晰的运行/部署说明，一键运行方式，具备基本异常处理。
-4. 演示参考 `logs/演示/演示视频.mp4` 和 `logs/演示/演示日志.md`
+## 已测性能快照
 
-## 目录结构
+以下是同一块 ESP32-S3、240 MHz、固定 `pattern` 输入、CCOUNT 计时得到的**模型内 Invoke**
+数据。它不包含音频采集、特征提取、日志、OLED 或网络开销。
+
+| 模型 / 后端 | 平均 Invoke | P95 | Tensor arena 实际使用 | 数值一致性 |
+| --- | ---: | ---: | ---: | --- |
+| S3-large 8-class，TFLM reference | 2,954.965 ms | 2,954.990 ms | 85,876 B | 基线 hash：`0xc18cf11e` |
+| S3-large 8-class，完整 ESP-NN | 47.282 ms | 47.308 ms | 132,692 B | 与 reference hash 相同 |
+
+完整 ESP-NN 相对 reference 的平均加速约 **62.5×**。端到端文件回放测试中，主线 8-class
+配置的特征提取约 60–70 ms、推理约 50–60 ms、单窗口总处理约 110–120 ms，低于 250 ms hop。
+测试条件、原始口径和限制见
+[Reference 与 ESP-NN 性能对比](docs/复赛目标/renference与esp-nn对比.md)及
+[S3-large 8-class 端到端分类与告警测试](docs/模型测试/S3-large_8class_端到端分类与告警测试.md)。
+
+## 系统架构
 
 ```text
-ccf_audio/
-├── app/audio_event/                  # 主应用：音频事件检测
-│   ├── model/                         # TFLite Micro 模型与元信息
-│   ├── ui/                            # 320x240 LVGL dashboard，模拟器使用
-│   └── ui_oled/                       # 128x64 OLED compact UI，真机使用
-├── app/audio_record/                 # 辅助工具：录音并导出 WAV base64
-├── app/audio_test/                   # 辅助工具：PCM/INMP441 采集诊断
-├── board/esp32s3-devkit/             # 当前真机主 board
-├── board/goldfish-arm64/configs/
-│   └── audio_event/                  # goldfish 模拟器配置源文件
-├── archive/esp32s3-box-3/            # ESP32-S3-BOX-3 历史适配归档
-├── docs/                             # 赛题、异常处理、性能评估和事件口径文档
-├── train/                            # 模型训练脚本与训练产物
-│   ├── train_audio_event_model.py     # 小型模型训练脚本（当前部署模型）
-│   ├── train_large_model.py           # 中/大型模型训练脚本（复赛模型优化备用）
-│   ├── small_clean/                   # small 模型训练产物（含 metrics/模型文件）
-│   ├── medium_clean/                  # medium 模型训练产物
-│   └── large_clean/                   # large 模型训练产物
-├── scripts/                          # 字体等辅助脚本
-├── LICENSE                           # 项目源码开源协议
-├── NOTICE                            # 项目和数据来源声明
-├── THIRD_PARTY_NOTICES.md            # 第三方依赖和数据集许可摘要
-└── readme.md
+INMP441 I2S / LittleFS WAV
+            │
+            ▼
+  PCM16 ring buffer（16 kHz、mono）
+            │
+            ├── 可选：有界 PSRAM 队列 → UDP PCM → 上位机波形
+            ▼
+Log-Mel + Delta / Delta-Delta 特征：[49, 40, 3]
+            ▼
+TFLite Micro INT8 模型
+            │
+            ├── Conv2D / DepthwiseConv2D / Mean → ESP-NN
+            └── 其他算子 → TFLM reference
+            ▼
+阈值、连续命中、冷却时间判决
+            │
+            ├── 串口 / OLED 本地告警
+            └── 可选：有界队列 → HTTP POST → 上位机 Dashboard
 ```
 
-## 准备工作
+## 目录说明
 
-### 1. 准备 openvela 工作区
-
-先准备可构建的 openvela 工作区，并确认可以在 openvela 根目录执行 `./build.sh`。
-下文默认从 openvela 的上一级目录进入工作区：
-
-```bash
-cd openvela
-OPENVELA_ROOT="$(pwd)"
+```text
+ccf_audioevent/
+├── app/audio_event/                 # 主应用：采集、DSP、模型、判决、告警、网络扩展
+│   ├── audio/                        # WAV/I2S 输入与 INMP441 32-bit → PCM16 适配
+│   ├── dsp/                          # Log-Mel + Delta 特征提取
+│   ├── model/                        # 4-class、S3-large 8-class 模型与 TFLM classifier
+│   ├── reporter/                     # 异步 HTTP 告警上报
+│   ├── streamer/                     # 可选 UDP PCM 发送
+│   ├── power/                        # PCM 能量门控
+│   └── tflm_benchmark/               # 独立模型/算子基准程序
+├── board/esp32s3-devkit/configs/     # ESP32-S3 构建 profile
+├── third_party/esp-nn/               # 固定版本 ESP-NN 上游源码（不在此修改）
+├── third_party/tflm-espnn-adapter/   # 本项目维护的 TFLM ESP-NN 外层适配源码
+├── patches/tflite-micro/             # 对 apps/mlearning/tflite-micro 的最小补丁
+├── scripts/                          # 建链、LittleFS 镜像、基准汇总和上位机接收端脚本
+├── test_data/                        # 文件回放测试数据与标注
+├── logs/                             # 串口原始日志、演示材料和命名约定
+└── docs/                             # 设计、性能、测试、部署和答辩材料
 ```
 
-### 2. 拉取 ccf_audio 仓库
+更详细的文件职责见 [docs/目录架构说明.md](docs/目录架构说明.md)。
 
-推荐将本仓库放在 openvela 根目录下。Git 拉取后的默认目录名是 `ccf_audio`：
+## 前置条件与工作区接入
 
-```bash
-cd openvela
-git clone https://gitlink.org.cn/yang1234/ccf_audio.git
-```
-
-如果本地已经存在该目录，进入后更新即可：
+1. 准备能正常构建 ESP32-S3 的 openvela 工作区，并确认在根目录可执行 `./build.sh`。
+2. 将本仓库放入 openvela 根目录，目录名为 `ccf_audioevent`。
+3. 为主应用和定制板建立软链接。首次建立前请先确认目标路径没有用户文件；已有正确链接时无需重复创建。
 
 ```bash
-cd openvela/ccf_audio
-git pull --ff-only
-```
+cd /path/to/openvela
+export OPENVELA_ROOT="$PWD"
 
-### 3. 建立工作区软链接
-
-`ccf_audio` 作为独立作品仓维护，openvela 构建系统需要通过软链接找到 example app、
-board 和模拟器配置。在 openvela 根目录执行：
-
-```bash
-cd openvela
-OPENVELA_ROOT="$(pwd)"
-CCF_AUDIO_ROOT="$OPENVELA_ROOT/ccf_audio"
-
-ln -sfnT "$CCF_AUDIO_ROOT/app/audio_event" \
+ln -s "$OPENVELA_ROOT/ccf_audioevent/app/audio_event" \
   "$OPENVELA_ROOT/apps/examples/audio_event"
-
-ln -sfnT "$CCF_AUDIO_ROOT/app/audio_record" \
-  "$OPENVELA_ROOT/apps/examples/audio_record"
-
-ln -sfnT "$CCF_AUDIO_ROOT/app/audio_test" \
-  "$OPENVELA_ROOT/apps/examples/audio_test"
-
-ln -sfnT "$CCF_AUDIO_ROOT/board/esp32s3-devkit" \
+ln -s "$OPENVELA_ROOT/ccf_audioevent/board/esp32s3-devkit" \
   "$OPENVELA_ROOT/vendor/espressif/boards/esp32s3/esp32s3-devkit"
-
-mkdir -p "$OPENVELA_ROOT/vendor/openvela/boards/vela/configs/goldfish-audio_event"
-rm -f "$OPENVELA_ROOT/vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig"
-ln -sfn "$CCF_AUDIO_ROOT/board/goldfish-arm64/configs/audio_event/defconfig" \
-  "$OPENVELA_ROOT/vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig"
 ```
 
-检查：
+4. 建立 ESP-NN 源码链接。该脚本会拒绝覆盖意外存在的路径，可重复执行。
 
 ```bash
-readlink -f apps/examples/audio_event
-readlink -f apps/examples/audio_record
-readlink -f apps/examples/audio_test
-readlink -f vendor/espressif/boards/esp32s3/esp32s3-devkit
-readlink -f vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig
+cd "$OPENVELA_ROOT"
+./ccf_audioevent/scripts/link_esp_nn.sh
+./ccf_audioevent/scripts/link_tflm_espnn_adapter.sh --check
 ```
 
-`goldfish-audio_event` 目录本身必须是
-`vendor/openvela/boards/vela/configs/` 下的真实目录，只软链接其中的 `defconfig`。
-不要把整个 `goldfish-audio_event` 目录软链接到 `ccf_audio`，否则非 CMake 构建会
-报 `File Make.defs could not be found`。
+`link_tflm_espnn_adapter.sh --check` 默认只校验，**不会修改** `apps/`。当前工作区若已存在
+等价的适配源码，可继续使用；如需将该目录改为软链接，请先阅读
+[外层适配说明](third_party/tflm-espnn-adapter/README.md)，并由维护者确认后显式执行 `--link`。
 
-`audio_record` 和 `audio_test` 是新增 example。软链接存在后重新 configure 或构建，
-`apps/examples/Kconfig` 生成阶段会自动加入：
-
-```text
-source "<openvela-root>/apps/examples/audio_record/Kconfig"
-source "<openvela-root>/apps/examples/audio_test/Kconfig"
-```
-
-如果 NSH 中没有 `audio_record` 或 `audio_test`，优先检查软链接和重新 configure 状态。
-
-## 快速开始
-
-完成准备工作后，构建 ESP32-S3 DevKit 真机固件：
+5. 对于 ESP-NN 构建，应用 TFLM 最小补丁，或确认当前 `apps/mlearning/tflite-micro` 已含等价修改：
 
 ```bash
-cd openvela
-OPENVELA_ROOT="$(pwd)"
-CCF_AUDIO_ROOT="$OPENVELA_ROOT/ccf_audio"
-
-bash "$CCF_AUDIO_ROOT/scripts/fix_box3_mbedtls_header_priority.sh"
-
-./build.sh vendor/espressif/boards/esp32s3/esp32s3-devkit/configs/audio_event/ -j8 &
-BUILD_PID=$!
-
-bash "$CCF_AUDIO_ROOT/scripts/fix_box3_mbedtls_disable_ccm.sh" &
-CCM_FIX_PID=$!
-bash "$CCF_AUDIO_ROOT/scripts/fix_box3_spinlock_initializer.sh" &
-SPINLOCK_FIX_PID=$!
-
-wait "$BUILD_PID"
-BUILD_STATUS=$?
-wait "$CCM_FIX_PID" "$SPINLOCK_FIX_PID"
-test "$BUILD_STATUS" -eq 0
+cd "$OPENVELA_ROOT"
+git -C apps/mlearning/tflite-micro apply --check \
+  ccf_audioevent/patches/tflite-micro/0001-add-esp-nn-backend.patch
 ```
 
-说明：ESP32-S3 首次构建或 `distclean` 后，`esp-hal-3rdparty` 会在构建过程中生成。
-Fix 1 先修正头文件优先级，Fix 2 和 Fix 3 与构建同步运行并等待目标文件出现。
+若 `apply --check` 报“补丁已应用”或上下文不匹配，不要强行重复应用；先参考
+[补丁说明](patches/tflite-micro/README.md)确认当前工作区状态。
 
-烧录并打开串口：
+## 推荐构建与烧录
+
+### 本地 8-class ESP-NN 主线
 
 ```bash
-cd nuttx && make flash ESPTOOL_PORT=/dev/ttyACM0 ESPTOOL_BAUD=921600 && cd ..
+cd /path/to/openvela
+./ccf_audioevent/scripts/link_esp_nn.sh
+./build.sh ccf_audioevent/board/esp32s3-devkit/configs/audio_event_8class -j8
+
+cd nuttx
+make flash ESPTOOL_PORT=/dev/ttyACM0 ESPTOOL_BAUD=921600
+cd ..
 picocom -b 115200 /dev/ttyACM0
 ```
 
-进入 NSH 后运行主应用：
+烧录端口因主机而异；请以实际设备节点替换 `/dev/ttyACM0`。首次构建、切换 profile 或修改
+Kconfig 后，构建系统会重新配置，耗时会比增量构建更长。
 
-```text
-nsh> audio_event --device /dev/audio/pcm_in1 --audio-stats
-```
-
-`audio_test`、`audio_record` 和 goldfish 模拟器属于辅助验证路径，README 只保留主流程；
-采集诊断、录音导出和模拟器构建运行见“辅助工具和模拟器”。
-
-## 基础指标摘要
-
-当前部署模型为 small int8 模型，输入为 16 kHz、1 秒、mono int16，特征形状为
-`49 x 40 x 3`，类别为 `knock, cough, background, silence`。
-
-| 指标 | 数值 |
-| --- | --- |
-| 模型大小 | 11,984 bytes |
-| 参数量 | 2,148 |
-| Tensor arena 配置 / 使用 | 65,536 bytes / 22,708 bytes |
-| 离线测试样本数 | 570 |
-| 离线 Accuracy | 92.98% |
-| 离线 False alarm rate | 4.57% |
-| 离线 Miss rate | 2.27% |
-| 端侧单窗口处理耗时 | 约 420 - 430 ms |
-
-详细评估口径、混淆矩阵、阈值说明和端侧延迟说明见
-[`docs/项目基线/性能与评估.md`](docs/项目基线/性能与评估.md)。
-
-## 开源协议与合规摘要
-
-项目源码使用 MIT License，见 [`LICENSE`](LICENSE)。第三方依赖和数据来源声明见
-[`NOTICE`](NOTICE) 与 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
-
-当前模型训练数据来源包括 FSD50K、ESC-50 以及自采音频。FSD50K 含混合 Creative
-Commons 许可音频片段，ESC-50 整体为 Creative Commons Attribution-NonCommercial
-3.0；商业使用前需要单独审查数据来源和模型派生物合规性。
-
-## 真机硬件
-
-当前真机构建使用 `esp32s3-devkit`：
-
-```text
-vendor/espressif/boards/esp32s3/esp32s3-devkit/configs/audio_event/
-```
-
-### INMP441 接线
-
-| INMP441 引脚 | ESP32-S3 DevKit | 说明 / 配置 |
-| --- | --- | --- |
-| VDD | 3V3 | 使用 3.3 V，不要接 5 V |
-| GND | GND | 共地 |
-| SCK / BCLK | GPIO18 | `CONFIG_ESP32S3_I2S1_BCLKPIN=18` |
-| WS / LRCK | GPIO17 | `CONFIG_ESP32S3_I2S1_WSPIN=17` |
-| SD / DOUT | GPIO15 | `CONFIG_ESP32S3_I2S1_DINPIN=15` |
-| L/R | GND | 选择 Left slot，即 slot 0 |
-
-INMP441 不需要 MCLK。当前 I2S1 采集为 `16 kHz, 2ch, 32-bit`，应用侧选择 slot 0，
-再右移 16 位转换为模型需要的 `16 kHz, mono, int16`。
-
-若把 `L/R` 接到 3V3，应将应用侧 slot 改为 1 后重新构建。
-
-### 0.96 寸 OLED 接线
-
-| OLED 引脚 | ESP32-S3 DevKit | 说明 / 配置 |
-| --- | --- | --- |
-| VCC | 3V3 | 使用 3.3 V |
-| GND | GND | 共地 |
-| SCL | GPIO5 | `CONFIG_ESP32S3_I2C0_SCLPIN=5` |
-| SDA | GPIO4 | `CONFIG_ESP32S3_I2C0_SDAPIN=4` |
-| I2C 地址 | `0x3C` | `CONFIG_SSD1306_I2CADDR=60` |
-
-启动后 board bring-up 会初始化 I2C0 和 OLED。若屏幕亮但内容镜像、错位或缺字，先确认
-模块到底是 SSD1306 还是 SH1106 兼容屏；SH1106 常见 132 列内部显存，需要单独适配。
-
-## 真机构建和烧录
-
-构建：
-
-```bash
-cd openvela
-OPENVELA_ROOT="$(pwd)"
-CCF_AUDIO_ROOT="$OPENVELA_ROOT/ccf_audio"
-
-bash "$CCF_AUDIO_ROOT/scripts/fix_box3_mbedtls_header_priority.sh"
-
-./build.sh vendor/espressif/boards/esp32s3/esp32s3-devkit/configs/audio_event/ -j8 &
-BUILD_PID=$!
-
-bash "$CCF_AUDIO_ROOT/scripts/fix_box3_mbedtls_disable_ccm.sh" &
-CCM_FIX_PID=$!
-bash "$CCF_AUDIO_ROOT/scripts/fix_box3_spinlock_initializer.sh" &
-SPINLOCK_FIX_PID=$!
-
-wait "$BUILD_PID"
-BUILD_STATUS=$?
-wait "$CCM_FIX_PID" "$SPINLOCK_FIX_PID"
-test "$BUILD_STATUS" -eq 0
-```
-
-注意在 `distclean` 后的首次构建时，Fix 2 和 Fix 3 需要与构建**并行运行**。
-因为 `esp-hal-3rdparty` 的 git clone 和 patch 是构建过程中异步执行的，
-这两个脚本会等待目标文件出现（最多 180 秒）。
-
-烧录并打开串口：
-
-```bash
-cd nuttx && make flash ESPTOOL_PORT=/dev/ttyACM0 ESPTOOL_BAUD=921600 && cd ..
-picocom -b 115200 /dev/ttyACM0
-```
-
-开发板如果有两个 Type-C 口，通常一个是 USB/JTAG/COM，另一个是 USB OTG。串口监视使用
-COM 口；烧录后若没有马上进 NSH，按一下 RESET。
-
-进入 NSH 后先确认 app 注册：
-
-```text
-nsh> help
-```
-
-期望 Builtin Apps 中包含：
-
-```text
-audio_event     audio_record    audio_test
-```
-
-## audio_event 主应用
-
-`audio_event` 是主流程。它默认面向 16 kHz、1 秒、mono int16 输入，当前模型使用
-`49 x 40 x 3` 的 log-mel + delta 特征，类别顺序为：
-
-```text
-knock, cough, background, silence
-```
-
-常用启动命令：
-
-```text
-nsh> audio_event --device /dev/audio/pcm_in1 --audio-stats
-```
-
-诊断时建议加上 profile：
-
-```text
-nsh> audio_event --device /dev/audio/pcm_in1 --audio-stats --profile
-```
-
-如果怀疑 OLED/I2C 影响音频采集，可临时关闭 OLED：
-
-```text
-nsh> audio_event --device /dev/audio/pcm_in1 --audio-stats --profile --no-oled
-```
-
-只验证模型能否加载和推理：
+在 NSH 中先完成模型冒烟测试：
 
 ```text
 nsh> audio_event --model-smoke
 ```
 
-只跑一轮设备采集：
+预期能看到 `s3-large-8class`、arena 使用量和 8 个类别概率。出现 `PSRAM ... failed` 时，应先确认
+所烧录 profile 是否启用了 PSRAM，以及板卡是否确为带 PSRAM 的 N16R8 版本。
+
+### 常用 profile
+
+| Profile | 用途 | 适合何时使用 |
+| --- | --- | --- |
+| `audio_event_8class` | 本地 8-class、ESP-NN、OLED、LittleFS | 日常功能与性能演示主线。 |
+| `audio_event_8class_remote_http` | 8-class + Wi-Fi/WAPI + HTTP 上报 + PSRAM arena | 局域网告警上报联调。需在本地配置接收端，勿提交凭据。 |
+| `audio_event_8class_remote_pcm` | 在 Remote HTTP 基础上增加 UDP PCM streamer | 局域网 Dashboard 波形演示。 |
+| `tflm_benchmark_s3_large_ref` | S3-large 的全 reference 模型基线 | 获取性能对照，不用于应用演示。 |
+| `tflm_benchmark_s3_large_espnn_cycles` | S3-large 的完整 ESP-NN 性能 profile | 采集 100 次 Invoke 和每算子 CCOUNT。 |
+| `tflm_benchmark_s3_large_espnn_verify` | S3-large ESP-NN 数值验证 | 仅验证；TRACE/VERIFY 会增加开销，不能当正式性能数据。 |
+
+各 profile 的具体 `defconfig` 位于
+[`board/esp32s3-devkit/configs/`](board/esp32s3-devkit/configs/)；板级接线与基础烧录流程见
+[ESP32-S3 DevKit 配置说明](board/esp32s3-devkit/README.md)，更完整的配置/源码地图见
+[目录架构说明](docs/目录架构说明.md)。SMP profile 是实验项，尚不应替代已验证的单核主线。
+
+## 运行方式
+
+### 真实麦克风
 
 ```text
-nsh> audio_event --device /dev/audio/pcm_in1 --audio-stats --once
+nsh> audio_event --device /dev/audio/pcm_in1 --audio-stats --profile --no-oled
 ```
 
-### 运行日志判断
+INMP441 当前按 `16 kHz, 2ch, 32-bit I2S` 采集，应用选用一个 slot 并右移转换为模型输入的
+`16 kHz, mono, PCM16`。若 `audio_stats` 连续出现 `min=0 max=0 rms=0`，问题位于 I2S/DMA
+输入或麦克风接线/供电，应先排查采集链路而不是模型或 ESP-NN。
 
-真机 INMP441 路径启动后应看到类似日志：
+### LittleFS 文件回放
+
+主线 profile 为 16 MiB flash 的上半区保留 8 MiB LittleFS 资源分区，挂载点为 `/data`。
+生成并烧录单个 WAV 资源镜像（例如 `combined_A_pure.wav`）的命令如下：
+
+```bash
+cd /path/to/openvela
+MKLITTLEFS=/absolute/path/to/mklittlefs \
+  ./ccf_audioevent/scripts/make_audio_event_littlefs_image.sh \
+  ccf_audioevent/test_data/combined_A_pure.wav
+
+esptool --chip esp32s3 --port /dev/ttyACM0 --baud 921600 write-flash \
+  0x800000 ccf_audioevent/out/audio_event_littlefs/audio_event_littlefs.bin
+```
+
+然后运行：
 
 ```text
-[audio] configure input pcm rate=16000 channels=2 bits=32
-[audio] INMP441 adapter: slot=0 shift=16 output=mono int16
-[audio] capturing /dev/audio/pcm_in1 at 16000 Hz, device=2ch/32-bit, app=mono/16-bit
-[app] capture worker: ring=32000 samples window=16000 hop=4000
+nsh> ls /data
+nsh> audio_event --file /data/combined_A_pure.wav --profile --no-oled
 ```
 
-含义：
+`--file` 是尽可能快的离线回放，不代表真实墙钟采集速率；实时性结论应以 `--device` 的 I2S
+输入测试为准。文件找不到时会以 `status=-2` 退出，先用 `ls /data` 核对资源是否烧录成功。
 
-- `device=2ch/32-bit`：I2S 驱动按 INMP441 的 32-bit slot 采集。
-- `app=mono/16-bit`：应用已转换成模型输入格式。
-- `ring=32000`：采集线程维护 2 秒环形缓冲区。
-- `window=16000`：每次推理取最新 1 秒音频。
-- `hop=4000`：默认每 250 ms 尝试一次新窗口。
+### 能量门控
 
-`--audio-stats` 会打印每个 1 秒窗口的统计：
+门控能力编译在支持它的 profile 中，但运行时默认关闭，保证连续推理基线可复现：
 
 ```text
-[audio_stats] t=1024 ms wall=1050 ms min=-4439 max=28605 mean=3627 rms=8558 zero=0/16000
-[infer] t=1024 ms wall=1050 ms class=background probs_permille=[39 23 934 4]
+nsh> audio_event --file /data/combined_A_pure.wav --profile --no-oled --no-power-gate
+nsh> audio_event --file /data/combined_A_pure.wav --profile --no-oled --power-gate
 ```
 
-字段说明：
+前者是连续推理基线；后者启动时进行噪声地板标定，静音窗口可能跳过特征提取和推理。应同时记录
+`infer/skip`、漏检/误报以及真实电流，不能只凭处理时间声称节电比例。
 
-- `t`：音频流时间，按已采集样本数换算。
-- `wall`：真实墙钟时间。
-- `min/max`：该窗口内 PCM16 最小/最大样本值，出现负数是正常的。
-- `mean`：直流偏置，理想情况下应接近 0。
-- `rms`：音量/能量，敲门、咳嗽时会明显升高。
-- `zero`：值为 0 的样本数量，过高可能是静音段、slot 不对或缓冲异常。
-- `probs_permille`：四类概率的千分比，顺序是 `[knock cough background silence]`。
+## ESP-NN 性能复现
 
-当前真机阈值建议：
+性能 profile 不包含音频采集或 DSP，用于隔离模型内核速度。Reference 和 ESP-NN 应在相同供电、
+频率和温度条件下连续测试。
+
+```bash
+cd /path/to/openvela
+./ccf_audioevent/scripts/link_esp_nn.sh
+
+# 1. Reference 基线
+./build.sh ccf_audioevent/board/esp32s3-devkit/configs/tflm_benchmark_s3_large_ref -j8
+# 烧录后：
+# nsh> tflm_benchmark --mode invoke --input pattern --warmup 20 --repeat 100
+
+# 2. 完整 ESP-NN 性能
+./build.sh ccf_audioevent/board/esp32s3-devkit/configs/tflm_benchmark_s3_large_espnn_cycles -j8
+# 烧录后：
+# nsh> tflm_benchmark --mode invoke --input pattern --warmup 20 --repeat 100
+# nsh> tflm_benchmark --mode operator --warmup 10 --repeat 1 --csv
+```
+
+验证 profile 则运行：
 
 ```text
-knock >= 380 permille
-cough >= 750 permille
-consecutive hits = 2
+nsh> tflm_benchmark --mode invoke --input pattern --warmup 0 --repeat 1
 ```
 
-敲门实测常见概率不如咳嗽尖锐，因此敲门阈值低于咳嗽阈值。若误报偏多，先把
-`CONFIG_EXAMPLES_AUDIO_EVENT_KNOCK_THRESHOLD` 提到 `420` 左右再测试。
+关注每个已选节点的 `[espnn-verify] ... match bytes=...`，再使用无 TRACE/VERIFY 的性能
+profile 采集正式数据。详细操作、节点掩码和历史结果见
+[S3-large 8-class ESP-NN 优化操作手册](docs/项目基线/S3-large_8class_ESP-NN优化操作手册.md)。
 
-### OLED 显示
+## 可选：局域网告警与波形 Dashboard
 
-DevKit 真机启用 `CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI`，不是把 320x240 LVGL 页面缩小，
-而是独立的 128x64 compact UI。
+HTTP 和 UDP 均为可选能力：HTTP 传输低频告警 JSON，UDP 传输可容忍少量丢包的 PCM 波形。
+开始前，先在 NuttX 串口用 WAPI 完成 STA 联网，再确认设备可 `ping` 到上位机。SSID、密码、
+接收端 IP、Token 均属于现场配置，不能写入提交或日志。
 
-监听时显示当前状态、置信度和音量：
+上位机启动接收端：
+
+```bash
+cd /path/to/openvela
+python3 ccf_audioevent/scripts/remote_receiver.py \
+  --host 0.0.0.0 --port 8080 --pcm-port 5004
+```
+
+浏览器打开 `http://<receiver-ip>:8080/`。使用已配置接收端地址的 Remote PCM 固件时，设备端可执行：
 
 ```text
-AUDIO EVENT
-BGND / QUIET / KNOCK / COUGH
-CONF xx%
-RMS xxxx
-[volume bar]
+nsh> audio_event --device /dev/audio/pcm_in1 --audio-stats --no-oled --pcm-stream
 ```
 
-触发时显示目标事件：
+或用文件路径先验证协议和页面：
 
 ```text
-KNOCK!
-CONF 762
-HIT 2/2
+nsh> audio_event --file /data/combined_A_pure.wav --profile --no-oled --pcm-stream
 ```
 
-冷却期间显示：
+更多网络拓扑、安全边界、WAPI 配网、HTTP 数据契约和 PCM 包格式见
+[远程告警上报方案](docs/复赛目标/远程告警上报方案.md)与
+[实时 PCM 音频可视化方案](docs/复赛目标/实时PCM音频可视化方案.md)。
 
-```text
-COOLDOWN
-1.2s
-LAST KNOCK
-```
+## 文档、日志与答辩材料
 
-## 辅助工具和模拟器
+| 目标 | 文档 / 材料 |
+| --- | --- |
+| 从项目全貌开始 | [docs/README.md](docs/README.md) |
+| 模型、特征、事件判决口径 | [项目基线/事件定义与触发口径说明](docs/项目基线/事件定义与触发口径说明.md) |
+| 精度、误报/漏报与性能证据 | [项目基线/性能与评估](docs/项目基线/性能与评估.md) |
+| S3-large 8-class 实测 | [模型测试/S3-large 8-class 端到端分类与告警测试](docs/模型测试/S3-large_8class_端到端分类与告警测试.md) |
+| ESP-NN 接入、回退和验证 | [优化文档/ESP-NN 移植到 openvela 实施指南](docs/优化文档/ESP-NN移植到openvela实施指南.md) |
+| 性能基线与复现实验 | [Reference 与 ESP-NN 性能对比](docs/复赛目标/renference与esp-nn对比.md) |
+| 原始串口日志和命名规则 | [logs/readme.md](logs/readme.md) |
+| 比赛成果和答辩问题 | [项目工作与成果总结](docs/比赛说明/项目工作与成果总结.md)、[评委问答](docs/比赛说明/评委问答.md) |
 
-README 以 `audio_event` 真机闭环为主。辅助工具和模拟器说明拆分到 docs：
+## 开源与第三方声明
 
-- [`docs/使用与调试/audio_test采集诊断.md`](docs/使用与调试/audio_test采集诊断.md)：检查 INMP441 接线、I2S slot、位宽转换和削波。
-- [`docs/使用与调试/audio_record录音导出.md`](docs/使用与调试/audio_record录音导出.md)：录制真机 WAV，通过串口 base64 导出到电脑。
-- [`docs/使用与调试/goldfish模拟器.md`](docs/使用与调试/goldfish模拟器.md)：goldfish-arm64 构建、运行和 320x240 LVGL dashboard 验证。
-
-## 关键配置
-
-`board/esp32s3-devkit/configs/audio_event/defconfig` 重点配置：
-
-- `CONFIG_EXAMPLES_AUDIO_EVENT=y`
-- `CONFIG_EXAMPLES_AUDIO_EVENT_DEVPATH="/dev/audio/pcm_in1"`
-- `CONFIG_EXAMPLES_AUDIO_EVENT_INMP441_32BIT=y`
-- `CONFIG_EXAMPLES_AUDIO_EVENT_KNOCK_THRESHOLD=380`
-- `CONFIG_EXAMPLES_AUDIO_EVENT_OLED_UI=y`
-- `CONFIG_EXAMPLES_AUDIO_RECORD=y`
-- `CONFIG_EXAMPLES_AUDIO_TEST=y`
-- `CONFIG_EXAMPLES_AUDIO_TEST_CHANNELS=2`
-- `CONFIG_ESP32S3_DEVKIT_INMP441=y`
-- `CONFIG_ESP32S3_DEVKIT_OLED=y`
-- `CONFIG_ESP32S3_I2C0_SCLPIN=5`
-- `CONFIG_ESP32S3_I2C0_SDAPIN=4`
-- `CONFIG_ESP32S3_I2S1_BCLKPIN=18`
-- `CONFIG_ESP32S3_I2S1_WSPIN=17`
-- `CONFIG_ESP32S3_I2S1_DINPIN=15`
-- `CONFIG_ESP32S3_I2S1_DATA_BIT_WIDTH_32BIT=y`
-- `CONFIG_LCD_SSD1306_I2C=y`
-- `CONFIG_LCD_UG2864HSWEG01=y`
-- `CONFIG_TFLITEMICRO=y`
-- `CONFIG_MATH_KISSFFT=y`
-- `CONFIG_LIBCXX=y`
-
-`audio_record` 和 `audio_test` 的 INMP441 适配配置由 Kconfig 在
-`CONFIG_ESP32S3_DEVKIT_INMP441=y` 时默认启用。默认 slot 为 0，shift 为 16。
-
-`board/goldfish-arm64/configs/audio_event/defconfig` 重点配置：
-
-- `CONFIG_EXAMPLES_AUDIO_EVENT=y`
-- `CONFIG_EXAMPLES_AUDIO_EVENT_DEVPATH="/dev/audio/pcm0c"`
-- `CONFIG_EXAMPLES_AUDIO_EVENT_UI=y`
-- `CONFIG_TFLITEMICRO=y`
-- `CONFIG_MATH_KISSFFT=y`
-- `CONFIG_SYSTEM_FLATBUFFERS=y`
-
-goldfish 配置已尽量移除与 `audio_event` 无关的重型组件，例如 Android Binder、
-QuickApp、Feature Framework、Media server 和 curl。
-
-## ESP32-S3-BOX-3 归档
-
-ESP32-S3-BOX-3 不再作为 active target。历史 board、ES7210 诊断代码、构建补丁脚本和
-硬件问题文档集中保留在：
-
-```text
-archive/esp32s3-box-3/
-```
-
-当前真机构建、烧录、麦克风采集、OLED 显示和模型验证均以 `esp32s3-devkit` 为准。
-
-## Manifest 建议
-
-如果后续把 `ccf_audio` 仓库作为独立参赛仓复现，建议在 manifest 中加入：
-
-```xml
-<linkfile src="app/audio_event"
-          dest="apps/examples/audio_event"/>
-<linkfile src="app/audio_record"
-          dest="apps/examples/audio_record"/>
-<linkfile src="app/audio_test"
-          dest="apps/examples/audio_test"/>
-<linkfile src="board/esp32s3-devkit"
-          dest="vendor/espressif/boards/esp32s3/esp32s3-devkit"/>
-<linkfile src="board/goldfish-arm64/configs/audio_event/defconfig"
-          dest="vendor/openvela/boards/vela/configs/goldfish-audio_event/defconfig"/>
-<linkfile src="board/goldfish-arm64/configs/audio_event/config.ini"
-          dest="vendor/openvela/boards/vela/configs/goldfish-audio_event/config.ini"/>
-```
-
-## 常见问题和排障
-
-常见运行、采集、模拟器和 ESP32-S3 构建问题统一放在
-[`docs/使用与调试/常见问题.md`](docs/使用与调试/常见问题.md)。
+项目源码使用 [MIT License](LICENSE)。第三方依赖、ESP-NN 上游来源和数据集许可摘要见
+[NOTICE](NOTICE) 与 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。训练/数据集的许可
+边界与商用使用条件需要单独审查，不能仅凭本仓库的模型文件推定可商用。
